@@ -1,6 +1,7 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -21,8 +22,8 @@ android {
         create("release") {
             val props = rootProject.file("signing.properties")
             if (props.exists()) {
-                val p = java.util.Properties().apply {
-                    props.inputStream().use { load(it) }
+                val p = Properties().apply {
+                    props.inputStream().use { stream -> load(stream) }
                 }
                 val storeFilePath = p.getProperty("storeFile")
                 storeFile = rootProject.file(storeFilePath)
@@ -59,8 +60,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        }
     }
 
     buildFeatures {
