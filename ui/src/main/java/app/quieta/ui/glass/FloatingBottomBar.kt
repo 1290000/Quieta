@@ -43,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -206,9 +205,15 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
-    // InstallerX FloatingBottomBar.kt: liquid = surfaceContainer.copy(0.4f)
+    // Keep the capsule milky-white over any content (video look). Pure 0.4 glass
+    // only reads white when it happens to sit on white cards.
+    val liquidSurfaceAlpha = if (isInDark) 0.78f else 0.88f
     val containerColor =
-        if (isLiquidGlassMode) colors.containerColor.copy(alpha = 0.4f) else colors.containerColor
+        if (isLiquidGlassMode) {
+            colors.containerColor.copy(alpha = liquidSurfaceAlpha)
+        } else {
+            colors.containerColor
+        }
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -376,9 +381,7 @@ fun FloatingBottomBar(
     val combinedBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
 
     Box(
-        modifier = modifier
-            .clipToBounds()
-            .width(IntrinsicSize.Min),
+        modifier = modifier.width(IntrinsicSize.Min),
         contentAlignment = Alignment.CenterStart,
     ) {
         CompositionLocalProvider(LocalFloatingBottomBarContentColor provides colors.contentColor) {
@@ -506,6 +509,13 @@ fun FloatingBottomBar(
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
+                            scaleX = dampedDragAnimation.scaleX
+                            scaleY = dampedDragAnimation.scaleY
+                            val velocity = dampedDragAnimation.velocity / 10f
+                            scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
+                            scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
+                            // Let the pressed pill grow past its layout bounds.
+                            clip = false
                         }
                         .drawBackdrop(
                             backdrop = combinedBackdrop,
@@ -520,25 +530,17 @@ fun FloatingBottomBar(
                                 )
                             },
                             highlight = { pillHighlight.copy(alpha = dampedDragAnimation.pressProgress) },
-                            layerBlock = {
-                                scaleX = dampedDragAnimation.scaleX
-                                scaleY = dampedDragAnimation.scaleY
-                                val velocity = dampedDragAnimation.velocity / 10f
-                                scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
-                                scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
-                            },
                             onDrawSurface = {
                                 val progress = dampedDragAnimation.pressProgress
-                                // InstallerX: dim the pill slightly at rest; lighten while pressed.
+                                // Light gray resting pill over milky bar (InstallerX).
                                 drawRect(
                                     color = if (isInDark) {
-                                        Color.White.copy(alpha = 0.1f)
+                                        Color.White.copy(alpha = 0.12f)
                                     } else {
-                                        Color.Black.copy(alpha = 0.1f)
+                                        Color.Black.copy(alpha = 0.08f)
                                     },
-                                    alpha = 1f - progress,
+                                    alpha = 1f - progress * 0.5f,
                                 )
-                                drawRect(Color.Black.copy(alpha = 0.03f * progress))
                             },
                         )
                         .innerShadow(shape = pillShape) {
@@ -563,6 +565,7 @@ fun FloatingBottomBar(
                             val velocity = dampedDragAnimation.velocity / 10f
                             scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
                             scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
+                            clip = false
                         }
                         .clip(pillShape)
                         .background(colors.indicatorColor.copy(alpha = 0.15f), pillShape)
