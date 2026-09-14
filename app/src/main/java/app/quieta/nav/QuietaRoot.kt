@@ -58,16 +58,10 @@ fun QuietaRoot() {
 
     val liquidSupported = android.os.Build.VERSION.SDK_INT >= 33
     val mode = resolveBottomBarMode(blurEnabled, liquidSupported)
+    // Avoid page layerBackdrop: HyperOS RenderThread SIGSEGV with miuix shader.
     val pageBackdrop = rememberLayerBackdrop()
-    val useBackdrop = mode != app.quieta.ui.glass.FloatingBottomBarMode.None
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .then(
-                if (useBackdrop) Modifier.layerBackdrop(pageBackdrop) else Modifier,
-            ),
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         when (selectedRoute) {
             QuietaRoutes.HOME -> HomeScreen(
                 modifier = Modifier
