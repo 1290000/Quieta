@@ -54,7 +54,7 @@
 | targetSdk / compileSdk | 37 |
 | 架构 | 多模块单向依赖；见下文 |
 | DI | 手工构造或 Koin；一期不用 Hilt |
-| 页面导航 | Compose Navigation 或 miuix 导航组件，实现时二选一并写回本表 |
+| 页面导航 | 一期四栏用顶层状态切换（`QuietaRoot`）；二级页再引入 Navigation/miuix-nav |
 | Shizuku | `dev.rikka.shizuku`（api + provider）；不自造绑定协议 |
 | 数据 | 全本地（Room + DataStore），不联网收集用户通知 |
 | 主导航 | 主页 / 配置 / 记录 / 设置（四栏） |
