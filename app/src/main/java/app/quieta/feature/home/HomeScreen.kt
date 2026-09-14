@@ -24,7 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.VolumeOff
-import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -186,7 +186,7 @@ private fun StatusGrid(state: HomeUiState) {
                     contentAlignment = Alignment.BottomEnd,
                 ) {
                     Icon(
-                        imageVector = if (active) Icons.Rounded.CheckCircle else Icons.Rounded.ErrorOutline,
+                        imageVector = if (active) Icons.Rounded.CheckCircleOutline else Icons.Rounded.ErrorOutline,
                         contentDescription = null,
                         tint = iconTint.copy(alpha = 0.85f),
                         modifier = Modifier.size(150.dp),
@@ -327,6 +327,12 @@ private fun GateActions(
                         onClick = onApplyMute,
                         enabled = state.plan.any { it.value != RuleAction.KEEP },
                         modifier = Modifier.weight(1f),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        ),
                     ) {
                         Icon(Icons.Outlined.VolumeOff, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.size(4.dp))
@@ -346,7 +352,7 @@ private fun DeviceInfoCard(state: HomeUiState) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            InfoBlock("机型", Build.MODEL ?: "—")
+            InfoBlock("机型", app.quieta.core.device.DeviceNames.display())
             InfoBlock("系统", Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")")
             InfoBlock("正在使用的特权", state.privilege.label)
             InfoBlock("自动静音", if (state.autoMuteOn) "已开启" else "关闭")

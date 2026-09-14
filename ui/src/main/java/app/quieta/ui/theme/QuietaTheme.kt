@@ -15,8 +15,6 @@ private val HyperBgLight = Color(0xFFF5F5F6)
 private val HyperSurfaceLight = Color(0xFFFFFFFF)
 private val HyperBgDark = Color(0xFF121212)
 private val HyperSurfaceDark = Color(0xFF1C1C1E)
-private val StatusGreen = Color(0xFFC8F0D8)
-private val StatusGreenOn = Color(0xFF14532D)
 
 private val LightColors = lightColorScheme(
     primary = HyperBlue,
@@ -33,6 +31,8 @@ private val LightColors = lightColorScheme(
     onSurfaceVariant = Color(0xFF5C5C5E),
     outlineVariant = Color(0xFFE5E5E6),
     error = Color(0xFFD93025),
+    surfaceContainer = Color(0xFFF0F0F1),
+    surfaceContainerHigh = Color(0xFFE8E8EA),
 )
 
 private val DarkColors = darkColorScheme(
@@ -50,11 +50,11 @@ private val DarkColors = darkColorScheme(
     onSurfaceVariant = Color(0xFFAEAEB2),
     outlineVariant = Color(0xFF3A3A3C),
     error = Color(0xFFF28B82),
+    surfaceContainer = Color(0xFF2A2A2C),
+    surfaceContainerHigh = Color(0xFF323234),
 )
 
 object QuietaColors {
-    val StatusCard = StatusGreen
-    val StatusCardOn = StatusGreenOn
     val Accent = HyperBlue
 }
 
@@ -65,6 +65,7 @@ fun QuietaTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
+        typography = QuietaTypography,
         content = content,
     )
 }
