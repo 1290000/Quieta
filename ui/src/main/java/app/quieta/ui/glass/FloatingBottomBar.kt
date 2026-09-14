@@ -7,7 +7,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -84,7 +83,6 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.highlight.BloomStroke
 import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.blur.highlight.LightPosition
@@ -108,10 +106,6 @@ class FloatingBottomBarColors(
 )
 
 object FloatingBottomBarDefaults {
-    /**
-     * Matches InstallerX / miuix: surfaceContainer is pure white on light.
-     * Selected pill is a translucent overlay — never a solid gray blob.
-     */
     @Composable
     fun colors(
         containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
@@ -129,6 +123,7 @@ object FloatingBottomBarDefaults {
 private val LocalFloatingBottomBarContentColor = staticCompositionLocalOf { Color.Unspecified }
 private val LocalFloatingBottomBarTabScale = staticCompositionLocalOf { { 1f } }
 
+// Verbatim from InstallerX Revived FloatingBottomBar.kt
 private val iosIndicatorSpecular: Highlight = Highlight(
     width = 1.dp,
     alpha = 1f,
@@ -187,8 +182,8 @@ private fun rememberGravityRotatedHighlight(base: Highlight, extraDegrees: Float
 }
 
 /**
- * Faithful port of InstallerX Revived FloatingBottomBar (Kyant0 / KernelSU lineage).
- * Drag → springy pill, press scale, lens refraction + chromatic on selection pill.
+ * Port of InstallerX Revived FloatingBottomBar (Kyant0 / KernelSU lineage).
+ * Structure and draw pipeline copied from upstream — do not invent local variants.
  */
 @Composable
 fun FloatingBottomBar(
@@ -205,13 +200,9 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
-    // White milk surface (keeps image-1 look). 0.4f collapses to gray over mixed content.
+    // InstallerX: liquid = surfaceContainer.copy(0.4f)
     val containerColor =
-        if (isLiquidGlassMode) {
-            colors.containerColor.copy(alpha = if (isInDark) 0.58f else 0.8f)
-        } else {
-            colors.containerColor
-        }
+        if (isLiquidGlassMode) colors.containerColor.copy(alpha = 0.4f) else colors.containerColor
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -226,8 +217,9 @@ fun FloatingBottomBar(
     val rubberBandPx = with(density) { 4.dp.toPx() }
     val panelOffset by remember(rubberBandPx) {
         derivedStateOf {
-            if (totalWidthPx == 0f) 0f
-            else {
+            if (totalWidthPx == 0f) {
+                0f
+            } else {
                 val fraction = (offsetAnimation.value / totalWidthPx).coerceIn(-1f, 1f)
                 rubberBandPx * fraction.sign * EaseOut.transform(abs(fraction))
             }
@@ -311,12 +303,11 @@ fun FloatingBottomBar(
         val scale = LocalFloatingBottomBarTabScale.current
         val contentColor = LocalFloatingBottomBarContentColor.current
         tabs.forEachIndexed { index, tab ->
-            val isSelected = index == currentIndex
             Column(
                 modifier = Modifier
                     .defaultMinSize(minWidth = 76.dp)
                     .semantics(mergeDescendants = true) {
-                        selected = isSelected
+                        selected = index == currentIndex
                         role = Role.Tab
                         onClick {
                             activateTab(index)
@@ -330,7 +321,9 @@ fun FloatingBottomBar(
                         if (isActivationKey) {
                             if (event.type == KeyEventType.KeyUp) activateTab(index)
                             true
-                        } else false
+                        } else {
+                            false
+                        }
                     }
                     .focusable()
                     .fillMaxHeight()
@@ -354,7 +347,7 @@ fun FloatingBottomBar(
     }
 
     val interactiveHighlight =
-        if (isLiquidGlassMode && Build.VERSION.SDK_INT >= 33) {
+        if (isLiquidGlassMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             remember(animationScope, tabWidthPx) {
                 InteractiveHighlight(
                     animationScope = animationScope,
@@ -396,7 +389,6 @@ fun FloatingBottomBar(
                         shadow = Shadow(
                             radius = 10.dp,
                             color = Color.Black,
-                            // InstallerX: dark 0.2 / light 0.1
                             alpha = if (isInDark) 0.2f else 0.1f,
                         ),
                     )
@@ -422,31 +414,17 @@ fun FloatingBottomBar(
                                 },
                                 onDrawSurface = { drawRect(containerColor) },
                             )
-                        } else if (isBlurMode && isRuntimeShaderSupported()) {
+                        } else if (isBlurMode) {
                             Modifier.drawBackdrop(
                                 backdrop = backdrop,
                                 shape = { pillShape },
                                 effects = { blur(25.dp.toPx(), 25.dp.toPx()) },
-                                layerBlock = {
-                                    val width = size.width.coerceAtLeast(1f)
-                                    val s = lerp(1f, 1f + 16.dp.toPx() / width, dampedDragAnimation.pressProgress)
-                                    scaleX = s
-                                    scaleY = s
-                                },
                                 onDrawSurface = {
-                                    // InstallerX Blur: surface at 0.65 alpha over blurred backdrop.
                                     drawRect(containerColor.copy(alpha = 0.65f))
                                 },
                             )
                         } else {
-                            Modifier
-                                .graphicsLayer {
-                                    val width = size.width.coerceAtLeast(1f)
-                                    val s = lerp(1f, 1f + 16.dp.toPx() / width, dampedDragAnimation.pressProgress)
-                                    scaleX = s
-                                    scaleY = s
-                                }
-                                .background(containerColor, pillShape)
+                            Modifier.background(containerColor, pillShape)
                         },
                     )
                     .then(
@@ -466,7 +444,9 @@ fun FloatingBottomBar(
 
         if (isLiquidGlassMode) {
             CompositionLocalProvider(
-                LocalFloatingBottomBarTabScale provides { lerp(1f, 1.2f, dampedDragAnimation.pressProgress) },
+                LocalFloatingBottomBarTabScale provides {
+                    lerp(1f, 1.2f, dampedDragAnimation.pressProgress)
+                },
                 LocalFloatingBottomBarContentColor provides colors.activeContentColor,
             ) {
                 Row(
@@ -513,8 +493,6 @@ fun FloatingBottomBar(
                             shape = { pillShape },
                             effects = {
                                 val progress = dampedDragAnimation.pressProgress
-                                // InstallerX: lens only while pressed — at rest amount=0
-                                // so the rim shader never runs (that black stroke).
                                 lens(
                                     refractionHeight = 10.dp.toPx() * progress,
                                     refractionAmount = 14.dp.toPx() * progress,
@@ -533,10 +511,10 @@ fun FloatingBottomBar(
                             onDrawSurface = {
                                 val progress = dampedDragAnimation.pressProgress
                                 drawRect(
-                                    color = if (isInDark) {
-                                        Color.White.copy(alpha = 0.1f)
-                                    } else {
+                                    color = if (!isInDark) {
                                         Color.Black.copy(alpha = 0.1f)
+                                    } else {
+                                        Color.White.copy(alpha = 0.1f)
                                     },
                                     alpha = 1f - progress,
                                 )
@@ -560,11 +538,6 @@ fun FloatingBottomBar(
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
-                            scaleX = dampedDragAnimation.scaleX
-                            scaleY = dampedDragAnimation.scaleY
-                            val velocity = dampedDragAnimation.velocity / 10f
-                            scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
-                            scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
                         }
                         .clip(pillShape)
                         .background(colors.indicatorColor.copy(alpha = 0.15f), pillShape)
@@ -573,9 +546,6 @@ fun FloatingBottomBar(
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     CompositionLocalProvider(
-                        LocalFloatingBottomBarTabScale provides {
-                            lerp(1f, 1.2f, dampedDragAnimation.pressProgress)
-                        },
                         LocalFloatingBottomBarContentColor provides colors.activeContentColor,
                     ) {
                         Row(
