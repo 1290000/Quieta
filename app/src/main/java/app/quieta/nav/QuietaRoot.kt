@@ -1,6 +1,7 @@
 package app.quieta.nav
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -70,10 +71,12 @@ fun QuietaRoot() {
     val pageBackdrop = rememberLayerBackdrop()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Record page content into backdrop so the bottom bar can refract it.
+        // Solid page background must live inside the backdrop layer — otherwise the glass
+        // samples transparent pixels and the bar renders near-black on light themes.
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .then(
                     if (useShader) Modifier.layerBackdrop(pageBackdrop) else Modifier,
                 ),

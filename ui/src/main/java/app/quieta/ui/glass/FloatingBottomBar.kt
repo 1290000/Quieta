@@ -201,7 +201,13 @@ fun FloatingBottomBar(
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
     val containerColor =
-        if (isLiquidGlassMode) colors.containerColor.copy(alpha = 0.4f) else colors.containerColor
+        if (isLiquidGlassMode) {
+            // Slightly more opaque than pure glass so light-theme bars stay milky
+            // instead of going muddy when the sampled backdrop is dense.
+            colors.containerColor.copy(alpha = if (isInDark) 0.45f else 0.62f)
+        } else {
+            colors.containerColor
+        }
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -423,7 +429,7 @@ fun FloatingBottomBar(
                                     scaleY = s
                                 },
                                 onDrawSurface = {
-                                    drawRect(containerColor.copy(alpha = 0.72f))
+                                    drawRect(containerColor.copy(alpha = if (isInDark) 0.78f else 0.88f))
                                 },
                             )
                         } else {
@@ -553,7 +559,14 @@ fun FloatingBottomBar(
                             scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
                         }
                         .clip(pillShape)
-                        .background(colors.indicatorColor.copy(alpha = 0.12f), pillShape)
+                        .background(
+                            if (isInDark) {
+                                Color.White.copy(alpha = 0.14f)
+                            } else {
+                                colors.indicatorColor.copy(alpha = 0.14f)
+                            },
+                            pillShape,
+                        )
                         .height(56.dp)
                         .width(tabWidthDp),
                     contentAlignment = Alignment.CenterStart,
