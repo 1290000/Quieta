@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// AboutLibraries must see the Android extension.
+apply(plugin = "com.mikepenz.aboutlibraries.plugin")
+
 android {
     namespace = "app.quieta"
     compileSdk = 37
@@ -90,5 +93,7 @@ dependencies {
     implementation(libs.miuix.ui)
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
+    implementation(libs.aboutlibraries.core)
+    implementation(libs.aboutlibraries.compose.m3)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

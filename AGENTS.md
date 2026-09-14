@@ -39,6 +39,8 @@
 
 **已交付（步骤 5）：** 可选「新渠道自动静音」（默认关；NotificationListener 轻实现；不存通知正文）。
 
+**已交付（步骤 6 部分）：** AboutLibraries 许可页、手动检测更新（GitHub Releases API）、CI（assembleDebug+test）、默认启动规则。**未创建 GitHub Release / 未打 tag。**
+
 **一期关于页必做：** 展示应用名与作者；「查看源代码」跳转本应用仓库；「检测更新」手动检查 GitHub Release（可打开最新页，不做静默下载/强制安装）。
 
 **二期：** Root / Dhizuku 后端、营销 vs 重要启发式归类、通知摘要、更多 ROM quirk、宽屏布局。

@@ -21,6 +21,7 @@ import app.quieta.R
 import app.quieta.feature.config.ConfigScreen
 import app.quieta.feature.home.HomeScreen
 import app.quieta.feature.record.RecordScreen
+import app.quieta.feature.settings.LicensesScreen
 import app.quieta.feature.settings.SettingsScreen
 import app.quieta.ui.glass.FloatingBottomBar
 import app.quieta.ui.glass.QuietaNavTab
@@ -37,6 +38,12 @@ object QuietaRoutes {
 fun QuietaRoot() {
     var selectedRoute by rememberSaveable { mutableStateOf(QuietaRoutes.HOME) }
     var blurEnabled by rememberSaveable { mutableStateOf(true) }
+    var showLicenses by rememberSaveable { mutableStateOf(false) }
+
+    if (showLicenses) {
+        LicensesScreen(onBack = { showLicenses = false })
+        return
+    }
 
     val tabs = listOf(
         QuietaNavTab(QuietaRoutes.HOME, stringResource(R.string.nav_home), Icons.Outlined.Home),
@@ -72,6 +79,7 @@ fun QuietaRoot() {
                 blurEnabled = blurEnabled,
                 onBlurEnabledChange = { blurEnabled = it },
                 bottomBarMode = mode,
+                onOpenLicenses = { showLicenses = true },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(bottom = 96.dp),

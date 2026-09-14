@@ -36,11 +36,14 @@ fun SettingsScreen(
     blurEnabled: Boolean,
     onBlurEnabledChange: (Boolean) -> Unit,
     bottomBarMode: FloatingBottomBarMode,
+    onOpenLicenses: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(),
+    aboutViewModel: AboutViewModel = viewModel(),
 ) {
     val context = LocalContext.current
     val autoMute by viewModel.autoMuteNewChannels.collectAsStateWithLifecycle()
+    val updateState by aboutViewModel.state.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -112,13 +115,18 @@ fun SettingsScreen(
                 title = stringResource(R.string.about_licenses),
                 subtitle = stringResource(R.string.about_licenses_desc),
             ) {
-                openUrl(context, context.getString(R.string.repo_url) + "/blob/main/LICENSE")
+                onOpenLicenses()
             }
             AboutRow(
                 title = stringResource(R.string.about_check_update),
-                subtitle = stringResource(R.string.about_check_update_desc),
+                subtitle = updateState.message ?: stringResource(R.string.about_check_update_desc),
             ) {
-                openUrl(context, context.getString(R.string.releases_url))
+                aboutViewModel.checkUpdate()
+            }
+            updateState.releaseUrl?.let { url ->
+                AboutRow(title = "打开 Release 页", subtitle = url) {
+                    openUrl(context, url)
+                }
             }
             Surface(
                 modifier = Modifier.fillMaxWidth(),

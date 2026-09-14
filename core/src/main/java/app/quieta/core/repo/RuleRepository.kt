@@ -35,7 +35,11 @@ class RuleRepository(context: Context) {
     }
 
     private fun loadFromDisk(): List<Rule> {
-        if (!file.exists()) return emptyList()
+        if (!file.exists()) {
+            val starter = DefaultRules.starter()
+            runCatching { file.writeText(RuleJson.encode(starter)) }
+            return starter
+        }
         return runCatching { RuleJson.decode(file.readText()) }.getOrDefault(emptyList())
     }
 }
