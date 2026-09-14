@@ -115,12 +115,7 @@ fun QuietaRoot() {
             onTabSelected = { selectedRoute = it },
             mode = mode,
             backdrop = pageBackdrop,
-            colors = FloatingBottomBarDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                indicatorColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                activeContentColor = MaterialTheme.colorScheme.primary,
-            ),
+            colors = FloatingBottomBarDefaults.colors(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 12.dp)

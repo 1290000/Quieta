@@ -107,12 +107,24 @@ class FloatingBottomBarColors(
 )
 
 object FloatingBottomBarDefaults {
+    /**
+     * InstallerX video look: near-white milky capsule on light, soft dark capsule on dark.
+     * Selected pill is a light gray oval — never a filled blue blob.
+     */
     @Composable
     fun colors(
-        containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
-        indicatorColor: Color = MaterialTheme.colorScheme.primary,
+        containerColor: Color = if (isSystemInDarkTheme()) {
+            Color(0xFF2C2C2E)
+        } else {
+            Color.White
+        },
+        indicatorColor: Color = if (isSystemInDarkTheme()) {
+            Color.White.copy(alpha = 0.16f)
+        } else {
+            Color(0xFFE8E8EA)
+        },
         contentColor: Color = MaterialTheme.colorScheme.onSurface,
-        activeContentColor: Color = indicatorColor,
+        activeContentColor: Color = MaterialTheme.colorScheme.primary,
     ): FloatingBottomBarColors = FloatingBottomBarColors(
         containerColor = containerColor,
         indicatorColor = indicatorColor,
@@ -200,11 +212,12 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
+    // Near-white milk glass (video). Liquid keeps a little see-through; other modes stay solid.
     val containerColor =
         if (isLiquidGlassMode) {
-            // Slightly more opaque than pure glass so light-theme bars stay milky
-            // instead of going muddy when the sampled backdrop is dense.
-            colors.containerColor.copy(alpha = if (isInDark) 0.45f else 0.62f)
+            colors.containerColor.copy(alpha = if (isInDark) 0.55f else 0.82f)
+        } else if (isBlurMode) {
+            colors.containerColor.copy(alpha = if (isInDark) 0.82f else 0.92f)
         } else {
             colors.containerColor
         }
@@ -428,9 +441,7 @@ fun FloatingBottomBar(
                                     scaleX = s
                                     scaleY = s
                                 },
-                                onDrawSurface = {
-                                    drawRect(containerColor.copy(alpha = if (isInDark) 0.78f else 0.88f))
-                                },
+                                onDrawSurface = { drawRect(containerColor) },
                             )
                         } else {
                             Modifier
@@ -524,15 +535,15 @@ fun FloatingBottomBar(
                             },
                             onDrawSurface = {
                                 val progress = dampedDragAnimation.pressProgress
+                                // Video: soft light-gray pill, not a dark dimming layer.
                                 drawRect(
-                                    color = if (!isInDark) {
-                                        Color.Black.copy(alpha = 0.1f)
+                                    color = if (isInDark) {
+                                        Color.White.copy(alpha = 0.14f)
                                     } else {
-                                        Color.White.copy(alpha = 0.1f)
+                                        Color(0xFFE8E8EA).copy(alpha = 0.92f)
                                     },
-                                    alpha = 1f - progress,
+                                    alpha = 1f - progress * 0.35f,
                                 )
-                                drawRect(Color.Black.copy(alpha = 0.03f * progress))
                             },
                         )
                         .innerShadow(shape = pillShape) {
@@ -559,14 +570,7 @@ fun FloatingBottomBar(
                             scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
                         }
                         .clip(pillShape)
-                        .background(
-                            if (isInDark) {
-                                Color.White.copy(alpha = 0.14f)
-                            } else {
-                                colors.indicatorColor.copy(alpha = 0.14f)
-                            },
-                            pillShape,
-                        )
+                        .background(colors.indicatorColor, pillShape)
                         .height(56.dp)
                         .width(tabWidthDp),
                     contentAlignment = Alignment.CenterStart,
