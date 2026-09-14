@@ -205,27 +205,24 @@ private fun StatusGrid(state: HomeUiState) {
                         } else {
                             "通知降噪未就绪"
                         },
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (active) {
                             "已通过 Shizuku 读取通知渠道"
                         } else {
                             state.privilege.label
                         },
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                     )
                     Spacer(modifier = Modifier.height(36.dp))
                     Text(
                         text = state.privilege.label,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     )
                 }
             }
@@ -270,14 +267,12 @@ private fun StatCard(title: String, value: String, modifier: Modifier = Modifier
         ) {
             Text(
                 text = title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = value,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -364,10 +359,10 @@ private fun DeviceInfoCard(state: HomeUiState) {
 
 @Composable
 private fun InfoBlock(title: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        // InstallerX BasicComponent: titleLarge-ish + bodyMedium summary
-        Text(title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    // InstallerX BasicComponent: title 18sp SemiBold + summary 14sp gray
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleLarge)
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

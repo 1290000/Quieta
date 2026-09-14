@@ -1,30 +1,23 @@
-package app.quieta.ui.glass
+package app.quieta.ui.animation
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.MutatorMutex
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.AwaitPointerEventScope
-import androidx.compose.ui.input.pointer.PointerId
-import androidx.compose.ui.input.pointer.PointerInputChange
-import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
+import app.quieta.ui.util.inspectDragGestures
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * Ported from miuix example / InstallerX (KernelSU-style damped drag).
+ * Ported from InstallerX / KernelSU — springy damped drag for the bottom bar pill.
  */
 class DampedDragAnimation(
     private val animationScope: CoroutineScope,
@@ -128,53 +121,3 @@ class DampedDragAnimation(
         }
     }
 }
-
-internal suspend fun PointerInputScope.inspectDragGestures(
-    onDragStart: (down: PointerInputChange) -> Unit = {},
-    onDragEnd: (change: PointerInputChange) -> Unit = {},
-    onDragCancel: () -> Unit = {},
-    onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit,
-) {
-    awaitEachGesture {
-        val initialDown = awaitFirstDown(false, androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-        val down = awaitFirstDown(false)
-        onDragStart(down)
-        onDrag(initialDown, Offset.Zero)
-        val upEvent = drag(pointerId = initialDown.id, onDrag = { onDrag(it, it.positionChange()) })
-        if (upEvent == null) onDragCancel() else onDragEnd(upEvent)
-    }
-}
-
-private suspend inline fun AwaitPointerEventScope.drag(
-    pointerId: PointerId,
-    onDrag: (PointerInputChange) -> Unit,
-): PointerInputChange? {
-    val isPointerUp = currentEvent.changes.firstOrNull { it.id == pointerId }?.pressed != true
-    if (isPointerUp) return null
-    var pointer = pointerId
-    while (true) {
-        val change = awaitDragOrUp(pointer) ?: return null
-        if (change.isConsumed) return null
-        if (change.changedToUpIgnoreConsumed()) return change
-        onDrag(change)
-        pointer = change.id
-    }
-}
-
-private suspend inline fun AwaitPointerEventScope.awaitDragOrUp(pointerId: PointerId): PointerInputChange? {
-    var pointer = pointerId
-    while (true) {
-        val event = awaitPointerEvent()
-        val dragEvent = event.changes.firstOrNull { it.id == pointer } ?: return null
-        if (dragEvent.changedToUpIgnoreConsumed()) {
-            val otherDown = event.changes.firstOrNull { it.pressed }
-            if (otherDown == null) return dragEvent else pointer = otherDown.id
-        } else {
-            if (dragEvent.previousPosition != dragEvent.position) return dragEvent
-        }
-    }
-}
-
-private fun PointerInputChange.changedToUpIgnoreConsumed(): Boolean = !pressed && previousPressed
-
-private fun PointerInputChange.positionChange(): Offset = position - previousPosition
