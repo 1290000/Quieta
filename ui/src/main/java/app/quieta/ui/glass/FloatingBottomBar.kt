@@ -410,8 +410,8 @@ fun FloatingBottomBar(
                                         // Keep lens; softer rim so HyperOS does not
                                         // sample past the backdrop into black.
                                         lens(
-                                            refractionHeight = 14.dp.toPx(),
-                                            refractionAmount = 12.dp.toPx(),
+                                            refractionHeight = 24.dp.toPx(),
+                                            refractionAmount = 24.dp.toPx(),
                                         )
                                     },
                                     highlight = { baseHighlight.copy(alpha = 0.75f) },
