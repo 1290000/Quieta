@@ -4,9 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Rule
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,7 +40,7 @@ fun QuietaRoot() {
 
     val tabs = listOf(
         QuietaNavTab(QuietaRoutes.HOME, stringResource(R.string.nav_home), Icons.Outlined.Home),
-        QuietaNavTab(QuietaRoutes.CONFIG, stringResource(R.string.nav_config), Icons.Outlined.Rule),
+        QuietaNavTab(QuietaRoutes.CONFIG, stringResource(R.string.nav_config), Icons.AutoMirrored.Outlined.Rule),
         QuietaNavTab(QuietaRoutes.RECORD, stringResource(R.string.nav_record), Icons.Outlined.History),
         QuietaNavTab(QuietaRoutes.SETTINGS, stringResource(R.string.nav_settings), Icons.Outlined.Settings),
     )
