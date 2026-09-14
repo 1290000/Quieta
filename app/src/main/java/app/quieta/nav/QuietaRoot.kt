@@ -1,21 +1,14 @@
 package app.quieta.nav
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +25,6 @@ import app.quieta.feature.record.RecordScreen
 import app.quieta.feature.settings.LicensesScreen
 import app.quieta.feature.settings.SettingsScreen
 import app.quieta.ui.glass.FloatingBottomBar
-import app.quieta.ui.glass.FloatingBottomBarDefaults
 import app.quieta.ui.glass.FloatingBottomBarMode
 import app.quieta.ui.glass.QuietaNavTab
 import app.quieta.ui.glass.resolveBottomBarMode
@@ -66,48 +58,54 @@ fun QuietaRoot() {
     )
 
     val liquidSupported = android.os.Build.VERSION.SDK_INT >= 33
-    // Default path is solid/blur white capsule (HyperOS liquid glass can half-fail).
     val mode = resolveBottomBarMode(blurEnabled, liquidSupported)
-    val useBackdrop = mode == FloatingBottomBarMode.LiquidGlass || mode == FloatingBottomBarMode.Blur
+    val useShader = mode != FloatingBottomBarMode.None
     val pageBackdrop = rememberLayerBackdrop()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Page fills the screen; content scrolls UNDER the floating bar.
-        // Background must be inside the backdrop layer so glass never samples black.
+        // Record page content into backdrop so the bottom bar can refract it.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
                 .then(
-                    if (useBackdrop) Modifier.layerBackdrop(pageBackdrop) else Modifier,
+                    if (useShader) Modifier.layerBackdrop(pageBackdrop) else Modifier,
                 ),
         ) {
             when (selectedRoute) {
-                QuietaRoutes.HOME -> HomeScreen(modifier = Modifier.fillMaxSize())
-                QuietaRoutes.CONFIG -> ConfigScreen(modifier = Modifier.fillMaxSize())
-                QuietaRoutes.RECORD -> RecordScreen(modifier = Modifier.fillMaxSize())
+                QuietaRoutes.HOME -> HomeScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 100.dp),
+                )
+                QuietaRoutes.CONFIG -> ConfigScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 100.dp),
+                )
+                QuietaRoutes.RECORD -> RecordScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 100.dp),
+                )
                 QuietaRoutes.SETTINGS -> SettingsScreen(
                     blurEnabled = blurEnabled,
                     onBlurEnabledChange = { blurEnabled = it },
                     bottomBarMode = mode,
                     onOpenLicenses = { showLicenses = true },
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 100.dp),
                 )
             }
         }
 
-        // Overlay: compact floating capsule above content (InstallerX layout).
         FloatingBottomBar(
             tabs = tabs,
             selectedRoute = selectedRoute,
             onTabSelected = { selectedRoute = it },
             mode = mode,
             backdrop = pageBackdrop,
-            colors = FloatingBottomBarDefaults.colors(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 14.dp)
-                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

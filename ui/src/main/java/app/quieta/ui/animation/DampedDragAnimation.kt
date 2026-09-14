@@ -7,7 +7,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.unit.IntSize
 import app.quieta.ui.util.inspectDragGestures
 import kotlin.math.abs
@@ -45,7 +44,6 @@ class DampedDragAnimation(
     private val scaleXAnimation = Animatable(initialScale, 0.001f)
     private val scaleYAnimation = Animatable(initialScale, 0.001f)
     private val mutatorMutex = MutatorMutex()
-    private val velocityTracker = VelocityTracker()
 
     val value: Float get() = valueAnimation.value
     val targetValue: Float get() = valueAnimation.targetValue
@@ -80,7 +78,6 @@ class DampedDragAnimation(
     }
 
     fun press() {
-        velocityTracker.resetTracking()
         animationScope.launch {
             launch { pressProgressAnimation.animateTo(1f, pressProgressAnimationSpec) }
             launch { scaleXAnimation.animateTo(pressedScale, scaleXAnimationSpec) }
@@ -106,9 +103,7 @@ class DampedDragAnimation(
     fun updateValue(value: Float) {
         val target = value.coerceIn(valueRange)
         animationScope.launch {
-            launch {
-                valueAnimation.animateTo(target, valueAnimationSpec) { updateVelocity() }
-            }
+            valueAnimation.animateTo(target, valueAnimationSpec)
         }
     }
 
@@ -123,18 +118,6 @@ class DampedDragAnimation(
                 }
                 release()
             }
-        }
-    }
-
-    private fun updateVelocity() {
-        velocityTracker.addPosition(
-            System.currentTimeMillis(),
-            Offset(value, 0f),
-        )
-        val span = (valueRange.endInclusive - valueRange.start).coerceAtLeast(1e-4f)
-        val targetVelocity = velocityTracker.calculateVelocity().x / span
-        animationScope.launch {
-            velocityAnimation.animateTo(targetVelocity, velocityAnimationSpec)
         }
     }
 }
