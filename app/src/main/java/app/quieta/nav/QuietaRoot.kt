@@ -71,8 +71,8 @@ fun QuietaRoot() {
     val pageBackdrop = rememberLayerBackdrop()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Solid page background must live inside the backdrop layer — otherwise the glass
-        // samples transparent pixels and the bar renders near-black on light themes.
+        // Page fills the screen; content scrolls UNDER the floating bar.
+        // Background must be inside the backdrop layer so glass never samples black.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -82,33 +82,20 @@ fun QuietaRoot() {
                 ),
         ) {
             when (selectedRoute) {
-                QuietaRoutes.HOME -> HomeScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 120.dp),
-                )
-                QuietaRoutes.CONFIG -> ConfigScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 120.dp),
-                )
-                QuietaRoutes.RECORD -> RecordScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 120.dp),
-                )
+                QuietaRoutes.HOME -> HomeScreen(modifier = Modifier.fillMaxSize())
+                QuietaRoutes.CONFIG -> ConfigScreen(modifier = Modifier.fillMaxSize())
+                QuietaRoutes.RECORD -> RecordScreen(modifier = Modifier.fillMaxSize())
                 QuietaRoutes.SETTINGS -> SettingsScreen(
                     blurEnabled = blurEnabled,
                     onBlurEnabledChange = { blurEnabled = it },
                     bottomBarMode = mode,
                     onOpenLicenses = { showLicenses = true },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 120.dp),
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
 
+        // Overlay: compact floating capsule above content (InstallerX layout).
         FloatingBottomBar(
             tabs = tabs,
             selectedRoute = selectedRoute,
@@ -118,7 +105,7 @@ fun QuietaRoot() {
             colors = FloatingBottomBarDefaults.colors(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 12.dp)
+                .padding(bottom = 14.dp)
                 .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
         )
     }

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -108,23 +110,15 @@ class FloatingBottomBarColors(
 
 object FloatingBottomBarDefaults {
     /**
-     * InstallerX video look: near-white milky capsule on light, soft dark capsule on dark.
-     * Selected pill is a light gray oval — never a filled blue blob.
+     * Matches InstallerX / miuix: surfaceContainer is pure white on light.
+     * Selected pill is a translucent overlay — never a solid gray blob.
      */
     @Composable
     fun colors(
-        containerColor: Color = if (isSystemInDarkTheme()) {
-            Color(0xFF2C2C2E)
-        } else {
-            Color.White
-        },
-        indicatorColor: Color = if (isSystemInDarkTheme()) {
-            Color.White.copy(alpha = 0.16f)
-        } else {
-            Color(0xFFE8E8EA)
-        },
+        containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+        indicatorColor: Color = MaterialTheme.colorScheme.primary,
         contentColor: Color = MaterialTheme.colorScheme.onSurface,
-        activeContentColor: Color = MaterialTheme.colorScheme.primary,
+        activeContentColor: Color = indicatorColor,
     ): FloatingBottomBarColors = FloatingBottomBarColors(
         containerColor = containerColor,
         indicatorColor = indicatorColor,
@@ -212,15 +206,9 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
-    // Near-white milk glass (video). Liquid keeps a little see-through; other modes stay solid.
+    // InstallerX FloatingBottomBar.kt: liquid = surfaceContainer.copy(0.4f)
     val containerColor =
-        if (isLiquidGlassMode) {
-            colors.containerColor.copy(alpha = if (isInDark) 0.55f else 0.82f)
-        } else if (isBlurMode) {
-            colors.containerColor.copy(alpha = if (isInDark) 0.82f else 0.92f)
-        } else {
-            colors.containerColor
-        }
+        if (isLiquidGlassMode) colors.containerColor.copy(alpha = 0.4f) else colors.containerColor
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -388,7 +376,9 @@ fun FloatingBottomBar(
     val combinedBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
 
     Box(
-        modifier = modifier.width(IntrinsicSize.Min),
+        modifier = modifier
+            .clipToBounds()
+            .width(IntrinsicSize.Min),
         contentAlignment = Alignment.CenterStart,
     ) {
         CompositionLocalProvider(LocalFloatingBottomBarContentColor provides colors.contentColor) {
@@ -405,7 +395,8 @@ fun FloatingBottomBar(
                         shadow = Shadow(
                             radius = 10.dp,
                             color = Color.Black,
-                            alpha = if (isInDark) 0.22f else 0.12f,
+                            // InstallerX: dark 0.2 / light 0.1
+                            alpha = if (isInDark) 0.2f else 0.1f,
                         ),
                     )
                     .then(
@@ -441,7 +432,10 @@ fun FloatingBottomBar(
                                     scaleX = s
                                     scaleY = s
                                 },
-                                onDrawSurface = { drawRect(containerColor) },
+                                onDrawSurface = {
+                                    // InstallerX Blur: surface at 0.65 alpha over blurred backdrop.
+                                    drawRect(containerColor.copy(alpha = 0.65f))
+                                },
                             )
                         } else {
                             Modifier
@@ -535,15 +529,16 @@ fun FloatingBottomBar(
                             },
                             onDrawSurface = {
                                 val progress = dampedDragAnimation.pressProgress
-                                // Video: soft light-gray pill, not a dark dimming layer.
+                                // InstallerX: dim the pill slightly at rest; lighten while pressed.
                                 drawRect(
                                     color = if (isInDark) {
-                                        Color.White.copy(alpha = 0.14f)
+                                        Color.White.copy(alpha = 0.1f)
                                     } else {
-                                        Color(0xFFE8E8EA).copy(alpha = 0.92f)
+                                        Color.Black.copy(alpha = 0.1f)
                                     },
-                                    alpha = 1f - progress * 0.35f,
+                                    alpha = 1f - progress,
                                 )
+                                drawRect(Color.Black.copy(alpha = 0.03f * progress))
                             },
                         )
                         .innerShadow(shape = pillShape) {
@@ -570,7 +565,7 @@ fun FloatingBottomBar(
                             scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
                         }
                         .clip(pillShape)
-                        .background(colors.indicatorColor, pillShape)
+                        .background(colors.indicatorColor.copy(alpha = 0.15f), pillShape)
                         .height(56.dp)
                         .width(tabWidthDp),
                     contentAlignment = Alignment.CenterStart,
