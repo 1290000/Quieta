@@ -54,7 +54,7 @@ data class HomeUiState(
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val backend = ShizukuBackend()
+    private val backend = ShizukuBackend(application)
     private val appContext = application.applicationContext
     private val ruleRepository = RuleRepository(application)
     private val batchMute = BatchMuteUseCase(backend)

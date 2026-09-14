@@ -165,7 +165,9 @@ fun HomeScreen(
 
 @Composable
 private fun StatusBanner(state: HomeUiState) {
-    val ready = state.gate == PrivilegeGate.READY
+    val ready = state.gate == PrivilegeGate.READY &&
+        state.privilege.available &&
+        !state.loading
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),

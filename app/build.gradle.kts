@@ -95,5 +95,6 @@ dependencies {
     implementation(libs.shizuku.provider)
     implementation(libs.aboutlibraries.core)
     implementation(libs.aboutlibraries.compose.m3)
+    implementation(libs.hidden.api.bypass)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

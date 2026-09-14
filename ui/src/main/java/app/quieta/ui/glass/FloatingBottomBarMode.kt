@@ -42,9 +42,13 @@ fun isProbablyEmulator(): Boolean {
 fun resolveBottomBarMode(
     blurEnabled: Boolean,
     liquidGlassSupported: Boolean,
-): FloatingBottomBarMode = when {
-    !blurEnabled -> FloatingBottomBarMode.None
-    liquidGlassSupported && isLiquidGlassSafe() -> FloatingBottomBarMode.LiquidGlass
-    blurEnabled -> FloatingBottomBarMode.None // drawBackdrop also unsafe on emulators
-    else -> FloatingBottomBarMode.None
+): FloatingBottomBarMode {
+    // miuix drawBackdrop + lens has SIGSEGV in RenderThread on some HyperOS builds
+    // (K40s / munch). Force solid capsule until the native crash is isolated.
+    val allowShader = false
+    return when {
+        !blurEnabled -> FloatingBottomBarMode.None
+        allowShader && liquidGlassSupported && isLiquidGlassSafe() -> FloatingBottomBarMode.LiquidGlass
+        else -> FloatingBottomBarMode.None
+    }
 }

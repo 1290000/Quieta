@@ -169,9 +169,8 @@ core/rom/
 
 | 档位 | 条件 | 含义 |
 |------|------|------|
-| LiquidGlass | 模糊开启且 API ≥ 33 | 半透明胶囊（完整 AGSL 折射待接 miuix shader） |
-| Blur | 模糊开启，低版本 | 略不透明胶囊 |
-| None | 模糊关闭 | 实色胶囊 |
+| LiquidGlass | 代码已接入 lens；**当前默认关闭**（HyperOS RenderThread SIGSEGV） | 仅 `allowShader=true` 且 API≥33 非模拟器时启用 |
+| Blur / None | 默认 | 实色/半透明胶囊 |
 
 - 主色为系统蓝；绿色仅状态卡。  
 - 主题默认**跟随系统**；深浅色均须可读。  

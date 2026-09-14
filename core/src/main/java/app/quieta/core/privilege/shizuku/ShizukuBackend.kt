@@ -13,9 +13,17 @@ import rikka.shizuku.SystemServiceHelper
 /**
  * Reads notification channels of other apps via Shizuku + INotificationManager reflection.
  */
-class ShizukuBackend : PrivilegeBackend {
+class ShizukuBackend(
+    private val context: android.content.Context? = null,
+) : PrivilegeBackend {
 
     override val id: PrivilegeId = PrivilegeId.SHIZUKU
+
+    private fun uidOf(packageName: String): Int {
+        return runCatching {
+            context?.packageManager?.getPackageUid(packageName, 0) ?: 0
+        }.getOrDefault(0)
+    }
 
     override suspend fun isAvailable(): Boolean {
         return try {
@@ -49,34 +57,31 @@ class ShizukuBackend : PrivilegeBackend {
         importance: Int,
     ) {
         val nm = notificationManager()
-        val getOne = nm.javaClass.methods.firstOrNull {
-            it.name == "getNotificationChannelForPackage" && it.parameterTypes.size == 3
-        } ?: nm.javaClass.methods.firstOrNull {
-            it.name == "getNotificationChannel" && it.parameterTypes.size == 3
-        } ?: error("getNotificationChannel* not found")
+        val iface = Class.forName("android.app.INotificationManager")
+        val uid = uidOf(packageName)
 
-        val channel = getOne.invoke(nm, packageName, channelId, 0)
-            ?: error("channel not found: $packageName/$channelId")
+        val getOne = iface.methods.firstOrNull {
+            it.name == "getNotificationChannelForPackage" && it.parameterCount == 5
+        } ?: iface.methods.firstOrNull {
+            it.name == "getNotificationChannelForPackage" && it.parameterCount == 4
+        } ?: error("getNotificationChannelForPackage not found")
+
+        val channel = when (getOne.parameterCount) {
+            5 -> getOne.invoke(nm, packageName, channelId, uid, false, 0)
+            4 -> getOne.invoke(nm, packageName, channelId, uid)
+            else -> null
+        } ?: error("channel not found: $packageName/$channelId uid=$uid")
 
         val setImportance = channel.javaClass.methods.firstOrNull {
-            it.name == "setImportance" && it.parameterTypes.size == 1
-        } ?: error("NotificationChannel.setImportance not found")
+            it.name == "setImportance" && it.parameterCount == 1
+        } ?: error("setImportance not found")
         setImportance.invoke(channel, importance)
 
-        val update = nm.javaClass.methods.firstOrNull {
-            it.name == "updateNotificationChannel" && it.parameterTypes.size == 3
-        } ?: nm.javaClass.methods.firstOrNull {
-            it.name == "updateNotificationChannelForPackage" && it.parameterTypes.size == 3
-        } ?: error("updateNotificationChannel* not found")
-
-        // Signature: (String pkg, int uid, NotificationChannel) — uid 0 often means system/shell path.
-        val uid = runCatching {
-            val pmClass = Class.forName("android.app.ActivityThread")
-            // Prefer 1000 (system) via binder identity; fallback 0.
-            0
-        }.getOrDefault(0)
+        val update = iface.methods.firstOrNull {
+            it.name == "updateNotificationChannelForPackage" && it.parameterCount == 3
+        } ?: error("updateNotificationChannelForPackage not found")
         update.invoke(nm, packageName, uid, channel)
-        Log.d(TAG, "setImportance $packageName/$channelId -> $importance")
+        Log.d(TAG, "setImportance $packageName/$channelId -> $importance uid=$uid")
     }
 
     private fun notificationManager(): Any {
@@ -93,13 +98,47 @@ class ShizukuBackend : PrivilegeBackend {
      */
     private fun queryNotificationChannels(packageName: String): List<android.app.NotificationChannel> {
         val nm = notificationManager()
-        val method = nm.javaClass.methods.firstOrNull {
-            it.name == "getNotificationChannels" && it.parameterTypes.size == 2
-        } ?: error("getNotificationChannels not found")
-        val slice = method.invoke(nm, packageName, 0) ?: return emptyList()
-        val listMethod = slice.javaClass.getMethod("getList")
-        val list = listMethod.invoke(slice) as? List<*> ?: return emptyList()
-        return list.filterIsInstance<android.app.NotificationChannel>()
+        val iface = Class.forName("android.app.INotificationManager")
+
+        // Preferred: getNotificationChannelsForPackage(String pkg, int uid, boolean includeDeleted)
+        val preferred = iface.methods.firstOrNull {
+            it.name == "getNotificationChannelsForPackage" && it.parameterCount == 3
+        }
+        if (preferred != null) {
+            val uid = uidOf(packageName)
+            val slice = runCatching {
+                preferred.invoke(nm, packageName, uid, false)
+            }.onFailure { Log.w(TAG, "preferred invoke failed for $packageName uid=$uid", it) }
+                .getOrNull()
+            Log.d(TAG, "preferred slice=$slice uid=$uid for $packageName")
+            val list = slice?.let {
+                runCatching { it.javaClass.getMethod("getList").invoke(it) as? List<*> }.getOrNull()
+            }
+            val channels = list?.filterIsInstance<android.app.NotificationChannel>().orEmpty()
+            if (channels.isNotEmpty()) {
+                Log.d(TAG, "preferred -> ${channels.size} for $packageName")
+                return channels
+            }
+        }
+
+        // Fallback: getNotificationChannels(String pkg, int userId) on older signatures
+        val fallback = iface.methods.firstOrNull {
+            it.name == "getNotificationChannels" && it.parameterCount == 2
+        }
+        if (fallback != null) {
+            val slice = runCatching { fallback.invoke(nm, packageName, 0) }.getOrNull()
+            val list = slice?.let {
+                runCatching { it.javaClass.getMethod("getList").invoke(it) as? List<*> }.getOrNull()
+            }
+            val channels = list?.filterIsInstance<android.app.NotificationChannel>().orEmpty()
+            if (channels.isNotEmpty()) {
+                Log.d(TAG, "fallback -> ${channels.size} for $packageName")
+                return channels
+            }
+        }
+
+        Log.w(TAG, "no channels for $packageName (preferred=${preferred != null})")
+        return emptyList()
     }
 
     private fun Int.toDomain(): ChannelImportance = when {
