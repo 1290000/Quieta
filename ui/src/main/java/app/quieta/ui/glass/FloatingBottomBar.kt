@@ -483,8 +483,8 @@ fun FloatingBottomBar(
                                 vibrancy()
                                 blur(4.dp.toPx(), 4.dp.toPx())
                                 lens(
-                                    refractionHeight = 14.dp.toPx(),
-                                    refractionAmount = 12.dp.toPx(),
+                                    refractionHeight = 24.dp.toPx(),
+                                    refractionAmount = 24.dp.toPx(),
                                 )
                             },
                             onDrawSurface = { drawRect(containerColor) },
