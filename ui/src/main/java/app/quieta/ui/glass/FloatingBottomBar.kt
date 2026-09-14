@@ -200,10 +200,11 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
-    // Milk-white over light page (InstallerX 0.4 turns gray on HyperOS F5F5F6 bg).
+    // Must stay milky-white even when the bar sits over empty page gray
+    // (no white cards). 0.4/0.72 collapses to gray on HyperOS F5F5F6.
     val containerColor =
         if (isLiquidGlassMode) {
-            colors.containerColor.copy(alpha = if (isInDark) 0.55f else 0.72f)
+            colors.containerColor.copy(alpha = if (isInDark) 0.72f else 0.88f)
         } else {
             colors.containerColor
         }
@@ -491,31 +492,29 @@ fun FloatingBottomBar(
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
+                            // Scale AFTER backdrop sampling (InstallerX puts this in
+                            // layerBlock). Scaling the shader input makes HyperOS
+                            // sample past the layer and paint a black rim.
+                            scaleX = dampedDragAnimation.scaleX
+                            scaleY = dampedDragAnimation.scaleY
+                            val velocity = dampedDragAnimation.velocity / 10f
+                            scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
+                            scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
+                            clip = false
                         }
                         .drawBackdrop(
                             backdrop = combinedBackdrop,
                             shape = { pillShape },
                             effects = {
                                 val progress = dampedDragAnimation.pressProgress
-                                // Keep InstallerX press-gated lens. HyperOS paints a hard
-                                // black rim from depthEffect + chromatic at the SDF edge,
-                                // so those two stay off while refraction remains.
                                 lens(
                                     refractionHeight = 10.dp.toPx() * progress,
                                     refractionAmount = 14.dp.toPx() * progress,
-                                    depthEffect = false,
-                                    chromaticAberration = 0f,
+                                    depthEffect = true,
+                                    chromaticAberration = 0.5f,
                                 )
                             },
-                            // BloomStroke dual-peak also darkens the rim on this ROM.
-                            highlight = null,
-                            layerBlock = {
-                                scaleX = dampedDragAnimation.scaleX
-                                scaleY = dampedDragAnimation.scaleY
-                                val velocity = dampedDragAnimation.velocity / 10f
-                                scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
-                                scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
-                            },
+                            highlight = { pillHighlight.copy(alpha = dampedDragAnimation.pressProgress) },
                             onDrawSurface = {
                                 val progress = dampedDragAnimation.pressProgress
                                 drawRect(
