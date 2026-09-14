@@ -44,5 +44,5 @@ fun resolveBottomBarMode(
 ): FloatingBottomBarMode = when {
     !blurEnabled -> FloatingBottomBarMode.None
     liquidGlassSupported && isLiquidGlassSafe() -> FloatingBottomBarMode.LiquidGlass
-    else -> FloatingBottomBarMode.None
+    else -> FloatingBottomBarMode.Blur
 }

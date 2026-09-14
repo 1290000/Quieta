@@ -2,13 +2,19 @@ package app.quieta.nav
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +31,7 @@ import app.quieta.feature.record.RecordScreen
 import app.quieta.feature.settings.LicensesScreen
 import app.quieta.feature.settings.SettingsScreen
 import app.quieta.ui.glass.FloatingBottomBar
+import app.quieta.ui.glass.FloatingBottomBarDefaults
 import app.quieta.ui.glass.FloatingBottomBarMode
 import app.quieta.ui.glass.QuietaNavTab
 import app.quieta.ui.glass.resolveBottomBarMode
@@ -75,17 +82,17 @@ fun QuietaRoot() {
                 QuietaRoutes.HOME -> HomeScreen(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 100.dp),
+                        .padding(bottom = 120.dp),
                 )
                 QuietaRoutes.CONFIG -> ConfigScreen(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 100.dp),
+                        .padding(bottom = 120.dp),
                 )
                 QuietaRoutes.RECORD -> RecordScreen(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 100.dp),
+                        .padding(bottom = 120.dp),
                 )
                 QuietaRoutes.SETTINGS -> SettingsScreen(
                     blurEnabled = blurEnabled,
@@ -94,7 +101,7 @@ fun QuietaRoot() {
                     onOpenLicenses = { showLicenses = true },
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 100.dp),
+                        .padding(bottom = 120.dp),
                 )
             }
         }
@@ -105,7 +112,16 @@ fun QuietaRoot() {
             onTabSelected = { selectedRoute = it },
             mode = mode,
             backdrop = pageBackdrop,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            colors = FloatingBottomBarDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                indicatorColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                activeContentColor = MaterialTheme.colorScheme.primary,
+            ),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 12.dp)
+                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
         )
     }
 }
