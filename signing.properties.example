@@ -1,0 +1,10 @@
+# Quieta release 签名配置（模板）
+# 复制为仓库根 signing.properties 后填写；signing.properties 已被 .gitignore 忽略，禁止提交真实密码。
+
+storeFile=../keystores/quieta-release.jks
+storePassword=CHANGE_ME
+keyAlias=quieta
+keyPassword=CHANGE_ME
+
+# 可选：与 CI 一致时也可用环境变量覆盖
+# QUIETA_STORE_FILE / QUIETA_STORE_PASSWORD / QUIETA_KEY_ALIAS / QUIETA_KEY_PASSWORD
