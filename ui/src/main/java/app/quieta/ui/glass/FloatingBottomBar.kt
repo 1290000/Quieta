@@ -5,7 +5,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,7 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -49,9 +50,7 @@ import app.quieta.ui.glass.liquid.InnerShadow
 import app.quieta.ui.glass.liquid.innerShadow
 import app.quieta.ui.glass.liquid.lens
 import app.quieta.ui.glass.liquid.vibrancy
-import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
@@ -63,7 +62,8 @@ data class QuietaNavTab(
 )
 
 /**
- * InstallerX-style floating bar: springy pill, drag follow, press scale, glass refraction.
+ * Floating bottom bar.
+ * Drag is on the capsule parent so tab clickable does not steal the gesture.
  */
 @Composable
 fun FloatingBottomBar(
@@ -77,30 +77,24 @@ fun FloatingBottomBar(
     if (tabs.isEmpty()) return
     val selectedIndex = tabs.indexOfFirst { it.route == selectedRoute }.coerceAtLeast(0)
     val pillShape = remember { CircleShape }
-    val scope = rememberCoroutineScope()
     val liquid = mode == FloatingBottomBarMode.LiquidGlass
     val blurMode = mode == FloatingBottomBarMode.Blur
 
-    // Springy position (float index)
-    var pos by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
+    var dragPos by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
+    var isDragging by remember { mutableStateOf(false) }
     var press by remember { mutableFloatStateOf(0f) }
-    var dragging by remember { mutableStateOf(false) }
 
-    // Follow external selection with bouncy spring
+    // Spring follow when not dragging
     val springPos by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow,
+            stiffness = Spring.StiffnessMedium,
         ),
-        label = "springPos",
+        label = "pill",
     )
-
-    // Use spring when not dragging, raw pos when dragging
-    val displayPos = if (dragging) pos else springPos
-    if (!dragging && abs(pos - selectedIndex) > 0.01f) {
-        pos = selectedIndex.toFloat()
-    }
+    val displayPos = if (isDragging) dragPos else springPos
+    val pressScale = 1f + 0.16f * press
 
     Box(
         modifier = modifier
@@ -117,10 +111,8 @@ fun FloatingBottomBar(
             val tabPx = constraints.maxWidth.toFloat() / tabs.size
             val tabDp = with(density) { tabPx.toDp() }
             val pillX = (displayPos * tabPx).roundToInt()
-            val pressScale = 1f + 0.14f * press
 
-            // Capsule — high contrast white glass
-            val capsule = when {
+            val capsuleModifier = when {
                 liquid -> Modifier
                     .shadow(18.dp, pillShape, clip = false)
                     .drawBackdrop(
@@ -129,10 +121,7 @@ fun FloatingBottomBar(
                         effects = {
                             vibrancy()
                             blur(8.dp.toPx(), 8.dp.toPx())
-                            lens(
-                                refractionHeight = 36.dp.toPx(),
-                                refractionAmount = 30.dp.toPx(),
-                            )
+                            lens(refractionHeight = 36.dp.toPx(), refractionAmount = 30.dp.toPx())
                         },
                         onDrawSurface = { drawRect(Color.White.copy(alpha = 0.82f)) },
                     )
@@ -150,55 +139,87 @@ fun FloatingBottomBar(
                     .background(Color.White.copy(alpha = 0.97f))
             }
 
-            Box(modifier = capsule.matchParentSize())
-
-            // Drag interaction
+            // Capsule + drag on PARENT with Initial pass so tabs' clickable don't steal it
             Box(
-                modifier = Modifier
+                modifier = capsuleModifier
                     .matchParentSize()
                     .pointerInput(tabs.size, tabPx) {
-                        detectDragGestures(
-                            onDragStart = {
-                                dragging = true
-                                scope.launch {
-                                    // spring press up
-                                    var t = press
-                                    while (t < 1f) {
-                                        t = (t + 0.12f).coerceAtMost(1f)
-                                        press = t
-                                        kotlinx.coroutines.delay(16)
+                        awaitEachGesture {
+                            val initialDown = awaitFirstDown(
+                                requireUnconsumed = false,
+                                pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial,
+                            )
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            isDragging = true
+                            press = 1f
+                            dragPos = displayPos
+                            // Track drag until up
+                            var pointerId = initialDown.id
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                                if (change.changedToUpIgnoreConsumed()) {
+                                    isDragging = false
+                                    press = 0f
+                                    val target = dragPos.roundToInt().coerceIn(0, tabs.lastIndex)
+                                    if (tabs[target].route != selectedRoute) {
+                                        onTabSelected(tabs[target].route)
                                     }
+                                    break
                                 }
-                            },
-                            onDragEnd = {
-                                dragging = false
-                                val target = pos.roundToInt().coerceIn(0, tabs.lastIndex)
-                                scope.launch {
-                                    // spring release press
-                                    var t = press
-                                    while (t > 0f) {
-                                        t = (t - 0.1f).coerceAtLeast(0f)
-                                        press = t
-                                        kotlinx.coroutines.delay(16)
-                                    }
+                                val delta = change.position - change.previousPosition
+                                if (tabPx > 0f && (delta.x != 0f || delta.y != 0f)) {
+                                    dragPos = (dragPos + delta.x / tabPx)
+                                        .coerceIn(0f, (tabs.size - 1).coerceAtLeast(0).toFloat())
+                                    change.consume()
                                 }
-                                if (tabs[target].route != selectedRoute) onTabSelected(tabs[target].route)
-                                pos = target.toFloat()
-                            },
-                            onDragCancel = {
-                                dragging = false
-                                pos = selectedIndex.toFloat()
-                                press = 0f
-                            },
-                        ) { change, drag ->
-                            change.consume()
-                            if (tabPx > 0f) {
-                                pos = (pos + drag.x / tabPx)
-                                    .coerceIn(0f, (tabs.size - 1).coerceAtLeast(0).toFloat())
+                                pointerId = change.id
                             }
                         }
                     },
-            )
+            ) {
+                // Tabs inside capsule
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(68.dp)
+                        .padding(horizontal = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        val selected = index == selectedIndex
+                        val interaction = remember { MutableInteractionSource() }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .width(tabDp)
+                                .fillMaxHeight()
+                                .semantics { role = Role.Tab }
+                                .clickable(
+                                    interactionSource = interaction,
+                                    indication = null,
+                                    onClick = {
+                                        dragPos = index.toFloat()
+                                        if (tab.route != selectedRoute) onTabSelected(tab.route)
+                                    },
+                                ),
+                        ) {
+                            Icon(
+                                imageVector = tab.icon,
+                                contentDescription = tab.label,
+                                tint = if (selected) Color.Transparent else MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = tab.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (selected) Color.Transparent else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            }
 
             // Pill
             Box(
@@ -217,20 +238,20 @@ fun FloatingBottomBar(
                                 shape = { pillShape },
                                 effects = {
                                     lens(
-                                        refractionHeight = 18.dp.toPx() * (0.6f + 0.4f * press),
-                                        refractionAmount = 20.dp.toPx() * (0.6f + 0.4f * press),
+                                        refractionHeight = 18.dp.toPx(),
+                                        refractionAmount = 20.dp.toPx(),
                                         depthEffect = true,
-                                        chromaticAberration = 0.4f + 0.2f * press,
+                                        chromaticAberration = 0.5f,
                                     )
                                 },
                                 onDrawSurface = {
-                                    drawRect(Color.White.copy(alpha = 0.38f + 0.15f * press))
-                                    drawRect(Color.Black.copy(alpha = 0.07f * press))
+                                    drawRect(Color.White.copy(alpha = 0.38f))
+                                    drawRect(Color.Black.copy(alpha = 0.06f * press))
                                 },
                             ).innerShadow(shape = pillShape) {
                                 InnerShadow(
                                     radius = 10.dp * press,
-                                    color = Color.Black.copy(alpha = 0.16f),
+                                    color = Color.Black.copy(alpha = 0.15f),
                                     alpha = press,
                                 )
                             }
@@ -242,57 +263,14 @@ fun FloatingBottomBar(
                     ),
             )
 
-            // Tabs
-            Row(
-                modifier = Modifier
-                    .matchParentSize()
-                    .padding(horizontal = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                tabs.forEachIndexed { index, tab ->
-                    val selected = index == selectedIndex
-                    val interaction = remember { MutableInteractionSource() }
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .width(tabDp)
-                            .fillMaxHeight()
-                            .semantics { role = Role.Tab }
-                            .clickable(
-                                interactionSource = interaction,
-                                indication = null,
-                                onClick = {
-                                    if (!dragging) {
-                                        pos = index.toFloat()
-                                        if (tab.route != selectedRoute) onTabSelected(tab.route)
-                                    }
-                                },
-                            ),
-                    ) {
-                        Icon(
-                            imageVector = tab.icon,
-                            contentDescription = tab.label,
-                            tint = if (selected) Color.Transparent else MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = tab.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selected) Color.Transparent else MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-            }
-
-            // Active content riding pill
+            // Active icon riding pill
             Box(
                 modifier = Modifier
                     .offset { IntOffset(pillX, 0) }
                     .width(tabDp)
                     .height(68.dp)
                     .graphicsLayer {
-                        val s = 1f + 0.12f * press
+                        val s = 1f + 0.1f * press
                         scaleX = s
                         scaleY = s
                     },
