@@ -1,14 +1,21 @@
 package app.quieta.nav
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +32,7 @@ import app.quieta.feature.record.RecordScreen
 import app.quieta.feature.settings.LicensesScreen
 import app.quieta.feature.settings.SettingsScreen
 import app.quieta.ui.glass.FloatingBottomBar
+import app.quieta.ui.glass.FloatingBottomBarDefaults
 import app.quieta.ui.glass.FloatingBottomBarMode
 import app.quieta.ui.glass.QuietaNavTab
 import app.quieta.ui.glass.resolveBottomBarMode
@@ -63,49 +71,42 @@ fun QuietaRoot() {
     val pageBackdrop = rememberLayerBackdrop()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Record page content into backdrop so the bottom bar can refract it.
+        // Page fills the screen; content scrolls UNDER the floating bar.
+        // Background must be inside the backdrop layer so glass never samples black.
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .then(
                     if (useShader) Modifier.layerBackdrop(pageBackdrop) else Modifier,
                 ),
         ) {
             when (selectedRoute) {
-                QuietaRoutes.HOME -> HomeScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 100.dp),
-                )
-                QuietaRoutes.CONFIG -> ConfigScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 100.dp),
-                )
-                QuietaRoutes.RECORD -> RecordScreen(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 100.dp),
-                )
+                QuietaRoutes.HOME -> HomeScreen(modifier = Modifier.fillMaxSize())
+                QuietaRoutes.CONFIG -> ConfigScreen(modifier = Modifier.fillMaxSize())
+                QuietaRoutes.RECORD -> RecordScreen(modifier = Modifier.fillMaxSize())
                 QuietaRoutes.SETTINGS -> SettingsScreen(
                     blurEnabled = blurEnabled,
                     onBlurEnabledChange = { blurEnabled = it },
                     bottomBarMode = mode,
                     onOpenLicenses = { showLicenses = true },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 100.dp),
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
 
+        // Overlay: compact floating capsule above content (InstallerX layout).
         FloatingBottomBar(
             tabs = tabs,
             selectedRoute = selectedRoute,
             onTabSelected = { selectedRoute = it },
             mode = mode,
             backdrop = pageBackdrop,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            colors = FloatingBottomBarDefaults.colors(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 14.dp)
+                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
         )
     }
 }

@@ -1,10 +1,13 @@
 package app.quieta.ui.glass
 
+import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +17,9 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LocalContentColor as M3LocalContentColor
 import androidx.compose.material3.Icon
@@ -38,9 +43,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -60,20 +67,31 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import app.quieta.ui.animation.DampedDragAnimation
+import app.quieta.ui.animation.InteractiveHighlight
 import app.quieta.ui.glass.liquid.InnerShadow
 import app.quieta.ui.glass.liquid.innerShadow
 import app.quieta.ui.glass.liquid.lens
 import app.quieta.ui.glass.liquid.rememberCombinedBackdrop
 import app.quieta.ui.glass.liquid.vibrancy
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.sign
+import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.highlight.BloomStroke
+import top.yukonga.miuix.kmp.blur.highlight.Highlight
+import top.yukonga.miuix.kmp.blur.highlight.LightPosition
+import top.yukonga.miuix.kmp.blur.highlight.LightSource
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.sensor.rememberDeviceTilt
 
 data class QuietaNavTab(
     val route: String,
@@ -90,9 +108,13 @@ class FloatingBottomBarColors(
 )
 
 object FloatingBottomBarDefaults {
+    /**
+     * Matches InstallerX / miuix: surfaceContainer is pure white on light.
+     * Selected pill is a translucent overlay — never a solid gray blob.
+     */
     @Composable
     fun colors(
-        containerColor: Color = MaterialTheme.colorScheme.surface,
+        containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
         indicatorColor: Color = MaterialTheme.colorScheme.primary,
         contentColor: Color = MaterialTheme.colorScheme.onSurface,
         activeContentColor: Color = indicatorColor,
@@ -106,6 +128,63 @@ object FloatingBottomBarDefaults {
 
 private val LocalFloatingBottomBarContentColor = staticCompositionLocalOf { Color.Unspecified }
 private val LocalFloatingBottomBarTabScale = staticCompositionLocalOf { { 1f } }
+
+private val iosIndicatorSpecular: Highlight = Highlight(
+    width = 1.dp,
+    alpha = 1f,
+    style = BloomStroke(
+        color = Color.White.copy(alpha = 0.12f),
+        innerBlurRadius = 2.0.dp,
+        primaryLight = LightSource(
+            position = LightPosition(0.5f, -0.3f, -0.05f),
+            color = Color.White,
+            intensity = 1f,
+        ),
+        secondaryLight = LightSource(
+            position = LightPosition(0.5f, 0.8f, -0.5f),
+            color = Color.White,
+            intensity = 0.4f,
+        ),
+        dualPeak = true,
+    ),
+)
+
+private const val LIGHT_REF_X = 0.5f
+private const val LIGHT_REF_Y = 0.7f
+private const val GRAVITY_DIR_THRESHOLD_SQ = 0.01f
+
+@Composable
+private fun rememberGravityRotatedHighlight(base: Highlight, extraDegrees: Float = 0f): Highlight {
+    val baseStyle = base.style as BloomStroke
+    val tilt by rememberDeviceTilt()
+    val rotatedPrimary = remember(tilt, baseStyle.primaryLight, extraDegrees) {
+        val basePrimary = baseStyle.primaryLight
+        val gx = tilt.gravityX
+        val gy = tilt.gravityY
+        val gMagSq = gx * gx + gy * gy
+        val (lx0, ly0) = if (gMagSq > GRAVITY_DIR_THRESHOLD_SQ) {
+            val invMag = 1f / sqrt(gMagSq)
+            (gx * invMag) to (gy * invMag)
+        } else {
+            0f to -1f
+        }
+        val rad = extraDegrees * PI / 180.0
+        val c = cos(rad).toFloat()
+        val s = sin(rad).toFloat()
+        val lx = c * lx0 - s * ly0
+        val ly = s * lx0 + c * ly0
+        basePrimary.copy(
+            position = LightPosition(
+                x = LIGHT_REF_X + lx,
+                y = LIGHT_REF_Y + ly,
+                z = basePrimary.position.z,
+            ),
+        )
+    }
+    return remember(base, rotatedPrimary) {
+        base.copy(style = baseStyle.copy(primaryLight = rotatedPrimary))
+    }
+}
 
 /**
  * Faithful port of InstallerX Revived FloatingBottomBar (Kyant0 / KernelSU lineage).
@@ -122,11 +201,17 @@ fun FloatingBottomBar(
     colors: FloatingBottomBarColors = FloatingBottomBarDefaults.colors(),
 ) {
     if (tabs.isEmpty()) return
+    val isInDark = isSystemInDarkTheme()
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
+    // White milk surface (keeps image-1 look). 0.4f collapses to gray over mixed content.
     val containerColor =
-        if (isLiquidGlassMode) colors.containerColor.copy(alpha = 0.4f) else colors.containerColor
+        if (isLiquidGlassMode) {
+            colors.containerColor.copy(alpha = if (isInDark) 0.58f else 0.8f)
+        } else {
+            colors.containerColor
+        }
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -268,6 +353,29 @@ fun FloatingBottomBar(
         }
     }
 
+    val interactiveHighlight =
+        if (isLiquidGlassMode && Build.VERSION.SDK_INT >= 33) {
+            remember(animationScope, tabWidthPx) {
+                InteractiveHighlight(
+                    animationScope = animationScope,
+                    position = { size, _ ->
+                        Offset(
+                            if (isLtr) {
+                                (dampedDragAnimation.value + 0.5f) * tabWidthPx + panelOffset
+                            } else {
+                                size.width - (dampedDragAnimation.value + 0.5f) * tabWidthPx + panelOffset
+                            },
+                            size.height / 2f,
+                        )
+                    },
+                )
+            }
+        } else {
+            null
+        }
+
+    val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = -45f)
+    val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
     val combinedBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
 
     Box(
@@ -283,7 +391,15 @@ fun FloatingBottomBar(
                         tabWidthPx = (contentWidthPx / tabsCount).coerceAtLeast(0f)
                     }
                     .graphicsLayer { translationX = panelOffset }
-                    .shadow(10.dp, pillShape, clip = false)
+                    .dropShadow(
+                        shape = pillShape,
+                        shadow = Shadow(
+                            radius = 10.dp,
+                            color = Color.Black,
+                            // InstallerX: dark 0.2 / light 0.1
+                            alpha = if (isInDark) 0.2f else 0.1f,
+                        ),
+                    )
                     .then(
                         if (isLiquidGlassMode) {
                             Modifier.drawBackdrop(
@@ -292,11 +408,14 @@ fun FloatingBottomBar(
                                 effects = {
                                     vibrancy()
                                     blur(4.dp.toPx(), 4.dp.toPx())
+                                    // Keep lens; softer rim so HyperOS does not
+                                    // sample past the backdrop into black.
                                     lens(
-                                        refractionHeight = 24.dp.toPx(),
-                                        refractionAmount = 24.dp.toPx(),
+                                        refractionHeight = 14.dp.toPx(),
+                                        refractionAmount = 12.dp.toPx(),
                                     )
                                 },
+                                highlight = { baseHighlight.copy(alpha = 0.75f) },
                                 layerBlock = {
                                     val width = size.width.coerceAtLeast(1f)
                                     val s = lerp(1f, 1f + 16.dp.toPx() / width, dampedDragAnimation.pressProgress)
@@ -305,15 +424,38 @@ fun FloatingBottomBar(
                                 },
                                 onDrawSurface = { drawRect(containerColor) },
                             )
-                        } else if (isBlurMode) {
+                        } else if (isBlurMode && isRuntimeShaderSupported()) {
                             Modifier.drawBackdrop(
                                 backdrop = backdrop,
                                 shape = { pillShape },
                                 effects = { blur(25.dp.toPx(), 25.dp.toPx()) },
-                                onDrawSurface = { drawRect(containerColor.copy(alpha = 0.65f)) },
+                                layerBlock = {
+                                    val width = size.width.coerceAtLeast(1f)
+                                    val s = lerp(1f, 1f + 16.dp.toPx() / width, dampedDragAnimation.pressProgress)
+                                    scaleX = s
+                                    scaleY = s
+                                },
+                                onDrawSurface = {
+                                    // InstallerX Blur: surface at 0.65 alpha over blurred backdrop.
+                                    drawRect(containerColor.copy(alpha = 0.65f))
+                                },
                             )
                         } else {
-                            Modifier.background(containerColor, pillShape)
+                            Modifier
+                                .graphicsLayer {
+                                    val width = size.width.coerceAtLeast(1f)
+                                    val s = lerp(1f, 1f + 16.dp.toPx() / width, dampedDragAnimation.pressProgress)
+                                    scaleX = s
+                                    scaleY = s
+                                }
+                                .background(containerColor, pillShape)
+                        },
+                    )
+                    .then(
+                        if (isLiquidGlassMode && interactiveHighlight != null) {
+                            interactiveHighlight.modifier.then(interactiveHighlight.gestureModifier)
+                        } else {
+                            Modifier
                         },
                     )
                     .then(dampedDragAnimation.modifier)
@@ -342,12 +484,13 @@ fun FloatingBottomBar(
                                 vibrancy()
                                 blur(4.dp.toPx(), 4.dp.toPx())
                                 lens(
-                                    refractionHeight = 24.dp.toPx(),
-                                    refractionAmount = 24.dp.toPx(),
+                                    refractionHeight = 14.dp.toPx(),
+                                    refractionAmount = 12.dp.toPx(),
                                 )
                             },
                             onDrawSurface = { drawRect(containerColor) },
                         )
+                        .then(interactiveHighlight?.modifier ?: Modifier)
                         .height(56.dp)
                         .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -366,6 +509,8 @@ fun FloatingBottomBar(
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
+                            // Scale lives here (not only in layerBlock) so edges are not clipped.
+                            clip = false
                         }
                         .drawBackdrop(
                             backdrop = combinedBackdrop,
@@ -373,23 +518,32 @@ fun FloatingBottomBar(
                             effects = {
                                 val progress = dampedDragAnimation.pressProgress
                                 lens(
-                                    refractionHeight = 10.dp.toPx() * progress,
-                                    refractionAmount = 14.dp.toPx() * progress,
-                                    depthEffect = true,
-                                    chromaticAberration = 0.5f,
+                                    refractionHeight = 8.dp.toPx() * progress,
+                                    refractionAmount = 8.dp.toPx() * progress,
+                                    depthEffect = false,
+                                    chromaticAberration = 0.2f,
                                 )
                             },
+                            highlight = { pillHighlight.copy(alpha = dampedDragAnimation.pressProgress) },
                             layerBlock = {
                                 scaleX = dampedDragAnimation.scaleX
                                 scaleY = dampedDragAnimation.scaleY
                                 val velocity = dampedDragAnimation.velocity / 10f
                                 scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
                                 scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
+                                clip = false
                             },
                             onDrawSurface = {
                                 val progress = dampedDragAnimation.pressProgress
-                                drawRect(Color.Black.copy(alpha = 0.1f), alpha = 1f - progress)
-                                drawRect(Color.Black.copy(alpha = 0.03f * progress))
+                                // Light-gray resting pill over white milk bar.
+                                drawRect(
+                                    color = if (isInDark) {
+                                        Color.White.copy(alpha = 0.12f)
+                                    } else {
+                                        Color.Black.copy(alpha = 0.08f)
+                                    },
+                                    alpha = 1f - progress * 0.4f,
+                                )
                             },
                         )
                         .innerShadow(shape = pillShape) {
@@ -409,6 +563,11 @@ fun FloatingBottomBar(
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
+                            scaleX = dampedDragAnimation.scaleX
+                            scaleY = dampedDragAnimation.scaleY
+                            val velocity = dampedDragAnimation.velocity / 10f
+                            scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
+                            scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
                         }
                         .clip(pillShape)
                         .background(colors.indicatorColor.copy(alpha = 0.15f), pillShape)
@@ -416,10 +575,17 @@ fun FloatingBottomBar(
                         .width(tabWidthDp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
-                    CompositionLocalProvider(LocalFloatingBottomBarContentColor provides colors.activeContentColor) {
+                    CompositionLocalProvider(
+                        LocalFloatingBottomBarTabScale provides {
+                            lerp(1f, 1.2f, dampedDragAnimation.pressProgress)
+                        },
+                        LocalFloatingBottomBarContentColor provides colors.activeContentColor,
+                    ) {
                         Row(
                             Modifier
                                 .clearAndSetSemantics {}
+                                .wrapContentWidth(align = Alignment.Start, unbounded = true)
+                                .requiredWidth(with(density) { (totalWidthPx - 8.dp.toPx()).toDp() })
                                 .height(56.dp)
                                 .graphicsLayer {
                                     val progressOffset = dampedDragAnimation.value * tabWidthPx

@@ -143,6 +143,8 @@ fun SettingsScreen(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
             )
         }
+
+        Spacer(modifier = Modifier.height(110.dp))
     }
 }
 
