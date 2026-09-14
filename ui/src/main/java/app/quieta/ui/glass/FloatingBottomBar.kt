@@ -205,15 +205,10 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
-    // Keep the capsule milky-white over any content (video look). Pure 0.4 glass
-    // only reads white when it happens to sit on white cards.
-    val liquidSurfaceAlpha = if (isInDark) 0.78f else 0.88f
-    val containerColor =
-        if (isLiquidGlassMode) {
-            colors.containerColor.copy(alpha = liquidSurfaceAlpha)
-        } else {
-            colors.containerColor
-        }
+    // Solid / blur surface: pure white on light (miuix surfaceContainer), #242424 on dark.
+    // Never a translucent gray wash — glass modes only add a light blur veil.
+    val containerColor = colors.containerColor
+    val blurVeilAlpha = if (isInDark) 0.72f else 0.82f
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -411,8 +406,9 @@ fun FloatingBottomBar(
                                     vibrancy()
                                     blur(4.dp.toPx(), 4.dp.toPx())
                                     lens(
-                                        refractionHeight = 24.dp.toPx(),
-                                        refractionAmount = 24.dp.toPx(),
+                                        // Soft edge only — large refraction warps the rim on HyperOS.
+                                        refractionHeight = 8.dp.toPx(),
+                                        refractionAmount = 10.dp.toPx(),
                                     )
                                 },
                                 highlight = { baseHighlight.copy(alpha = 0.75f) },
@@ -436,8 +432,8 @@ fun FloatingBottomBar(
                                     scaleY = s
                                 },
                                 onDrawSurface = {
-                                    // InstallerX Blur: surface at 0.65 alpha over blurred backdrop.
-                                    drawRect(containerColor.copy(alpha = 0.65f))
+                                    // Heavy white veil so the capsule stays white over any content.
+                                    drawRect(containerColor.copy(alpha = blurVeilAlpha))
                                 },
                             )
                         } else {
@@ -484,8 +480,8 @@ fun FloatingBottomBar(
                                 vibrancy()
                                 blur(4.dp.toPx(), 4.dp.toPx())
                                 lens(
-                                    refractionHeight = 24.dp.toPx(),
-                                    refractionAmount = 24.dp.toPx(),
+                                    refractionHeight = 8.dp.toPx(),
+                                    refractionAmount = 10.dp.toPx(),
                                 )
                             },
                             onDrawSurface = { drawRect(containerColor) },
@@ -523,10 +519,10 @@ fun FloatingBottomBar(
                             effects = {
                                 val progress = dampedDragAnimation.pressProgress
                                 lens(
-                                    refractionHeight = 10.dp.toPx() * progress,
-                                    refractionAmount = 14.dp.toPx() * progress,
-                                    depthEffect = true,
-                                    chromaticAberration = 0.5f,
+                                    refractionHeight = 6.dp.toPx() * progress,
+                                    refractionAmount = 8.dp.toPx() * progress,
+                                    depthEffect = false,
+                                    chromaticAberration = 0.15f,
                                 )
                             },
                             highlight = { pillHighlight.copy(alpha = dampedDragAnimation.pressProgress) },

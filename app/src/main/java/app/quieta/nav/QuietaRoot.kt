@@ -66,8 +66,9 @@ fun QuietaRoot() {
     )
 
     val liquidSupported = android.os.Build.VERSION.SDK_INT >= 33
+    // Default path is solid/blur white capsule (HyperOS liquid glass can half-fail).
     val mode = resolveBottomBarMode(blurEnabled, liquidSupported)
-    val useShader = mode != FloatingBottomBarMode.None
+    val useBackdrop = mode == FloatingBottomBarMode.LiquidGlass || mode == FloatingBottomBarMode.Blur
     val pageBackdrop = rememberLayerBackdrop()
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -78,7 +79,7 @@ fun QuietaRoot() {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .then(
-                    if (useShader) Modifier.layerBackdrop(pageBackdrop) else Modifier,
+                    if (useBackdrop) Modifier.layerBackdrop(pageBackdrop) else Modifier,
                 ),
         ) {
             when (selectedRoute) {

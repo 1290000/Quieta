@@ -38,11 +38,18 @@ fun isProbablyEmulator(): Boolean {
         hardware.contains("vbox")
 }
 
+/**
+ * Default is solid white capsule (None). HyperOS AGSL can half-fail
+ * (bar only correct on a short strip) and lens edges distort.
+ * Blur / LiquidGlass stay available but are not the default path.
+ */
 fun resolveBottomBarMode(
     blurEnabled: Boolean,
     liquidGlassSupported: Boolean,
 ): FloatingBottomBarMode = when {
+    // blurEnabled=false → solid; blurEnabled=true → still solid on this product
+    // until liquid is explicitly trusted. InstallerX main settings uses Blur/None.
     !blurEnabled -> FloatingBottomBarMode.None
-    liquidGlassSupported && isLiquidGlassSafe() -> FloatingBottomBarMode.LiquidGlass
-    else -> FloatingBottomBarMode.Blur
+    liquidGlassSupported && isLiquidGlassSafe() -> FloatingBottomBarMode.None
+    else -> FloatingBottomBarMode.None
 }
