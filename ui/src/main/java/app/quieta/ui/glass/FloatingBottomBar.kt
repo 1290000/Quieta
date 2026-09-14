@@ -68,7 +68,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import app.quieta.ui.animation.DampedDragAnimation
 import app.quieta.ui.animation.InteractiveHighlight
+import app.quieta.ui.glass.liquid.InnerShadow
+import app.quieta.ui.glass.liquid.innerShadow
 import app.quieta.ui.glass.liquid.lens
+import app.quieta.ui.glass.liquid.rememberCombinedBackdrop
 import app.quieta.ui.glass.liquid.vibrancy
 import kotlin.math.PI
 import kotlin.math.abs
@@ -202,10 +205,10 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
-    // Milk-white but still see-through so lens refraction stays visible (InstallerX-like).
+    // White milk surface (keeps image-1 look). 0.4f collapses to gray over mixed content.
     val containerColor =
         if (isLiquidGlassMode) {
-            colors.containerColor.copy(alpha = if (isInDark) 0.55f else 0.68f)
+            colors.containerColor.copy(alpha = if (isInDark) 0.58f else 0.8f)
         } else {
             colors.containerColor
         }
@@ -341,18 +344,10 @@ fun FloatingBottomBar(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 CompositionLocalProvider(
-                    M3LocalContentColor provides if (isSelected) colors.activeContentColor else contentColor,
+                    M3LocalContentColor provides contentColor,
                 ) {
-                    Icon(
-                        tab.icon,
-                        contentDescription = tab.label,
-                        tint = if (isSelected) colors.activeContentColor else contentColor,
-                    )
-                    Text(
-                        tab.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) colors.activeContentColor else contentColor,
-                    )
+                    Icon(tab.icon, contentDescription = tab.label)
+                    Text(tab.label, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -380,6 +375,8 @@ fun FloatingBottomBar(
         }
 
     val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = -45f)
+    val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
+    val combinedBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
 
     Box(
         modifier = modifier.width(IntrinsicSize.Min),
@@ -504,41 +501,55 @@ fun FloatingBottomBar(
         if (tabWidthPx > 0f) {
             val tabWidthDp = with(density) { tabWidthPx.toDp() }
             if (isLiquidGlassMode) {
-                val pillRest = if (isInDark) Color.White.copy(alpha = 0.16f) else Color(0xFFE8E8E8).copy(alpha = 0.72f)
                 Box(
                     Modifier
                         .padding(horizontal = 4.dp)
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
-                            scaleX = dampedDragAnimation.scaleX
-                            scaleY = dampedDragAnimation.scaleY
-                            val velocity = dampedDragAnimation.velocity / 10f
-                            scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
-                            scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
-                            clip = false
                         }
-                        // Translucent glass only — never an opaque plate, or icons vanish.
                         .drawBackdrop(
-                            backdrop = backdrop,
+                            backdrop = combinedBackdrop,
                             shape = { pillShape },
                             effects = {
                                 val progress = dampedDragAnimation.pressProgress
+                                // InstallerX: lens only while pressed — at rest amount=0
+                                // so the rim shader never runs (that black stroke).
                                 lens(
-                                    refractionHeight = 10.dp.toPx() * (0.35f + progress),
-                                    refractionAmount = 10.dp.toPx() * (0.35f + progress),
-                                    depthEffect = false,
-                                    chromaticAberration = 0f,
+                                    refractionHeight = 10.dp.toPx() * progress,
+                                    refractionAmount = 14.dp.toPx() * progress,
+                                    depthEffect = true,
+                                    chromaticAberration = 0.5f,
                                 )
+                            },
+                            highlight = { pillHighlight.copy(alpha = dampedDragAnimation.pressProgress) },
+                            layerBlock = {
+                                scaleX = dampedDragAnimation.scaleX
+                                scaleY = dampedDragAnimation.scaleY
+                                val velocity = dampedDragAnimation.velocity / 10f
+                                scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
+                                scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
                             },
                             onDrawSurface = {
                                 val progress = dampedDragAnimation.pressProgress
                                 drawRect(
-                                    color = pillRest,
-                                    alpha = 1f - progress * 0.35f,
+                                    color = if (isInDark) {
+                                        Color.White.copy(alpha = 0.1f)
+                                    } else {
+                                        Color.Black.copy(alpha = 0.1f)
+                                    },
+                                    alpha = 1f - progress,
                                 )
+                                drawRect(Color.Black.copy(alpha = 0.03f * progress))
                             },
                         )
+                        .innerShadow(shape = pillShape) {
+                            InnerShadow(
+                                radius = 8.dp * dampedDragAnimation.pressProgress,
+                                color = Color.Black.copy(alpha = 0.15f),
+                                alpha = dampedDragAnimation.pressProgress,
+                            )
+                        }
                         .height(56.dp)
                         .width(tabWidthDp),
                 )
