@@ -2,6 +2,9 @@
 .gradle/
 build/
 local.properties
+.cxx/
+*.apk
+*.aab
 
 # IDE
 .idea/
