@@ -205,10 +205,11 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
-    // White milk surface (keeps image-1 look). 0.4f collapses to gray over mixed content.
+    // Image-1 white milk bar. High alpha so glass cannot drag the capsule
+    // into the gray wash seen on mixed / darker content (image-2).
     val containerColor =
         if (isLiquidGlassMode) {
-            colors.containerColor.copy(alpha = if (isInDark) 0.58f else 0.8f)
+            colors.containerColor.copy(alpha = if (isInDark) 0.82f else 0.94f)
         } else {
             colors.containerColor
         }
@@ -402,28 +403,31 @@ fun FloatingBottomBar(
                     )
                     .then(
                         if (isLiquidGlassMode) {
-                            Modifier.drawBackdrop(
-                                backdrop = backdrop,
-                                shape = { pillShape },
-                                effects = {
-                                    vibrancy()
-                                    blur(4.dp.toPx(), 4.dp.toPx())
-                                    // Keep lens; softer rim so HyperOS does not
-                                    // sample past the backdrop into black.
-                                    lens(
-                                        refractionHeight = 14.dp.toPx(),
-                                        refractionAmount = 12.dp.toPx(),
-                                    )
-                                },
-                                highlight = { baseHighlight.copy(alpha = 0.75f) },
-                                layerBlock = {
-                                    val width = size.width.coerceAtLeast(1f)
-                                    val s = lerp(1f, 1f + 16.dp.toPx() / width, dampedDragAnimation.pressProgress)
-                                    scaleX = s
-                                    scaleY = s
-                                },
-                                onDrawSurface = { drawRect(containerColor) },
-                            )
+                            Modifier
+                                // Solid white plate under the glass — never sample-to-black or gray.
+                                .background(colors.containerColor, pillShape)
+                                .drawBackdrop(
+                                    backdrop = backdrop,
+                                    shape = { pillShape },
+                                    effects = {
+                                        vibrancy()
+                                        blur(4.dp.toPx(), 4.dp.toPx())
+                                        // Keep lens; softer rim so HyperOS does not
+                                        // sample past the backdrop into black.
+                                        lens(
+                                            refractionHeight = 14.dp.toPx(),
+                                            refractionAmount = 12.dp.toPx(),
+                                        )
+                                    },
+                                    highlight = { baseHighlight.copy(alpha = 0.75f) },
+                                    layerBlock = {
+                                        val width = size.width.coerceAtLeast(1f)
+                                        val s = lerp(1f, 1f + 16.dp.toPx() / width, dampedDragAnimation.pressProgress)
+                                        scaleX = s
+                                        scaleY = s
+                                    },
+                                    onDrawSurface = { drawRect(containerColor) },
+                                )
                         } else if (isBlurMode && isRuntimeShaderSupported()) {
                             Modifier.drawBackdrop(
                                 backdrop = backdrop,
