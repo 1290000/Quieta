@@ -179,8 +179,8 @@ core/rom/
 
 | 项 | 约定 |
 |----|------|
-| 选定概念图 | `docs/icon-concepts/SELECTED-app-icon.png`（彩色渠道条：蜜桃/薰衣草/薄荷三横条，中间一条压淡） |
-| 语义 | 通知渠道被降噪，勿再改回匣/铃/管家盾等方向 |
+| 选定概念图 | `docs/icon-concepts/SELECTED-app-icon.png`（绿匣 + 三条蓝色通知卡；源文件 `quieta-icon-v1.png`） |
+| 语义 | 通知条被收入「息匣」；勿再改回其它方向 |
 | 打包 | **所有** debug/release 的 launcher 图标必须由该图（或由其导出的自适应图标分层）生成；禁止使用 Android 模板默认图标、禁止误用其他草稿（`v3-*`、`v4-b/c` 等） |
 | 资源路径 | 步骤 1 起：`app/src/main/res/mipmap-*` / `ic_launcher*.xml` 自适应图标以本文件指定源图切图；切图脚本或说明放在 `docs/icon-concepts/` |
 | 验收 | `assembleDebug` / `assembleRelease` 安装后桌面图标与 `SELECTED-app-icon.png` 一致（或为其清晰的自适应裁切） |
