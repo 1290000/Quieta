@@ -25,5 +25,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.shizuku.api)
+    // JVM unit tests need org.json (Android provides it at runtime).
+    testImplementation("org.json:json:20240303")
     testImplementation("junit:junit:4.13.2")
 }

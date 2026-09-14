@@ -83,7 +83,24 @@ fun HomeScreen(
                     }
                 },
                 onRefresh = viewModel::refresh,
+                onApplyMute = viewModel::applyBatchMute,
+                canApplyMute = state.gate == PrivilegeGate.READY && state.plan.any { it.value != RuleAction.KEEP },
             )
+        }
+
+        state.muteResult?.let { result ->
+            item {
+                Text(
+                    text = "批量静音：成功 ${result.success} / ${result.total}，失败 ${result.failed}" +
+                        if (result.errors.isNotEmpty()) "\n" + result.errors.joinToString("\n") else "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (result.failed == 0) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+            }
         }
 
         state.error?.let { message ->
@@ -118,6 +135,8 @@ private fun StatusCard(
     onRequestPermission: () -> Unit,
     onOpenShizuku: () -> Unit,
     onRefresh: () -> Unit,
+    onApplyMute: () -> Unit,
+    canApplyMute: Boolean,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -164,7 +183,12 @@ private fun StatusCard(
                     }
                 }
                 PrivilegeGate.READY -> {
-                    TextButton(onClick = onRefresh) { Text("刷新盘点") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = onRefresh) { Text("刷新盘点") }
+                        Button(onClick = onApplyMute, enabled = canApplyMute) {
+                            Text("按规则静音")
+                        }
+                    }
                 }
             }
         }

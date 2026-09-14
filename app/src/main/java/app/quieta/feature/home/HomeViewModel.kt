@@ -3,23 +3,25 @@ package app.quieta.feature.home
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.quieta.core.engine.BatchMuteUseCase
+import app.quieta.core.engine.MuteResult
 import app.quieta.core.engine.RulesEngine
 import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
 import app.quieta.core.model.PrivilegeId
 import app.quieta.core.model.PrivilegeStatus
-import app.quieta.core.model.Rule
 import app.quieta.core.model.RuleAction
 import app.quieta.core.privilege.CapabilityProbe
 import app.quieta.core.privilege.InstalledApps
-import app.quieta.core.privilege.PrivilegeBackends
 import app.quieta.core.privilege.shizuku.ShizukuBackend
+import app.quieta.core.repo.RuleRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
@@ -43,6 +45,7 @@ data class HomeUiState(
     val apps: List<AppChannels> = emptyList(),
     val plan: Map<Channel, RuleAction> = emptyMap(),
     val progress: String? = null,
+    val muteResult: MuteResult? = null,
     val error: String? = null,
 )
 
@@ -50,6 +53,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val backend = ShizukuBackend()
     private val appContext = application.applicationContext
+    private val ruleRepository = RuleRepository(application)
+    private val batchMute = BatchMuteUseCase(backend)
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -61,7 +66,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun refresh() {
         viewModelScope.launch {
             _state.update {
-                it.copy(loading = true, error = null, progress = "检测 Shizuku…", gate = PrivilegeGate.CHECKING)
+                it.copy(
+                    loading = true,
+                    error = null,
+                    muteResult = null,
+                    progress = "检测 Shizuku…",
+                    gate = PrivilegeGate.CHECKING,
+                )
             }
             val caps = CapabilityProbe.probeShizuku()
             when {
@@ -100,11 +111,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun applyBatchMute() {
+        viewModelScope.launch {
+            val plan = _state.value.plan
+            if (plan.isEmpty()) {
+                _state.update { it.copy(muteResult = MuteResult(0, 0, 0, listOf("没有可执行的规则"))) }
+                return@launch
+            }
+            _state.update { it.copy(progress = "正在批量静音…", muteResult = null) }
+            val result = withContext(Dispatchers.Default) { batchMute.apply(plan) }
+            _state.update {
+                it.copy(
+                    progress = null,
+                    muteResult = result,
+                )
+            }
+        }
+    }
+
     private suspend fun loadInventory() = withContext(Dispatchers.Default) {
         _state.update {
             it.copy(loading = true, gate = PrivilegeGate.READY, progress = "读取应用列表…")
         }
         runCatching {
+            val rules = ruleRepository.rules.first()
             val baseApps = InstalledApps.load(appContext)
             _state.update { s -> s.copy(progress = "读取通知渠道 ${baseApps.size} 个应用…") }
             val withChannels = supervisorScope {
@@ -115,7 +145,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }.awaitAll().filterNotNull()
             }
-            val engine = RulesEngine(demoRules())
+            val engine = RulesEngine(rules)
             val channels = withChannels.flatMap { it.channels }
             _state.update {
                 it.copy(
@@ -140,12 +170,4 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
-    private fun demoRules(): List<Rule> = listOf(
-        Rule(id = "mute-marketing", nameContains = "推广", action = RuleAction.MUTE),
-        Rule(id = "mute-promo", nameContains = "促销", action = RuleAction.MUTE),
-        Rule(id = "mute-marketing-en", nameContains = "marketing", action = RuleAction.MUTE),
-        Rule(id = "mute-ad", nameContains = "广告", action = RuleAction.MUTE),
-        Rule(id = "mute-live", nameContains = "直播", action = RuleAction.DOWNGRADE),
-    )
 }
