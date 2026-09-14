@@ -1,34 +1,45 @@
 package app.quieta.feature.config
 
-import android.content.Intent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,157 +48,187 @@ import app.quieta.R
 import app.quieta.core.model.Rule
 import app.quieta.core.model.RuleAction
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfigScreen(
     modifier: Modifier = Modifier,
     viewModel: ConfigViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    var showAdd by rememberSaveable { mutableStateOf(false) }
     var nameInput by rememberSaveable { mutableStateOf("") }
     var muteSelected by rememberSaveable { mutableStateOf(true) }
 
-    LaunchedEffect(state.message) {
-        if (state.message != null) {
-            // keep snackbar-like message until next change
-        }
-    }
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 100.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Text(
+                    text = stringResource(R.string.config_title),
+                    style = MaterialTheme.typography.displaySmall,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+                )
+            }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            Text(
-                text = stringResource(R.string.config_title),
-                style = MaterialTheme.typography.displaySmall,
-            )
-        }
+            item {
+                InfoBanner(
+                    text = "规则按名称匹配通知渠道。第一个命中的启用规则生效。可在主页一键静音。",
+                    onDismiss = { /* hint only */ },
+                )
+            }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text("按名称添加规则", style = MaterialTheme.typography.titleMedium)
-                    OutlinedTextField(
-                        value = nameInput,
-                        onValueChange = { nameInput = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("渠道名包含…") },
-                        placeholder = { Text("例如：推广") },
+            if (state.rules.isEmpty()) {
+                item {
+                    Text(
+                        text = "还没有规则。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = muteSelected,
-                            onClick = { muteSelected = true },
-                            label = { Text("静音") },
-                        )
-                        FilterChip(
-                            selected = !muteSelected,
-                            onClick = { muteSelected = false },
-                            label = { Text("降级") },
-                        )
-                    }
-                    Button(
-                        onClick = {
-                            val action = if (muteSelected) RuleAction.MUTE else RuleAction.DOWNGRADE
-                            viewModel.addNameRule(nameInput, action)
-                            nameInput = ""
-                        },
-                        enabled = nameInput.isNotBlank(),
-                    ) {
-                        Text("添加")
-                    }
-                    state.message?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                        TextButton(onClick = viewModel::clearMessage) { Text("知道了") }
-                    }
+                }
+            }
+
+            items(state.rules, key = { it.id }) { rule ->
+                RuleCard(
+                    rule = rule,
+                    onToggle = { viewModel.toggle(rule.id) },
+                    onRemove = { viewModel.remove(rule.id) },
+                )
+            }
+
+            state.message?.let { msg ->
+                item {
+                    Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
 
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+        FloatingActionButton(
+            onClick = { showAdd = true },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = Color.White,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(24.dp),
+        ) {
+            Icon(Icons.Outlined.Add, contentDescription = "添加规则")
+        }
+    }
+
+    if (showAdd) {
+        ModalBottomSheet(onDismissRequest = { showAdd = false }) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                OutlinedButton(
-                    onClick = {
-                        val json = viewModel.exportJson()
-                        val send = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/json"
-                            putExtra(Intent.EXTRA_TEXT, json)
-                        }
-                        context.startActivity(Intent.createChooser(send, "导出规则"))
-                    },
-                    modifier = Modifier.weight(1f),
-                ) { Text("导出") }
-
-                OutlinedButton(
-                    onClick = {
-                        // Simple paste path: user can use adb/scenario later; MVP opens empty import.
-                        // Phase 4 uses system picker when SAF file API is wired; for now share target.
-                        viewModel.importJson(
-                            """{"schemaVersion":1,"rules":[{"id":"demo","enabled":true,"nameContains":"推广","action":"MUTE"}]}""",
-                        )
-                    },
-                    modifier = Modifier.weight(1f),
-                ) { Text("导入示例") }
-            }
-        }
-
-        if (state.rules.isEmpty()) {
-            item {
-                Text(
-                    text = "还没有规则。添加后可在主页对匹配渠道批量静音。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Text("添加规则", style = MaterialTheme.typography.titleLarge)
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = { nameInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("渠道名包含…") },
+                    placeholder = { Text("例如：推广") },
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterPill(selected = muteSelected, label = "静音", onClick = { muteSelected = true })
+                    FilterPill(selected = !muteSelected, label = "降级", onClick = { muteSelected = false })
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { showAdd = false }) { Text("取消") }
+                    TextButton(
+                        onClick = {
+                            val action = if (muteSelected) RuleAction.MUTE else RuleAction.DOWNGRADE
+                            viewModel.addNameRule(nameInput, action)
+                            nameInput = ""
+                            showAdd = false
+                        },
+                        enabled = nameInput.isNotBlank(),
+                    ) { Text("确定") }
+                }
             }
-        }
-
-        items(state.rules, key = { it.id }) { rule ->
-            RuleCard(
-                rule = rule,
-                onToggle = { viewModel.toggle(rule.id) },
-                onRemove = { viewModel.remove(rule.id) },
-            )
         }
     }
 }
 
 @Composable
-private fun RuleCard(
-    rule: Rule,
-    onToggle: () -> Unit,
-    onRemove: () -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+private fun FilterPill(selected: Boolean, label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Text(
+            text = if (selected) "● $label" else label,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun InfoBanner(text: String, onDismiss: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F0FE)),
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF1A56A8),
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Outlined.Close, contentDescription = null, tint = Color(0xFF1A56A8))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RuleCard(rule: Rule, onToggle: () -> Unit, onRemove: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = rule.nameContains ?: rule.packageName ?: "(全部)",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
                 )
-                Text(
+                SurfacePill(
                     text = when (rule.action) {
                         RuleAction.MUTE -> "静音"
                         RuleAction.DOWNGRADE -> "降级"
                         RuleAction.KEEP -> "保留"
                     },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Switch(checked = rule.enabled, onCheckedChange = { onToggle() })
-            TextButton(onClick = onRemove) { Text("删除") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onToggle) {
+                    Switch(checked = rule.enabled, onCheckedChange = { onToggle() })
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = onRemove) {
+                    Icon(Icons.Outlined.Delete, contentDescription = "删除")
+                }
+                IconButton(onClick = onToggle) {
+                    Icon(Icons.Outlined.Edit, contentDescription = "启用切换")
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun SurfacePill(text: String) {
+    Box(
+        modifier = Modifier
+            .background(Color(0xFFE8F0FE), CircleShape)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelMedium, color = Color(0xFF1A56A8))
     }
 }

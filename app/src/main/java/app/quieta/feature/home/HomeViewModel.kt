@@ -15,6 +15,7 @@ import app.quieta.core.privilege.CapabilityProbe
 import app.quieta.core.privilege.InstalledApps
 import app.quieta.core.privilege.shizuku.ShizukuBackend
 import app.quieta.core.repo.RuleRepository
+import app.quieta.core.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -44,6 +45,8 @@ data class HomeUiState(
     ),
     val apps: List<AppChannels> = emptyList(),
     val plan: Map<Channel, RuleAction> = emptyMap(),
+    val rulesCount: Int = 0,
+    val autoMuteOn: Boolean = false,
     val progress: String? = null,
     val muteResult: MuteResult? = null,
     val error: String? = null,
@@ -55,6 +58,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val appContext = application.applicationContext
     private val ruleRepository = RuleRepository(application)
     private val batchMute = BatchMuteUseCase(backend)
+    private val appSettings = AppSettings(application)
+    private val muteLog = app.quieta.core.engine.MuteLogStore(application)
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -120,6 +125,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
             _state.update { it.copy(progress = "正在批量静音…", muteResult = null) }
             val result = withContext(Dispatchers.Default) { batchMute.apply(plan) }
+            muteLog.append(
+                app.quieta.core.engine.MuteLogEntry(
+                    label = "按规则静音",
+                    detail = "成功 ${result.success} / ${result.total}，失败 ${result.failed}",
+                    time = app.quieta.core.engine.MuteLogStore.now(),
+                    tag = if (result.failed == 0) "成功" else "部分失败",
+                ),
+            )
             _state.update {
                 it.copy(
                     progress = null,
@@ -159,6 +172,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     ),
                     apps = withChannels,
                     plan = engine.plan(channels),
+                    rulesCount = rules.size,
+                    autoMuteOn = appSettings.autoMuteNewChannels.first(),
                 )
             }
         }.onFailure { e ->
