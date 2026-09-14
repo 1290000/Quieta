@@ -24,5 +24,6 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.shizuku.api)
     testImplementation("junit:junit:4.13.2")
 }

@@ -88,5 +88,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
     implementation(libs.miuix.ui)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
