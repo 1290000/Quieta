@@ -26,6 +26,8 @@ import app.quieta.feature.settings.SettingsScreen
 import app.quieta.ui.glass.FloatingBottomBar
 import app.quieta.ui.glass.QuietaNavTab
 import app.quieta.ui.glass.resolveBottomBarMode
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 object QuietaRoutes {
     const val HOME = "home"
@@ -53,27 +55,37 @@ fun QuietaRoot() {
     )
 
     val liquidSupported = android.os.Build.VERSION.SDK_INT >= 33
-    val mode = resolveBottomBarMode(
-        blurEnabled = blurEnabled,
-        liquidGlassSupported = liquidSupported,
-    )
+    val mode = resolveBottomBarMode(blurEnabled, liquidSupported)
+    val pageBackdrop = rememberLayerBackdrop()
+    val useBackdrop = mode == app.quieta.ui.glass.FloatingBottomBarMode.LiquidGlass ||
+        mode == app.quieta.ui.glass.FloatingBottomBarMode.Blur
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(
+                if (useBackdrop) {
+                    Modifier.layerBackdrop(pageBackdrop)
+                } else {
+                    Modifier
+                },
+            ),
+    ) {
         when (selectedRoute) {
             QuietaRoutes.HOME -> HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 96.dp),
+                    .padding(bottom = 100.dp),
             )
             QuietaRoutes.CONFIG -> ConfigScreen(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 96.dp),
+                    .padding(bottom = 100.dp),
             )
             QuietaRoutes.RECORD -> RecordScreen(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 96.dp),
+                    .padding(bottom = 100.dp),
             )
             QuietaRoutes.SETTINGS -> SettingsScreen(
                 blurEnabled = blurEnabled,
@@ -82,7 +94,7 @@ fun QuietaRoot() {
                 onOpenLicenses = { showLicenses = true },
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 96.dp),
+                    .padding(bottom = 100.dp),
             )
         }
 
@@ -91,6 +103,7 @@ fun QuietaRoot() {
             selectedRoute = selectedRoute,
             onTabSelected = { selectedRoute = it },
             mode = mode,
+            backdrop = pageBackdrop,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }

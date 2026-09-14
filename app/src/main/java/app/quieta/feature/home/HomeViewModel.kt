@@ -65,7 +65,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     init {
-        refresh()
+        viewModelScope.launch {
+            val rules = runCatching { ruleRepository.rules.first() }.getOrDefault(emptyList())
+            val autoMute = runCatching { appSettings.autoMuteNewChannels.first() }.getOrDefault(false)
+            _state.update {
+                it.copy(rulesCount = rules.size, autoMuteOn = autoMute)
+            }
+            refresh()
+        }
     }
 
     fun refresh() {

@@ -14,6 +14,9 @@
         <package android:name="moe.shizuku.privileged.api" />
     </queries>
 
+    <!-- miuix-blur declares minSdk 33; we only call it when API >= 33. -->
+    <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur,top.yukonga.miuix.kmp.shader" />
+
     <application
         android:name=".QuietaApp"
         android:allowBackup="false"

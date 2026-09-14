@@ -35,5 +35,7 @@ dependencies {
     api(libs.androidx.compose.material3)
     api(libs.androidx.compose.material.icons)
     api(libs.miuix.ui)
+    api(libs.miuix.blur)
+    api(libs.miuix.shader)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

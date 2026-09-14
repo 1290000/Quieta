@@ -54,7 +54,7 @@
 | 语言 | Kotlin |
 | UI | Jetpack Compose + miuix |
 | 构建 | Gradle Kotlin DSL + Version Catalog；AGP **9.3.2** · Gradle **9.5.0** · Kotlin **2.4.10**（AGP 9 自带 Kotlin，勿再单独 apply `kotlin-android`） |
-| minSdk | 26 |
+| minSdk | 26（液态玻璃仅 API ≥ 33；miuix-blur 用 `tools:overrideLibrary`） |
 | targetSdk / compileSdk | 37（`android.suppressUnsupportedCompileSdk=37,37.0`） |
 | 架构 | 多模块单向依赖；见下文 |
 | DI | 手工构造或 Koin；一期不用 Hilt |
