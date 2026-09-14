@@ -25,6 +25,7 @@ import app.quieta.feature.record.RecordScreen
 import app.quieta.feature.settings.LicensesScreen
 import app.quieta.feature.settings.SettingsScreen
 import app.quieta.ui.glass.FloatingBottomBar
+import app.quieta.ui.glass.FloatingBottomBarMode
 import app.quieta.ui.glass.QuietaNavTab
 import app.quieta.ui.glass.resolveBottomBarMode
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -58,35 +59,44 @@ fun QuietaRoot() {
 
     val liquidSupported = android.os.Build.VERSION.SDK_INT >= 33
     val mode = resolveBottomBarMode(blurEnabled, liquidSupported)
-    // Avoid page layerBackdrop: HyperOS RenderThread SIGSEGV with miuix shader.
+    val useShader = mode != FloatingBottomBarMode.None
     val pageBackdrop = rememberLayerBackdrop()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        when (selectedRoute) {
-            QuietaRoutes.HOME -> HomeScreen(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 100.dp),
-            )
-            QuietaRoutes.CONFIG -> ConfigScreen(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 100.dp),
-            )
-            QuietaRoutes.RECORD -> RecordScreen(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 100.dp),
-            )
-            QuietaRoutes.SETTINGS -> SettingsScreen(
-                blurEnabled = blurEnabled,
-                onBlurEnabledChange = { blurEnabled = it },
-                bottomBarMode = mode,
-                onOpenLicenses = { showLicenses = true },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 100.dp),
-            )
+        // Record page content into backdrop so the bottom bar can refract it.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (useShader) Modifier.layerBackdrop(pageBackdrop) else Modifier,
+                ),
+        ) {
+            when (selectedRoute) {
+                QuietaRoutes.HOME -> HomeScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 100.dp),
+                )
+                QuietaRoutes.CONFIG -> ConfigScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 100.dp),
+                )
+                QuietaRoutes.RECORD -> RecordScreen(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 100.dp),
+                )
+                QuietaRoutes.SETTINGS -> SettingsScreen(
+                    blurEnabled = blurEnabled,
+                    onBlurEnabledChange = { blurEnabled = it },
+                    bottomBarMode = mode,
+                    onOpenLicenses = { showLicenses = true },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 100.dp),
+                )
+            }
         }
 
         FloatingBottomBar(

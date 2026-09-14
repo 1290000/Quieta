@@ -1,18 +1,14 @@
 package app.quieta.ui.glass
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -35,7 +31,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -48,7 +43,6 @@ import app.quieta.ui.glass.liquid.innerShadow
 import app.quieta.ui.glass.liquid.lens
 import app.quieta.ui.glass.liquid.vibrancy
 import kotlin.math.roundToInt
-import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
@@ -60,10 +54,8 @@ data class QuietaNavTab(
 )
 
 /**
- * Liquid-glass bottom bar (InstallerX / Kyant0 AndroidLiquidGlass pattern).
- * - Drag the capsule to move the pill with spring follow
- * - Press scales the pill (touch feedback)
- * - LiquidGlass: vibrancy + blur + lens refraction + inner shadow + edge chromatic on pill
+ * InstallerX-style liquid glass bottom bar.
+ * Content is recorded via [layerBackdrop] on the page; this bar samples it with lens refraction.
  */
 @Composable
 fun FloatingBottomBar(
@@ -79,19 +71,52 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val selectedIndex = tabs.indexOfFirst { it.route == selectedRoute }.coerceAtLeast(0)
 
-    val anim = remember { Animatable(selectedIndex.toFloat()) }
-    val press = remember { Animatable(0f) }
-    val offsetX = remember { Animatable(0f) } // rubber-band residual
-
     var tabWidthPx by remember { mutableFloatStateOf(0f) }
     var totalWidthPx by remember { mutableFloatStateOf(0f) }
 
+    val dampedDrag = remember(scope, tabs.size, density) {
+        DampedDragAnimation(
+            animationScope = scope,
+            initialValue = selectedIndex.toFloat(),
+            valueRange = 0f..(tabs.size - 1).coerceAtLeast(0).toFloat(),
+            canDrag = { pos -> pos.x in 0f..totalWidthPx },
+            onDragStarted = { pos ->
+                if (tabWidthPx > 0f) {
+                    val index = ((pos.x) / tabWidthPx).toInt().coerceIn(0, tabs.lastIndex)
+                    updateValue(index.toFloat())
+                }
+            },
+            onDragStopped = {
+                val target = targetValue.roundToInt().coerceIn(0, tabs.lastIndex)
+                if (tabs.getOrNull(target)?.route != selectedRoute) {
+                    onTabSelected(tabs[target].route)
+                }
+                updateValue(target.toFloat())
+            },
+            onDragCancelled = {
+                updateValue(selectedIndex.toFloat())
+            },
+            onDrag = { _, dragAmount ->
+                if (tabWidthPx > 0f) {
+                    updateValue(
+                        (targetValue + dragAmount.x / tabWidthPx)
+                            .coerceIn(0f, (tabs.size - 1).coerceAtLeast(0).toFloat()),
+                    )
+                }
+            },
+        )
+    }
+
     LaunchedEffect(selectedIndex) {
-        if (press.value < 0.01f) {
-            anim.animateTo(
-                selectedIndex.toFloat(),
-                spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.85f),
-            )
+        if (dampedDrag.value != selectedIndex.toFloat()) {
+            dampedDrag.animateToValue(selectedIndex.toFloat())
+        }
+    }
+
+    val activateTab: (Int) -> Unit = remember(dampedDrag) {
+        { index: Int ->
+            if (index != selectedIndex) onTabSelected(tabs[index].route)
+            dampedDrag.animateToValue(index.toFloat())
         }
     }
 
@@ -103,63 +128,20 @@ fun FloatingBottomBar(
         else -> 1f
     }
 
-    val dragModifier = Modifier.pointerInput(tabs.size) {
-        detectDragGestures(
-            onDragStart = {
-                scope.launch { press.animateTo(1f, spring(1f, 1000f, 0.001f)) }
-            },
-            onDragEnd = {
-                val target = anim.value.roundToInt().coerceIn(0, tabs.lastIndex)
-                scope.launch {
-                    anim.animateTo(
-                        target.toFloat(),
-                        spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.8f),
-                    )
-                    press.animateTo(0f, spring(1f, 1000f, 0.001f))
-                    offsetX.animateTo(0f, spring(1f, 300f, 0.5f))
-                }
-                tabs.getOrNull(target)?.let {
-                    if (it.route != selectedRoute) onTabSelected(it.route)
-                }
-            },
-            onDragCancel = {
-                scope.launch {
-                    anim.animateTo(
-                        selectedIndex.toFloat(),
-                        spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.8f),
-                    )
-                    press.animateTo(0f, spring(1f, 1000f, 0.001f))
-                    offsetX.animateTo(0f, spring(1f, 300f, 0.5f))
-                }
-            },
-        ) { change, drag ->
-            change.consume()
-            if (tabWidthPx > 0f) {
-                val next = (anim.value + drag.x / tabWidthPx)
-                    .coerceIn(0f, (tabs.size - 1).coerceAtLeast(0).toFloat())
-                scope.launch { anim.snapTo(next) }
-                scope.launch { offsetX.snapTo(offsetX.value + drag.x * 0.15f) }
-            }
-        }
-    }
-
     Box(
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        contentAlignment = Alignment.Center,
+            .width(IntrinsicSize.Min)
+            .padding(horizontal = 24.dp, vertical = 12.dp),
+        contentAlignment = Alignment.CenterStart,
     ) {
+        // Base capsule (glass / blur / solid)
         Box(
             modifier = Modifier
-                .fillMaxWidth()
                 .height(64.dp)
                 .onGloballyPositioned { coords ->
                     totalWidthPx = coords.size.width.toFloat()
-                    tabWidthPx = if (tabs.isEmpty()) 0f else {
-                        (totalWidthPx - with(density) { 8.dp.toPx() }) / tabs.size
-                    }
+                    tabWidthPx = if (tabs.isEmpty()) 0f else totalWidthPx / tabs.size
                 }
-                .then(dragModifier)
                 .then(
                     if (liquid) {
                         Modifier.drawBackdrop(
@@ -184,88 +166,116 @@ fun FloatingBottomBar(
                         )
                     } else {
                         Modifier
-                            .shadow(8.dp, pillShape, clip = false)
+                            .shadow(10.dp, pillShape, clip = false)
                             .clip(pillShape)
-                            .background(Color.White.copy(alpha = surfaceAlpha))
+                            .background(Color.White.copy(alpha = 0.96f))
                     },
                 ),
         ) {
-            RowTabs(
-                tabs = tabs,
-                selectedIndex = selectedIndex,
-                onTabSelected = onTabSelected,
-            )
+            Row(
+                modifier = Modifier
+                    .height(64.dp)
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
+                tabs.forEachIndexed { index, tab ->
+                    val selected = index == selectedIndex
+                    val interaction = remember { MutableInteractionSource() }
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .width(72.dp)
+                            .fillMaxHeight()
+                            .semantics { role = Role.Tab }
+                            .clickable(
+                                interactionSource = interaction,
+                                indication = null,
+                                onClick = { activateTab(index) },
+                            ),
+                    ) {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = tab.label,
+                            tint = if (selected) Color.Transparent else MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = tab.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) Color.Transparent else MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            }
         }
 
-        // Selection pill with lens + press scale
+        // Drag / press interaction on the whole bar
+        Box(
+            modifier = Modifier
+                .height(64.dp)
+                .then(dampedDrag.modifier),
+        )
+
+        // Selection pill
         if (tabWidthPx > 0f && tabs.isNotEmpty()) {
-            val dx = (anim.value * tabWidthPx + offsetX.value).roundToInt()
-            val scale = 1f + 0.08f * press.value
-            val pillW = with(density) { tabWidthPx.toDp() }
+            val tabWidthDp = with(density) { tabWidthPx.toDp() }
+            val dx = (dampedDrag.value * tabWidthPx).roundToInt()
 
-            val basePill = Modifier
-                .offset { IntOffset(dx, 0) }
-                .width(pillW)
-                .height(56.dp)
-                .align(Alignment.CenterStart)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
-
-            if (liquid) {
-                Box(
-                    modifier = basePill.then(
-                        Modifier
-                            .drawBackdrop(
-                                backdrop = backdrop,
-                                shape = { pillShape },
-                                effects = {
-                                    lens(
-                                        refractionHeight = (10.dp.toPx() + 8.dp.toPx() * press.value),
-                                        refractionAmount = (14.dp.toPx() + 6.dp.toPx() * press.value),
-                                        depthEffect = true,
-                                        chromaticAberration = 0.45f,
-                                    )
-                                },
-                                onDrawSurface = {
-                                    drawRect(Color.White.copy(alpha = 0.14f + 0.08f * press.value))
-                                    drawRect(Color.Black.copy(alpha = 0.04f * press.value))
-                                },
-                            )
-                            .innerShadow(shape = pillShape) {
-                                InnerShadow(
-                                    radius = 8.dp * press.value,
-                                    color = Color.Black.copy(alpha = 0.15f * press.value),
-                                    alpha = press.value,
-                                )
-                            },
-                    ),
-                )
-            } else {
-                Box(
-                    modifier = basePill.then(
-                        Modifier
-                            .clip(pillShape)
-                            .background(Color(0x223482FF)),
-                    ),
-                )
-            }
-
-            // Active label/icon above pill
             Box(
                 modifier = Modifier
                     .offset { IntOffset(dx, 0) }
-                    .width(pillW)
                     .height(56.dp)
-                    .align(Alignment.CenterStart)
-                    .graphicsLayer {
-                        scaleX = 1f + 0.12f * press.value
-                        scaleY = 1f + 0.12f * press.value
-                    },
+                    .width(tabWidthDp)
+                    .then(
+                        if (liquid) {
+                            Modifier.drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { pillShape },
+                                effects = {
+                                    val p = dampedDrag.pressProgress
+                                    lens(
+                                        refractionHeight = 10.dp.toPx() * p,
+                                        refractionAmount = 14.dp.toPx() * p,
+                                        depthEffect = true,
+                                        chromaticAberration = 0.5f,
+                                    )
+                                },
+                                onDrawSurface = {
+                                    val p = dampedDrag.pressProgress
+                                    drawRect(
+                                        color = Color.Black.copy(alpha = 0.08f),
+                                        alpha = 1f - p,
+                                    )
+                                },
+                            ).innerShadow(shape = pillShape) {
+                                InnerShadow(
+                                    radius = 8.dp * dampedDrag.pressProgress,
+                                    color = Color.Black.copy(alpha = 0.15f),
+                                    alpha = dampedDrag.pressProgress,
+                                )
+                            }
+                        } else {
+                            Modifier
+                                .clip(pillShape)
+                                .background(Color(0x223482FF))
+                                .graphicsLayer {
+                                    scaleX = dampedDrag.scaleX
+                                    scaleY = dampedDrag.scaleY
+                                }
+                        },
+                    ),
+            )
+
+            // Active icon overlay
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(dx, 0) }
+                    .height(56.dp)
+                    .width(tabWidthDp),
                 contentAlignment = Alignment.Center,
             ) {
-                val activeIndex = anim.value.roundToInt().coerceIn(0, tabs.lastIndex)
+                val activeIndex = dampedDrag.value.roundToInt().coerceIn(0, tabs.lastIndex)
                 val tab = tabs[activeIndex]
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
@@ -279,50 +289,6 @@ fun FloatingBottomBar(
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RowTabs(
-    tabs: List<QuietaNavTab>,
-    selectedIndex: Int,
-    onTabSelected: (String) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        tabs.forEachIndexed { index, tab ->
-            val selected = index == selectedIndex
-            val interaction = remember { MutableInteractionSource() }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .semantics { role = Role.Tab }
-                    .clickable(
-                        interactionSource = interaction,
-                        indication = null,
-                        onClick = { onTabSelected(tab.route) },
-                    ),
-            ) {
-                Icon(
-                    imageVector = tab.icon,
-                    contentDescription = tab.label,
-                    tint = if (selected) Color.Transparent else MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = tab.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (selected) Color.Transparent else MaterialTheme.colorScheme.onSurface,
-                )
             }
         }
     }
