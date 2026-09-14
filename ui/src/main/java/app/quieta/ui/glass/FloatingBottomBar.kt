@@ -5,7 +5,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,14 +25,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -46,7 +44,6 @@ import app.quieta.ui.glass.liquid.innerShadow
 import app.quieta.ui.glass.liquid.lens
 import app.quieta.ui.glass.liquid.vibrancy
 import kotlin.math.roundToInt
-import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.blur
 import top.yukonga.miuix.kmp.blur.drawBackdrop
@@ -67,7 +64,6 @@ fun FloatingBottomBar(
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
     val pillShape = remember { CircleShape }
     val selectedIndex = tabs.indexOfFirst { it.route == selectedRoute }.coerceAtLeast(0)
     val anim = remember { Animatable(selectedIndex.toFloat()) }
@@ -127,6 +123,7 @@ fun FloatingBottomBar(
                         )
                     } else {
                         Modifier
+                            .shadow(8.dp, pillShape, clip = false)
                             .clip(pillShape)
                             .background(Color.White.copy(alpha = surfaceAlpha))
                     },
@@ -146,30 +143,6 @@ fun FloatingBottomBar(
                 .width(with(density) { itemWidthPx.toDp() })
                 .height(56.dp)
                 .align(Alignment.CenterStart)
-                .pointerInput(tabs.size, itemWidthPx) {
-                    detectDragGestures(
-                        onDragEnd = {
-                            val target = anim.value.roundToInt().coerceIn(0, tabs.lastIndex)
-                            scope.launch {
-                                anim.animateTo(
-                                    target.toFloat(),
-                                    spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.8f),
-                                )
-                            }
-                            tabs.getOrNull(target)?.let {
-                                if (it.route != selectedRoute) onTabSelected(it.route)
-                            }
-                        },
-                    ) { change, drag ->
-                        change.consume()
-                        if (itemWidthPx > 0f) {
-                            val next = (anim.value + drag.x / itemWidthPx)
-                                .coerceIn(0f, (tabs.size - 1).coerceAtLeast(0).toFloat())
-                            scope.launch { anim.snapTo(next) }
-                        }
-                    }
-                }
-
             Box(
                 modifier = pillModifier.then(
                     if (liquid) {

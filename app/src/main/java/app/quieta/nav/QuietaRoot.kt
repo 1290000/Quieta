@@ -1,5 +1,6 @@
 package app.quieta.nav
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -43,6 +44,7 @@ fun QuietaRoot() {
     var showLicenses by rememberSaveable { mutableStateOf(false) }
 
     if (showLicenses) {
+        BackHandler { showLicenses = false }
         LicensesScreen(onBack = { showLicenses = false })
         return
     }

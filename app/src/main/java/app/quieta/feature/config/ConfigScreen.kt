@@ -19,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -207,15 +206,14 @@ private fun RuleCard(rule: Rule, onToggle: () -> Unit, onRemove: () -> Unit) {
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onToggle) {
-                    Switch(checked = rule.enabled, onCheckedChange = { onToggle() })
-                }
+                Switch(
+                    checked = rule.enabled,
+                    onCheckedChange = { onToggle() },
+                    modifier = Modifier.padding(start = 4.dp),
+                )
                 Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = onRemove) {
                     Icon(Icons.Outlined.Delete, contentDescription = "删除")
-                }
-                IconButton(onClick = onToggle) {
-                    Icon(Icons.Outlined.Edit, contentDescription = "启用切换")
                 }
             }
         }

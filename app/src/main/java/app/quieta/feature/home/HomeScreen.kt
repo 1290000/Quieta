@@ -6,12 +6,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,9 +22,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.VolumeOff
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -40,7 +44,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
@@ -50,8 +56,12 @@ import app.quieta.core.model.RuleAction
 import rikka.shizuku.Shizuku
 
 private const val REQ_SHIZUKU = 1001
-private val StatusGreenBg = Color(0xFFC8F0D8)
-private val StatusGreenText = Color(0xFF14532D)
+
+// InstallerX-style status colors (light theme primary)
+private val StatusGreenBg = Color(0xFFDFFAE4)
+private val StatusGreenIcon = Color(0xFF34C759)
+private val StatusRedBg = Color(0xFFFAEEEE)
+private val StatusRedIcon = Color(0xFFFF3B30)
 
 @Composable
 fun HomeScreen(
@@ -75,19 +85,19 @@ fun HomeScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             Text(
                 text = stringResource(R.string.home_title),
                 style = MaterialTheme.typography.displaySmall,
-                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
             )
         }
 
         item {
-            StatusBanner(state = state)
+            StatusGrid(state = state)
         }
 
         item {
@@ -105,15 +115,6 @@ fun HomeScreen(
                 },
                 onRefresh = viewModel::refresh,
                 onApplyMute = viewModel::applyBatchMute,
-            )
-        }
-
-        item {
-            StatRow(
-                leftLabel = "可用特权",
-                leftValue = if (state.privilege.available) "1" else "0",
-                rightLabel = "规则数量",
-                rightValue = state.rulesCount.toString(),
             )
         }
 
@@ -143,7 +144,7 @@ fun HomeScreen(
                     text = "通知渠道",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
             items(state.apps, key = { it.packageName }) { app ->
@@ -163,62 +164,120 @@ fun HomeScreen(
     }
 }
 
+/** InstallerX-like: big status card + two stat cards. */
 @Composable
-private fun StatusBanner(state: HomeUiState) {
-    val ready = state.gate == PrivilegeGate.READY &&
-        state.privilege.available &&
-        !state.loading
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (ready) StatusGreenBg else MaterialTheme.colorScheme.surfaceVariant,
-        ),
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = if (ready) "正在作为通知降噪工具工作" else "通知渠道降噪",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = if (ready) StatusGreenText else MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = state.privilege.label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (ready) {
-                        StatusGreenText.copy(alpha = 0.8f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-                if (state.progress != null) {
-                    Text(
-                        text = state.progress.orEmpty(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+private fun StatusGrid(state: HomeUiState) {
+    val active = state.privilege.available
+    val containerColor = if (active) StatusGreenBg else StatusRedBg
+    val iconTint = if (active) StatusGreenIcon else StatusRedIcon
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = containerColor),
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                // Large decorative icon at bottom-right (InstallerX pattern)
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .offset(x = 40.dp, y = 28.dp),
+                    contentAlignment = Alignment.BottomEnd,
+                ) {
+                    Icon(
+                        imageVector = if (active) Icons.Rounded.CheckCircle else Icons.Rounded.ErrorOutline,
+                        contentDescription = null,
+                        tint = iconTint.copy(alpha = 0.85f),
+                        modifier = Modifier.size(150.dp),
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = if (ready) "Shizuku" else "—",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (ready) StatusGreenText else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (ready) {
-                Icon(
-                    imageVector = Icons.Outlined.CheckCircle,
-                    contentDescription = null,
-                    tint = Color(0xFF34C759),
+                Column(
                     modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 20.dp)
-                        .size(72.dp),
-                )
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                ) {
+                    Text(
+                        text = if (active) {
+                            "正在作为通知降噪工具工作"
+                        } else {
+                            "通知降噪未就绪"
+                        },
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (active) {
+                            "已通过 Shizuku 读取通知渠道"
+                        } else {
+                            state.privilege.label
+                        },
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                    )
+                    Spacer(modifier = Modifier.height(36.dp))
+                    Text(
+                        text = state.privilege.label,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                    )
+                }
             }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StatCard(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                title = "可用特权",
+                value = if (state.privilege.available) "1" else "0",
+            )
+            StatCard(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                title = "规则数量",
+                value = state.rulesCount.toString(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = value,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
     }
 }
@@ -233,7 +292,7 @@ private fun GateActions(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Row(
@@ -280,35 +339,13 @@ private fun GateActions(
 }
 
 @Composable
-private fun StatRow(leftLabel: String, leftValue: String, rightLabel: String, rightValue: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        StatCard(label = leftLabel, value = leftValue, modifier = Modifier.weight(1f))
-        StatCard(label = rightLabel, value = rightValue, modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.headlineMedium)
-        }
-    }
-}
-
-@Composable
 private fun DeviceInfoCard(state: HomeUiState) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             InfoBlock("机型", Build.MODEL ?: "—")
             InfoBlock("系统", Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")")
             InfoBlock("正在使用的特权", state.privilege.label)
@@ -319,8 +356,8 @@ private fun DeviceInfoCard(state: HomeUiState) {
 
 @Composable
 private fun InfoBlock(title: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

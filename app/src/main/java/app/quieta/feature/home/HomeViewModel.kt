@@ -77,15 +77,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() {
         viewModelScope.launch {
-            _state.update {
-                it.copy(
-                    loading = true,
-                    error = null,
-                    muteResult = null,
-                    progress = "检测 Shizuku…",
-                    gate = PrivilegeGate.CHECKING,
-                )
-            }
+            // Instant privilege status first (so UI turns green/red immediately).
             val caps = CapabilityProbe.probeShizuku()
             when {
                 !caps.binderAlive -> {
@@ -118,7 +110,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                 }
-                else -> loadInventory()
+                else -> {
+                    // Show READY immediately; inventory loads in background.
+                    _state.update {
+                        it.copy(
+                            gate = PrivilegeGate.READY,
+                            privilege = PrivilegeStatus(
+                                id = PrivilegeId.SHIZUKU,
+                                available = true,
+                                label = "Shizuku",
+                            ),
+                        )
+                    }
+                    loadInventory()
+                }
             }
         }
     }
