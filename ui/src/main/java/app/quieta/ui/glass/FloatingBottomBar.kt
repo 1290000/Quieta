@@ -68,10 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import app.quieta.ui.animation.DampedDragAnimation
 import app.quieta.ui.animation.InteractiveHighlight
-import app.quieta.ui.glass.liquid.InnerShadow
-import app.quieta.ui.glass.liquid.innerShadow
 import app.quieta.ui.glass.liquid.lens
-import app.quieta.ui.glass.liquid.rememberCombinedBackdrop
 import app.quieta.ui.glass.liquid.vibrancy
 import kotlin.math.PI
 import kotlin.math.abs
@@ -376,8 +373,6 @@ fun FloatingBottomBar(
         }
 
     val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = -45f)
-    val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
-    val combinedBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
 
     Box(
         modifier = modifier.width(IntrinsicSize.Min),
@@ -507,56 +502,48 @@ fun FloatingBottomBar(
         if (tabWidthPx > 0f) {
             val tabWidthDp = with(density) { tabWidthPx.toDp() }
             if (isLiquidGlassMode) {
+                val pillRest = if (isInDark) Color.White.copy(alpha = 0.14f) else Color(0xFFE8E8E8)
                 Box(
                     Modifier
                         .padding(horizontal = 4.dp)
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
-                            // Scale lives here (not only in layerBlock) so edges are not clipped.
+                            scaleX = dampedDragAnimation.scaleX
+                            scaleY = dampedDragAnimation.scaleY
+                            val velocity = dampedDragAnimation.velocity / 10f
+                            scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
+                            scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
                             clip = false
                         }
+                        // Solid rest plate — avoids the black rim that combinedBackdrop
+                        // + lens/chromatic paint on HyperOS at the pill edge.
+                        .background(pillRest, pillShape)
                         .drawBackdrop(
-                            backdrop = combinedBackdrop,
+                            backdrop = backdrop,
                             shape = { pillShape },
                             effects = {
                                 val progress = dampedDragAnimation.pressProgress
-                                lens(
-                                    refractionHeight = 8.dp.toPx() * progress,
-                                    refractionAmount = 8.dp.toPx() * progress,
-                                    depthEffect = false,
-                                    chromaticAberration = 0.2f,
-                                )
+                                if (progress > 0.05f) {
+                                    lens(
+                                        refractionHeight = 6.dp.toPx() * progress,
+                                        refractionAmount = 6.dp.toPx() * progress,
+                                        depthEffect = false,
+                                        chromaticAberration = 0f,
+                                    )
+                                }
                             },
-                            highlight = { pillHighlight.copy(alpha = dampedDragAnimation.pressProgress) },
                             layerBlock = {
-                                scaleX = dampedDragAnimation.scaleX
-                                scaleY = dampedDragAnimation.scaleY
-                                val velocity = dampedDragAnimation.velocity / 10f
-                                scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
-                                scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
-                                clip = false
+                                // Scale already applied in graphicsLayer above.
                             },
                             onDrawSurface = {
                                 val progress = dampedDragAnimation.pressProgress
-                                // Light-gray resting pill over white milk bar.
                                 drawRect(
-                                    color = if (isInDark) {
-                                        Color.White.copy(alpha = 0.12f)
-                                    } else {
-                                        Color.Black.copy(alpha = 0.08f)
-                                    },
-                                    alpha = 1f - progress * 0.4f,
+                                    color = pillRest,
+                                    alpha = 0.55f + 0.25f * progress,
                                 )
                             },
                         )
-                        .innerShadow(shape = pillShape) {
-                            InnerShadow(
-                                radius = 8.dp * dampedDragAnimation.pressProgress,
-                                color = Color.Black.copy(alpha = 0.15f),
-                                alpha = dampedDragAnimation.pressProgress,
-                            )
-                        }
                         .height(56.dp)
                         .width(tabWidthDp),
                 )
