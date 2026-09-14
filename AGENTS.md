@@ -53,7 +53,7 @@
 |----|------|
 | 语言 | Kotlin |
 | UI | Jetpack Compose + miuix |
-| 构建 | Gradle Kotlin DSL + Version Catalog；AGP **9.3.2** · Gradle **9.5.0** · Kotlin **2.4.10**（AGP 9 自带 Kotlin，勿再单独 apply `kotlin-android`） |
+| 构建 | Gradle Kotlin DSL + Version Catalog；AGP **9.3.2** · Gradle **9.6.0** · Kotlin **2.4.10**；miuix 经 **本地 includeBuild**（`D:/Tools/miuix`，与 InstallerX 同源） |
 | minSdk | 26（液态玻璃仅 API ≥ 33；miuix-blur 用 `tools:overrideLibrary`） |
 | targetSdk / compileSdk | 37（`android.suppressUnsupportedCompileSdk=37,37.0`） |
 | 架构 | 多模块单向依赖；见下文 |

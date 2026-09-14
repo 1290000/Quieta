@@ -44,7 +44,8 @@ private data class OssLib(
  * Static OSS list — reliable on HyperOS; AboutLibraries plugin output not always present.
  */
 private val ossLibs = listOf(
-    OssLib("miuix", "compose-miuix-ui", "Apache-2.0", "https://github.com/compose-miuix-ui/miuix", "0.9.4-rc01"),
+    OssLib("miuix (local source)", "compose-miuix-ui", "Apache-2.0", "https://github.com/compose-miuix-ui/miuix", "includeBuild"),
+    OssLib("InstallerX Revived (reference)", "wxxsfxyzm", "GPL-3.0", "https://github.com/wxxsfxyzm/InstallerX-Revived"),
     OssLib("Shizuku API", "RikkaApps", "Apache-2.0", "https://github.com/RikkaApps/Shizuku-API", "13.1.5"),
     OssLib("HiddenApiBypass", "LSPosed", "GPL-3.0", "https://github.com/LSPosed/AndroidHiddenApiBypass", "6.1"),
     OssLib("AndroidLiquidGlass", "Kyant0", "Apache-2.0", "https://github.com/Kyant0/AndroidLiquidGlass"),

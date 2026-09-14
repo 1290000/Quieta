@@ -41,13 +41,8 @@ fun isProbablyEmulator(): Boolean {
 fun resolveBottomBarMode(
     blurEnabled: Boolean,
     liquidGlassSupported: Boolean,
-): FloatingBottomBarMode {
-    // HyperOS (K40s / munch) SIGSEGV in RenderThread with miuix drawBackdrop+lens
-    // (stack overflow in RuntimeShader). Keep solid/blur capsule; drag+scale still work.
-    val allowShader = false
-    return when {
-        !blurEnabled -> FloatingBottomBarMode.None
-        allowShader && liquidGlassSupported && isLiquidGlassSafe() -> FloatingBottomBarMode.LiquidGlass
-        else -> FloatingBottomBarMode.None
-    }
+): FloatingBottomBarMode = when {
+    !blurEnabled -> FloatingBottomBarMode.None
+    liquidGlassSupported && isLiquidGlassSafe() -> FloatingBottomBarMode.LiquidGlass
+    else -> FloatingBottomBarMode.None
 }
