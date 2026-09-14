@@ -200,14 +200,9 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
-    // Must stay milky-white even when the bar sits over empty page gray
-    // (no white cards). 0.4/0.72 collapses to gray on HyperOS F5F5F6.
+    // InstallerX: liquid = surfaceContainer.copy(0.4f)
     val containerColor =
-        if (isLiquidGlassMode) {
-            colors.containerColor.copy(alpha = if (isInDark) 0.72f else 0.88f)
-        } else {
-            colors.containerColor
-        }
+        if (isLiquidGlassMode) colors.containerColor.copy(alpha = 0.4f) else colors.containerColor
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -492,15 +487,6 @@ fun FloatingBottomBar(
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
-                            // Scale AFTER backdrop sampling (InstallerX puts this in
-                            // layerBlock). Scaling the shader input makes HyperOS
-                            // sample past the layer and paint a black rim.
-                            scaleX = dampedDragAnimation.scaleX
-                            scaleY = dampedDragAnimation.scaleY
-                            val velocity = dampedDragAnimation.velocity / 10f
-                            scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
-                            scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
-                            clip = false
                         }
                         .drawBackdrop(
                             backdrop = combinedBackdrop,
@@ -515,6 +501,13 @@ fun FloatingBottomBar(
                                 )
                             },
                             highlight = { pillHighlight.copy(alpha = dampedDragAnimation.pressProgress) },
+                            layerBlock = {
+                                scaleX = dampedDragAnimation.scaleX
+                                scaleY = dampedDragAnimation.scaleY
+                                val velocity = dampedDragAnimation.velocity / 10f
+                                scaleX /= 1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f)
+                                scaleY *= 1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f)
+                            },
                             onDrawSurface = {
                                 val progress = dampedDragAnimation.pressProgress
                                 drawRect(
