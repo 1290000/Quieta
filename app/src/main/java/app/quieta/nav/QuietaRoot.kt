@@ -1,7 +1,6 @@
 package app.quieta.nav
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -68,15 +67,21 @@ fun QuietaRoot() {
     val liquidSupported = android.os.Build.VERSION.SDK_INT >= 33
     val mode = resolveBottomBarMode(blurEnabled, liquidSupported)
     val useShader = mode != FloatingBottomBarMode.None
-    val pageBackdrop = rememberLayerBackdrop()
+    // InstallerX rememberMaterial3BlurBackdrop: paint an opaque surface rect into the
+    // layer BEFORE content. Without it, empty pages (no white cards) leave transparent
+    // pixels and the glass rim samples black / washes gray.
+    val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
+    val pageBackdrop = rememberLayerBackdrop(
+        onDraw = {
+            drawRect(surfaceColor)
+            drawContent()
+        },
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Page fills the screen; content scrolls UNDER the floating bar.
-        // Background must be inside the backdrop layer so glass never samples black.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
                 .then(
                     if (useShader) Modifier.layerBackdrop(pageBackdrop) else Modifier,
                 ),
