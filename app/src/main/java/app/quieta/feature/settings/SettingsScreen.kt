@@ -1,7 +1,9 @@
 package app.quieta.feature.settings
 
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,13 +18,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.BuildConfig
 import app.quieta.R
+import app.quieta.service.QuietaNotificationListener
 import app.quieta.ui.glass.FloatingBottomBarMode
 
 @Composable
@@ -31,8 +37,10 @@ fun SettingsScreen(
     onBlurEnabledChange: (Boolean) -> Unit,
     bottomBarMode: FloatingBottomBarMode,
     modifier: Modifier = Modifier,
+    viewModel: SettingsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
+    val autoMute by viewModel.autoMuteNewChannels.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -45,6 +53,36 @@ fun SettingsScreen(
             style = MaterialTheme.typography.displaySmall,
             modifier = Modifier.padding(top = 24.dp, bottom = 16.dp),
         )
+
+        SettingsCard(title = "治理") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("新渠道自动静音")
+                    Text(
+                        text = "默认关闭。开启后需「通知使用权」，且 Shizuku 可用。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = autoMute,
+                    onCheckedChange = { viewModel.setAutoMuteNewChannels(it) },
+                )
+            }
+            AboutRow(
+                title = "通知使用权",
+                subtitle = "打开系统设置，允许息匣读取通知",
+            ) {
+                runCatching {
+                    context.startActivity(
+                        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                    )
+                }
+            }
+        }
 
         SettingsCard(title = stringResource(R.string.settings_appearance)) {
             Row(
@@ -74,7 +112,6 @@ fun SettingsScreen(
                 title = stringResource(R.string.about_licenses),
                 subtitle = stringResource(R.string.about_licenses_desc),
             ) {
-                // Phase 1 stub: open repo licenses folder via browser.
                 openUrl(context, context.getString(R.string.repo_url) + "/blob/main/LICENSE")
             }
             AboutRow(
@@ -90,12 +127,17 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "${stringResource(R.string.about_version)} · ${BuildConfig.VERSION_NAME}",
+                        text = stringResource(R.string.about_version) + " · " + BuildConfig.VERSION_NAME,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        text = "${stringResource(R.string.about_author)} · ${stringResource(R.string.about_author_name)}",
+                        text = stringResource(R.string.about_author) + " · " + stringResource(R.string.about_author_name),
                         style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "组件 " + ComponentName(context, QuietaNotificationListener::class.java).flattenToString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }

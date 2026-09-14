@@ -147,6 +147,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
             val engine = RulesEngine(rules)
             val channels = withChannels.flatMap { it.channels }
+            app.quieta.core.auto.AutoMuteCoordinator.seedKnown(channels)
             _state.update {
                 it.copy(
                     loading = false,
