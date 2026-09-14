@@ -37,9 +37,18 @@
 
 **一期明确不做：** 快捷设置 Tile、桌面 Widget、平板/折叠优先布局、应用内静默强更。
 
-**已交付（步骤 5）：** 可选「新渠道自动静音」（默认关；NotificationListener 轻实现；不存通知正文）。
+**已交付（摘要）：** MVP 盘点/批量静音/可选自动静音；Shizuku 盘点与 setImportance；本地规则 JSON；四栏壳；关于/许可/检测更新；HyperOS 风格 UI；底栏已按 InstallerX 移植 DampedDrag + miuix lens（真机折射观感待用户确认）。**未创建 GitHub Release / 未打 tag。**
 
-**已交付（步骤 6 部分）：** AboutLibraries 许可页、手动检测更新（GitHub Releases API）、CI（assembleDebug+test）、默认启动规则。**未创建 GitHub Release / 未打 tag。**
+**已约定、尚未完成 / 待验收（后续代理优先做）：**
+
+1. **液态玻璃观感验收**：HyperOS 真机上 lens 折射/色散是否够明显；不够则只调参数，勿再关掉 shader 空谈。  
+2. **批量静音真机验收**：`setImportance` 在目标 ROM 上成功率；失败则修 uid/签名并写日志。  
+3. **Root / Dhizuku 后端**（二期接口已预留）。  
+4. **通知时间线页**：目前仅有 MuteLog 本地摘要；完整「记录」弱采集 UI 未做。  
+5. **二级页 Navigation**：仍是顶层状态切换，无独立返回栈（许可页有 BackHandler）。  
+6. **AboutLibraries 自动收集**：现为手写许可列表；插件生成 aboutlibraries.json 未接通。  
+7. **release 签名与首个 Release**：`signing.properties` 流程已约定，未生成正式包、未发 GitHub Release。  
+8. **记录页筛选**；**主题设置二级页**；**导出规则**仅配置页分享 JSON。
 
 **一期关于页必做：** 展示应用名与作者；「查看源代码」跳转本应用仓库；「检测更新」手动检查 GitHub Release（可打开最新页，不做静默下载/强制安装）。
 
@@ -53,7 +62,7 @@
 |----|------|
 | 语言 | Kotlin |
 | UI | Jetpack Compose + miuix |
-| 构建 | Gradle Kotlin DSL + Version Catalog；AGP **9.3.2** · Gradle **9.6.0** · Kotlin **2.4.10**；miuix 经 **本地 includeBuild**（`D:/Tools/miuix`，与 InstallerX 同源） |
+| 构建 | Gradle Kotlin DSL + Version Catalog；AGP **9.4.0** · Gradle **9.6.0** · Kotlin **2.4.10**；miuix **本地 includeBuild** `D:/Tools/miuix`（或 `-PmiuixDir=`） |
 | minSdk | 26（液态玻璃仅 API ≥ 33；miuix-blur 用 `tools:overrideLibrary`） |
 | targetSdk / compileSdk | 37（`android.suppressUnsupportedCompileSdk=37,37.0`） |
 | 架构 | 多模块单向依赖；见下文 |
