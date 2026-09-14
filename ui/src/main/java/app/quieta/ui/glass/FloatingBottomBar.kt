@@ -200,9 +200,13 @@ fun FloatingBottomBar(
     val pillShape = remember { CircleShape }
     val isLiquidGlassMode = mode == FloatingBottomBarMode.LiquidGlass
     val isBlurMode = mode == FloatingBottomBarMode.Blur
-    // InstallerX: liquid = surfaceContainer.copy(0.4f)
+    // Milk-white over light page (InstallerX 0.4 turns gray on HyperOS F5F5F6 bg).
     val containerColor =
-        if (isLiquidGlassMode) colors.containerColor.copy(alpha = 0.4f) else colors.containerColor
+        if (isLiquidGlassMode) {
+            colors.containerColor.copy(alpha = if (isInDark) 0.55f else 0.72f)
+        } else {
+            colors.containerColor
+        }
 
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
@@ -493,14 +497,18 @@ fun FloatingBottomBar(
                             shape = { pillShape },
                             effects = {
                                 val progress = dampedDragAnimation.pressProgress
+                                // Keep InstallerX press-gated lens. HyperOS paints a hard
+                                // black rim from depthEffect + chromatic at the SDF edge,
+                                // so those two stay off while refraction remains.
                                 lens(
                                     refractionHeight = 10.dp.toPx() * progress,
                                     refractionAmount = 14.dp.toPx() * progress,
-                                    depthEffect = true,
-                                    chromaticAberration = 0.5f,
+                                    depthEffect = false,
+                                    chromaticAberration = 0f,
                                 )
                             },
-                            highlight = { pillHighlight.copy(alpha = dampedDragAnimation.pressProgress) },
+                            // BloomStroke dual-peak also darkens the rim on this ROM.
+                            highlight = null,
                             layerBlock = {
                                 scaleX = dampedDragAnimation.scaleX
                                 scaleY = dampedDragAnimation.scaleY
