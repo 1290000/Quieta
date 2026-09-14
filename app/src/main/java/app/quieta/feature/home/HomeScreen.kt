@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +18,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -53,6 +56,7 @@ import app.quieta.R
 import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
 import app.quieta.core.model.RuleAction
+import app.quieta.ui.component.PageTitle
 import rikka.shizuku.Shizuku
 
 private const val REQ_SHIZUKU = 1001
@@ -84,16 +88,14 @@ fun HomeScreen(
     }
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Text(
-                text = stringResource(R.string.home_title),
-                style = MaterialTheme.typography.displaySmall,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-            )
+            PageTitle(stringResource(R.string.home_title))
         }
 
         item {

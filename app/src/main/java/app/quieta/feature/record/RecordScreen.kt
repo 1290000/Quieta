@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
+import app.quieta.ui.component.PageTitle
 
 data class RecordItem(
     val title: String,
@@ -44,7 +48,11 @@ fun RecordScreen(
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -65,11 +73,7 @@ fun RecordScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Text(
-                    text = stringResource(R.string.record_title),
-                    style = MaterialTheme.typography.displaySmall,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
+                PageTitle(stringResource(R.string.record_title))
             }
 
             if (items.isEmpty()) {

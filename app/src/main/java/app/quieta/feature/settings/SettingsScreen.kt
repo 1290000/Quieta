@@ -21,7 +21,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,11 +29,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.BuildConfig
 import app.quieta.R
 import app.quieta.service.QuietaNotificationListener
+import app.quieta.ui.component.PageTitle
+import app.quieta.ui.component.QuietaSwitch
 import app.quieta.ui.glass.FloatingBottomBarMode
 
 @Composable
@@ -55,13 +59,10 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = 20.dp),
     ) {
-        Text(
-            text = stringResource(R.string.settings_title),
-            style = MaterialTheme.typography.displaySmall,
-            modifier = Modifier.padding(top = 16.dp, bottom = 16.dp),
-        )
+        PageTitle(stringResource(R.string.settings_title))
 
         SectionTitle("个性化")
         SettingsGroup {
@@ -75,7 +76,7 @@ fun SettingsScreen(
                 subtitle = modeLabel(bottomBarMode) + " · 模糊开关",
                 onClick = { },
                 trailing = {
-                    Switch(checked = blurEnabled, onCheckedChange = onBlurEnabledChange)
+                    QuietaSwitch(checked = blurEnabled, onCheckedChange = onBlurEnabledChange)
                 },
             )
         }
@@ -215,7 +216,7 @@ private fun SwitchRow(
             Spacer(modifier = Modifier.height(2.dp))
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        QuietaSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

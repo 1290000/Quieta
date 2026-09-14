@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -60,16 +63,14 @@ fun ConfigScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 100.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Text(
-                    text = stringResource(R.string.config_title),
-                    style = MaterialTheme.typography.displaySmall,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-                )
+                app.quieta.ui.component.PageTitle(stringResource(R.string.config_title))
             }
 
             item {
@@ -210,6 +211,7 @@ private fun RuleCard(rule: Rule, onToggle: () -> Unit, onRemove: () -> Unit) {
                     checked = rule.enabled,
                     onCheckedChange = { onToggle() },
                     modifier = Modifier.padding(start = 4.dp),
+                    colors = app.quieta.ui.component.installerLikeSwitchColors(),
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = onRemove) {
