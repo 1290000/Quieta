@@ -347,7 +347,7 @@ UI (Compose) → UseCase / Engine → PrivilegeBackend / Repo
 3. **跳转**：点击条目用系统浏览器 / Custom Tab 打开对应仓库（如 GitHub），不得只显示纯文本无法跳转。  
 4. **实现**：优先 AboutLibraries 等自动收集；不足时用自维护 JSON 补 URL，并与 `libs.versions.toml` 同步。  
 5. **验收**：新增依赖的 PR/改动若未出现在该页，视为未完成。  
-6. 液态玻璃等改编自 Apache-2.0 项目的实现，须在列表中可见上游（如 Kyant0/AndroidLiquidGlass）。
+6. **移植代码的递归标注（强制，不限 InstallerX）**：从**任意**应用/项目搬来片段时，除标注该来源本身外，还必须把该片段内部引用的其它开源项目**单独**列入许可页（名称 + 许可证 + URL）。例：经 InstallerX 移植的动画若源自 KernelSU，则须单独标注 KernelSU，不能只写 InstallerX。液态玻璃同理须标注 Kyant0/AndroidLiquidGlass 等。
 
 ---
 
