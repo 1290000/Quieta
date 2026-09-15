@@ -5,6 +5,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.quieta.core.model.PrivilegeId
+import app.quieta.core.model.PrivilegeStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -47,8 +49,29 @@ class AppSettings(private val context: Context) {
         }
     }
 
+    /** Last successful capability result used only to avoid a misleading gray first frame. */
+    val lastKnownPrivilege: Flow<PrivilegeStatus?> = context.settingsStore.data.map { prefs ->
+        val id = prefs[KEY_LAST_PRIVILEGE_ID]?.let { raw ->
+            runCatching { PrivilegeId.valueOf(raw) }.getOrNull()
+        } ?: return@map null
+        PrivilegeStatus(
+            id = id,
+            available = true,
+            label = prefs[KEY_LAST_PRIVILEGE_LABEL].orEmpty().ifEmpty { id.name },
+        )
+    }
+
+    suspend fun setLastKnownPrivilege(status: PrivilegeStatus) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_LAST_PRIVILEGE_ID] = status.id.name
+            prefs[KEY_LAST_PRIVILEGE_LABEL] = status.label
+        }
+    }
+
     companion object {
         private val KEY_AUTO_MUTE = booleanPreferencesKey("auto_mute_new_channels")
         private val KEY_AUTHORIZER = stringPreferencesKey("preferred_authorizer")
+        private val KEY_LAST_PRIVILEGE_ID = stringPreferencesKey("last_known_privilege_id")
+        private val KEY_LAST_PRIVILEGE_LABEL = stringPreferencesKey("last_known_privilege_label")
     }
 }

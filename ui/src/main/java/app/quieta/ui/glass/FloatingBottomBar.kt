@@ -10,7 +10,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -372,7 +371,7 @@ fun FloatingBottomBar(
     val combinedBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
 
     Box(
-        modifier = modifier.width(IntrinsicSize.Min),
+        modifier = modifier.width(76.dp * tabsCount + 8.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         CompositionLocalProvider(LocalFloatingBottomBarContentColor provides colors.contentColor) {

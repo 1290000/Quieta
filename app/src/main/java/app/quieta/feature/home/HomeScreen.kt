@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -94,7 +95,7 @@ fun HomeScreen(
         modifier = modifier,
         blurEnabled = blurEnabled,
     ) {
-        item {
+        item(key = "status") {
             StatusGrid(
                 gate = state.gate,
                 privilege = state.privilege,
@@ -105,7 +106,7 @@ fun HomeScreen(
             )
         }
 
-        item {
+        item(key = "actions") {
             GateActions(
                 state = state,
                 onRequestPermission = {
@@ -117,7 +118,7 @@ fun HomeScreen(
             )
         }
 
-        item {
+        item(key = "device") {
             DeviceInfoCard(privilegeLabel = state.privilege.label, autoMuteOn = state.autoMuteOn)
         }
 
@@ -232,6 +233,8 @@ private fun StatusGrid(
                             else -> "通知降噪未就绪"
                         },
                         style = MaterialTheme.typography.headlineSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -242,12 +245,16 @@ private fun StatusGrid(
                             else -> privilege.label
                         },
                         style = app.quieta.ui.theme.QuietaTextStyles.statusDetail,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                     )
                     Spacer(modifier = Modifier.height(36.dp))
                     Text(
                         text = if (checking) "…" else privilege.label,
                         style = app.quieta.ui.theme.QuietaTextStyles.statusDetail,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     )
                 }
@@ -265,7 +272,7 @@ private fun StatusGrid(
                     .weight(1f)
                     .fillMaxHeight(),
                 title = stringResource(R.string.home_stat_authorizers),
-                value = authorizerCount.toString(),
+                value = if (checking) "…" else authorizerCount.toString(),
                 onClick = onOpenPrivilege,
             )
             StatCard(
@@ -325,11 +332,6 @@ private fun GateActions(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             when (state.gate) {
-                PrivilegeGate.CHECKING -> Text(
-                    text = "检测中…",
-                    modifier = Modifier.padding(8.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
                 PrivilegeGate.NEED_PERMISSION -> {
                     Button(onClick = onRequestPermission, modifier = Modifier.weight(1f)) {
                         Text("请求 Shizuku 授权")
@@ -341,15 +343,16 @@ private fun GateActions(
                     }
                     TextButton(onClick = onRefresh) { Text("重试") }
                 }
-                PrivilegeGate.READY -> {
-                    OutlinedButton(onClick = onRefresh) {
+                PrivilegeGate.CHECKING, PrivilegeGate.READY -> {
+                    OutlinedButton(onClick = onRefresh, enabled = !state.checkingPrivilege) {
                         Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.size(4.dp))
                         Text("刷新")
                     }
                     Button(
                         onClick = onApplyMute,
-                        enabled = state.plan.any { it.value != RuleAction.KEEP } &&
+                        enabled = !state.checkingPrivilege && state.gate == PrivilegeGate.READY &&
+                            state.plan.any { it.value != RuleAction.KEEP } &&
                             (state.privilege.id != app.quieta.core.model.PrivilegeId.ROOT || state.rootWriteSupported),
                         modifier = Modifier.weight(1f),
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(

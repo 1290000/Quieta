@@ -49,6 +49,7 @@ enum class PrivilegeGate {
 
 data class HomeUiState(
     val loading: Boolean = true,
+    val checkingPrivilege: Boolean = true,
     val gate: PrivilegeGate = PrivilegeGate.CHECKING,
     val privilege: PrivilegeStatus = PrivilegeStatus(
         id = PrivilegeId.NONE,
@@ -101,6 +102,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update { it.copy(autoMuteOn = autoMute) }
             }
         }
+        viewModelScope.launch {
+            appSettings.lastKnownPrivilege.collect { cached ->
+                if (cached != null && _state.value.privilege.id == PrivilegeId.NONE) {
+                    _state.update {
+                        it.copy(
+                            gate = PrivilegeGate.READY,
+                            privilege = cached,
+                        )
+                    }
+                }
+            }
+        }
         cacheJob = viewModelScope.launch {
             val cached = inventoryStore.current()
             if (cached.isNotEmpty()) {
@@ -142,8 +155,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         refreshJob?.cancel()
         inventoryJob?.cancel()
         refreshJob = viewModelScope.launch {
-            _state.update { it.copy(gate = PrivilegeGate.CHECKING, loading = true, error = null,
-                privilege = PrivilegeStatus(PrivilegeId.NONE, false, "检测中")) }
+            _state.update { it.copy(checkingPrivilege = true, loading = true, error = null) }
             val shizukuProbe = async(Dispatchers.IO) { CapabilityProbe.probeShizuku() }
             val dhizukuProbe = async(Dispatchers.IO) { dhizukuBackend.isAvailable() }
             val rootProbe = async(Dispatchers.IO) { rootBackend.probeCapabilities() }
@@ -167,8 +179,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
             val pref = _state.value.preferredAuthorizer
 
-            _state.update {
+            val capabilityUpdate: (HomeUiState) -> HomeUiState = {
                 it.copy(
+                    checkingPrivilege = false,
                     shizukuAvailable = shizuku.binderAlive,
                     shizukuAuthorized = shizuku.binderAlive && shizuku.permissionGranted,
                     dhizukuAvailable = dhizukuOk,
@@ -196,7 +209,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     PrivilegeId.NONE -> "无特权"
                 }
                 _state.update {
-                    it.copy(
+                    capabilityUpdate(it).copy(
                         gate = PrivilegeGate.READY,
                         error = null,
                         privilege = PrivilegeStatus(
@@ -206,10 +219,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     )
                 }
+                appSettings.setLastKnownPrivilege(
+                    PrivilegeStatus(chosen.id, available = true, label = label),
+                )
                 startInventoryRefresh()
             } else if (pref == app.quieta.core.settings.PreferredAuthorizer.NONE) {
                 _state.update {
-                    it.copy(
+                    capabilityUpdate(it).copy(
                         loading = false,
                         gate = PrivilegeGate.SHIZUKU_UNAVAILABLE,
                         privilege = PrivilegeStatus(
@@ -224,7 +240,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     app.quieta.core.settings.PreferredAuthorizer.SHIZUKU) &&
                 shizuku.binderAlive && !shizuku.permissionGranted) {
                 _state.update {
-                    it.copy(
+                    capabilityUpdate(it).copy(
                         loading = false,
                         gate = PrivilegeGate.NEED_PERMISSION,
                         privilege = PrivilegeStatus(
@@ -237,7 +253,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } else {
                 _state.update {
-                    it.copy(
+                    capabilityUpdate(it).copy(
                         loading = false,
                         gate = PrivilegeGate.SHIZUKU_UNAVAILABLE,
                         privilege = PrivilegeStatus(
@@ -256,7 +272,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun onPackageChanged(packageName: String, removed: Boolean) {
         if (packageName == appContext.packageName) return
         viewModelScope.launch {
-            if (_state.value.gate != PrivilegeGate.READY) return@launch
+            if (_state.value.checkingPrivilege || _state.value.gate != PrivilegeGate.READY) return@launch
             val activeBackend = backend
             if (removed) {
                 inventoryStore.remove(packageName)
@@ -288,7 +304,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun applyBatchMute() {
         viewModelScope.launch {
-            if (_state.value.gate != PrivilegeGate.READY) return@launch
+            if (_state.value.checkingPrivilege || _state.value.gate != PrivilegeGate.READY) return@launch
             val activeBackend = backend
             val rules = ruleRepository.current()
             val apps = _state.value.apps

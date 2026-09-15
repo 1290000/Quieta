@@ -192,6 +192,7 @@ core/rom/
 - 一期手机竖屏优先。
 - 顶栏统一使用 miuix `TopAppBar` + `MiuixScrollBehavior`（大标题收拢为居中小标题）；滚动容器使用 `overScrollVertical`，关闭系统 overscroll，触顶/触底按 InstallerX Revived 回弹。状态栏 inset 仅由顶栏处理。
 - 可点击的独立卡片使用 miuix `PressFeedbackType.Tilt` + 按压着色；分组内选项保持整行反馈，不缩放单行文字。miuix 与 Material 共用息匣深浅色主题。
+- 首屏独立卡片使用 miuix `addSquircleRect` 路径轮廓，保留 Tilt 与着色，避免首帧 SDF 贴图解码；状态卡刷新保留上次结果，检测期间禁写，检测结果一次提交；状态文案区和操作区预留稳定尺寸。
 - 可用特权页采用两块蓝色说明区 + 单组圆形勾选项；保留无特权 / ROOT / Shizuku / Dhizuku / 自动选择，不显示未实现的自定义提权命令。
 
 ### 应用图标（已选定，强制）

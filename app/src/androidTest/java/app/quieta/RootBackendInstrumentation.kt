@@ -7,14 +7,22 @@ import kotlinx.coroutines.runBlocking
 
 /** Explicit device test; only mutates a disposable channel owned by the test APK. */
 class RootBackendInstrumentation : Instrumentation() {
+    private var checkStartup = false
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        checkStartup = arguments?.getString("startup") == "true"
         start()
     }
 
     override fun onStart() {
         val result = Bundle()
         try {
+            if (checkStartup) {
+                checkRefreshState()
+                result.putString("result", "PASS: refresh retains displayed status and blocks writes while probing")
+                finish(RESULT_OK, result)
+                return
+            }
             runBlocking {
                 val backend = RootBackend(targetContext)
                 val capability = backend.probeCapabilities()
@@ -40,6 +48,38 @@ class RootBackendInstrumentation : Instrumentation() {
         } catch (error: Exception) {
             result.putString("error", error.stackTraceToString())
             finish(RESULT_CANCELED, result)
+        }
+    }
+
+    private fun checkRefreshState() {
+        val store = androidx.lifecycle.ViewModelStore()
+        lateinit var model: app.quieta.feature.home.HomeViewModel
+        runOnMainSync {
+            model = app.quieta.feature.home.HomeViewModel(targetContext.applicationContext as android.app.Application)
+            store.put("home", model)
+        }
+        try {
+            runBlocking {
+                kotlinx.coroutines.withTimeout(30_000) {
+                    while (model.state.value.checkingPrivilege) kotlinx.coroutines.delay(25)
+                }
+                val before = model.state.value
+                check(before.gate == app.quieta.feature.home.PrivilegeGate.READY)
+                runOnMainSync {
+                    model.refresh()
+                    val during = model.state.value
+                    check(during.checkingPrivilege)
+                    check(during.privilege == before.privilege && during.gate == before.gate)
+                    model.applyBatchMute()
+                    check(model.state.value.muteResult == null)
+                }
+                kotlinx.coroutines.withTimeout(30_000) {
+                    while (model.state.value.checkingPrivilege) kotlinx.coroutines.delay(25)
+                }
+                check(model.state.value.privilege == before.privilege)
+            }
+        } finally {
+            runOnMainSync { store.clear() }
         }
     }
 
