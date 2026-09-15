@@ -66,11 +66,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            val rules = runCatching { ruleRepository.rules.first() }.getOrDefault(emptyList())
             val autoMute = runCatching { appSettings.autoMuteNewChannels.first() }.getOrDefault(false)
-            _state.update {
-                it.copy(rulesCount = rules.size, autoMuteOn = autoMute)
+            _state.update { it.copy(autoMuteOn = autoMute) }
+            // Keep plan in sync with rule toggles on the config page.
+            ruleRepository.rules.collect { rules ->
+                val channels = _state.value.apps.flatMap { it.channels }
+                _state.update {
+                    it.copy(
+                        rulesCount = rules.size,
+                        plan = if (channels.isEmpty()) it.plan else RulesEngine(rules).plan(channels),
+                    )
+                }
             }
+        }
+        viewModelScope.launch {
             refresh()
         }
     }
@@ -130,7 +139,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun applyBatchMute() {
         viewModelScope.launch {
-            val plan = _state.value.plan
+            // Always recompute from the latest rules so config-page toggles apply immediately.
+            val rules = runCatching { ruleRepository.rules.first() }.getOrDefault(emptyList())
+            val channels = _state.value.apps.flatMap { it.channels }
+            val plan = RulesEngine(rules).plan(channels)
+            _state.update { it.copy(plan = plan) }
             if (plan.isEmpty()) {
                 _state.update { it.copy(muteResult = MuteResult(0, 0, 0, listOf("没有可执行的规则"))) }
                 return@launch

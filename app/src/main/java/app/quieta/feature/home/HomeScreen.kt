@@ -66,6 +66,8 @@ private val StatusGreenBg = Color(0xFFDFFAE4)
 private val StatusGreenIcon = Color(0xFF34C759)
 private val StatusRedBg = Color(0xFFFAEEEE)
 private val StatusRedIcon = Color(0xFFFF3B30)
+private val StatusNeutralBg = Color(0xFFF0F0F1)
+private val StatusNeutralIcon = Color(0xFF8E8E93)
 
 @Composable
 fun HomeScreen(
@@ -169,9 +171,19 @@ fun HomeScreen(
 /** InstallerX-like: big status card + two stat cards. */
 @Composable
 private fun StatusGrid(state: HomeUiState) {
-    val active = state.privilege.available
-    val containerColor = if (active) StatusGreenBg else StatusRedBg
-    val iconTint = if (active) StatusGreenIcon else StatusRedIcon
+    // Neutral while probing so the card does not flash red before Shizuku is known.
+    val checking = state.gate == PrivilegeGate.CHECKING && !state.privilege.available
+    val active = state.privilege.available && !checking
+    val containerColor = when {
+        active -> StatusGreenBg
+        checking -> StatusNeutralBg
+        else -> StatusRedBg
+    }
+    val iconTint = when {
+        active -> StatusGreenIcon
+        checking -> StatusNeutralIcon
+        else -> StatusRedIcon
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(
@@ -188,7 +200,11 @@ private fun StatusGrid(state: HomeUiState) {
                     contentAlignment = Alignment.BottomEnd,
                 ) {
                     Icon(
-                        imageVector = if (active) Icons.Rounded.CheckCircleOutline else Icons.Rounded.ErrorOutline,
+                        imageVector = when {
+                            active -> Icons.Rounded.CheckCircleOutline
+                            checking -> Icons.Outlined.Refresh
+                            else -> Icons.Rounded.ErrorOutline
+                        },
                         contentDescription = null,
                         tint = iconTint.copy(alpha = 0.85f),
                         modifier = Modifier.size(150.dp),
@@ -200,27 +216,27 @@ private fun StatusGrid(state: HomeUiState) {
                         .padding(16.dp),
                 ) {
                     Text(
-                        text = if (active) {
-                            "正在作为通知降噪工具工作"
-                        } else {
-                            "通知降噪未就绪"
+                        text = when {
+                            active -> "正在作为通知降噪工具工作"
+                            checking -> "正在检测通知降噪能力"
+                            else -> "通知降噪未就绪"
                         },
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (active) {
-                            "已通过 Shizuku 读取通知渠道"
-                        } else {
-                            state.privilege.label
+                        text = when {
+                            active -> "已通过 Shizuku 读取通知渠道"
+                            checking -> "检测中…"
+                            else -> state.privilege.label
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                     )
                     Spacer(modifier = Modifier.height(36.dp))
                     Text(
-                        text = state.privilege.label,
+                        text = if (checking) "…" else state.privilege.label,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     )

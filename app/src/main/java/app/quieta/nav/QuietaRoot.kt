@@ -123,7 +123,6 @@ fun QuietaRoot() {
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
                 userScrollEnabled = true,
-                beyondViewportPageCount = 1,
             ) { page ->
                 when (tabRoutes[page]) {
                     QuietaRoutes.HOME -> HomeScreen(modifier = Modifier.fillMaxSize())
