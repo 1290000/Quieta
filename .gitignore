@@ -21,3 +21,15 @@ keystores/
 # 抓包/日志
 *.log
 captures/
+
+# Local investigation output; never versioned.
+/artifacts/
+__pycache__/
+*.pyc
+
+# docs: Markdown plus explicitly approved assets and generators only.
+/docs/**
+!/docs/**/
+!/docs/**/*.md
+!/docs/icon-concepts/SELECTED-app-icon.png
+!/docs/icon-concepts/generate_mipmaps.py

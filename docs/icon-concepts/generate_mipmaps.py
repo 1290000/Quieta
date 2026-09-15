@@ -1,7 +1,7 @@
 from pathlib import Path
 from PIL import Image
 
-root = Path(r"C:\Users\i1290\Documents\ChatGPT\Quieta")
+root = Path(__file__).resolve().parents[2]
 src = root / "docs" / "icon-concepts" / "SELECTED-app-icon.png"
 res = root / "app" / "src" / "main" / "res"
 

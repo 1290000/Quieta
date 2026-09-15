@@ -194,7 +194,7 @@ core/rom/
 
 | 项 | 约定 |
 |----|------|
-| 选定概念图 | `docs/icon-concepts/SELECTED-app-icon.png`（绿匣 + 三条蓝色通知卡；源文件 `quieta-icon-v1.png`） |
+| 选定概念图 | `docs/icon-concepts/SELECTED-app-icon.png`（绿匣 + 三条蓝色通知卡；仓库内唯一正式源图） |
 | 语义 | 通知条被收入「息匣」；勿再改回其它方向 |
 | 打包 | **所有** debug/release 的 launcher 图标必须由该图（或由其导出的自适应图标分层）生成；禁止使用 Android 模板默认图标、禁止误用其他草稿（`v3-*`、`v4-b/c` 等） |
 | 资源路径 | 步骤 1 起：`app/src/main/res/mipmap-*` / `ic_launcher*.xml` 自适应图标以本文件指定源图切图；切图脚本或说明放在 `docs/icon-concepts/` |
@@ -309,6 +309,9 @@ UI (Compose) → UseCase / Engine → PrivilegeBackend / Repo
 
 ### 卫生
 
+- `docs/` 只保留长期有效的 Markdown 文档及明确批准的资源/生成脚本，目录说明见 `docs/README.md`；非 Markdown 文件须在 `scripts/check_repo_hygiene.py` 白名单中登记用途。
+- 临时截图、录屏帧、UI 层级 XML、图标草稿和上游源码检出放仓库外或根目录被忽略的 `artifacts/`，禁止堆入 `docs/`；移植完成保留来源与许可说明，不保留无用源码副本。
+- 提交前暂存相关改动，再运行 `python scripts/check_repo_hygiene.py`；CI 对 Git 索引内路径执行相同检查，禁止以强制添加绕过目录规则。
 - `!!` 仅在局部可证明非空时使用  
 - 禁用 `GlobalScope`；用 `viewModelScope` / 明确 Job  
 - 公共类型写一句 KDoc；私有实现少写过程注释  
