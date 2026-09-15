@@ -59,29 +59,121 @@ class ShizukuBackend(
         val nm = notificationManager()
         val iface = Class.forName("android.app.INotificationManager")
         val uid = uidOf(packageName)
+        if (uid == 0) error("uid not found for $packageName")
 
-        val getOne = iface.methods.firstOrNull {
-            it.name == "getNotificationChannelForPackage" && it.parameterCount == 5
-        } ?: iface.methods.firstOrNull {
-            it.name == "getNotificationChannelForPackage" && it.parameterCount == 4
-        } ?: error("getNotificationChannelForPackage not found")
+        // MIUI's getNotificationChannelForPackage overloads often return null.
+        // Reuse the list path that already works (getNotificationChannelsForPackage).
+        val existing = queryNotificationChannels(packageName).find { it.id == channelId }
+            ?: error("channel not found: $packageName/$channelId uid=$uid")
 
-        val channel = when (getOne.parameterCount) {
-            5 -> getOne.invoke(nm, packageName, channelId, uid, false, 0)
-            4 -> getOne.invoke(nm, packageName, channelId, uid)
-            else -> null
-        } ?: error("channel not found: $packageName/$channelId uid=$uid")
-
-        val setImportance = channel.javaClass.methods.firstOrNull {
+        val setImportance = existing.javaClass.methods.firstOrNull {
             it.name == "setImportance" && it.parameterCount == 1
         } ?: error("setImportance not found")
-        setImportance.invoke(channel, importance)
+        setImportance.invoke(existing, importance)
 
-        val update = iface.methods.firstOrNull {
-            it.name == "updateNotificationChannelForPackage" && it.parameterCount == 3
-        } ?: error("updateNotificationChannelForPackage not found")
-        update.invoke(nm, packageName, uid, channel)
+        val updated = invokeUpdateChannel(nm, iface, packageName, uid, existing) ||
+            invokeCreateChannel(nm, iface, packageName, uid, existing)
+        if (!updated) {
+            error("updateNotificationChannelForPackage failed uid=$uid")
+        }
         Log.d(TAG, "setImportance $packageName/$channelId -> $importance uid=$uid")
+    }
+
+    private fun invokeCreateChannel(
+        nm: Any,
+        iface: Class<*>,
+        pkg: String,
+        uid: Int,
+        channel: Any,
+    ): Boolean {
+        for (m in iface.methods) {
+            if (m.name != "createNotificationChannel") continue
+            val t = m.parameterTypes
+            if (t.size < 3) continue
+            if (t[0] != String::class.java || t[1] != Integer.TYPE) continue
+            val ok = runCatching { m.invoke(nm, pkg, uid, channel) }
+            if (ok.isSuccess) {
+                Log.d(TAG, "createNotificationChannel ok for $pkg uid=$uid")
+                return true
+            } else {
+                Log.w(TAG, "createNotificationChannel failed: ${ok.exceptionOrNull()?.cause ?: ok.exceptionOrNull()}")
+            }
+        }
+        return false
+    }
+
+    /**
+     * MIUI/AOSP expose several overloads of getNotificationChannelForPackage.
+     * Match by parameterTypes — first hit by arity can be the wrong signature.
+     */
+    private fun invokeGetChannel(
+        nm: Any,
+        iface: Class<*>,
+        pkg: String,
+        uid: Int,
+        channelId: String,
+    ): Any? {
+        for (m in iface.methods) {
+            if (m.name != "getNotificationChannelForPackage") continue
+            val t = m.parameterTypes
+            val args: Array<Any?> = when {
+                // (String pkg, int uid, String channelId, boolean includeDeleted, int userId) — AOSP
+                t.size == 5 &&
+                    t[0] == String::class.java && t[1] == Integer.TYPE &&
+                    t[2] == String::class.java && t[3] == java.lang.Boolean.TYPE &&
+                    t[4] == Integer.TYPE ->
+                    arrayOf(pkg, uid, channelId, false, 0)
+                // (String pkg, int uid, String channelId, boolean includeDeleted)
+                t.size == 4 &&
+                    t[0] == String::class.java && t[1] == Integer.TYPE &&
+                    t[2] == String::class.java && t[3] == java.lang.Boolean.TYPE ->
+                    arrayOf(pkg, uid, channelId, false)
+                // (String pkg, int uid, String channelId)
+                t.size == 3 &&
+                    t[0] == String::class.java && t[1] == Integer.TYPE &&
+                    t[2] == String::class.java ->
+                    arrayOf(pkg, uid, channelId)
+                else -> continue
+            }
+            val result = runCatching { m.invoke(nm, *args) }.getOrNull()
+            if (result != null) return result
+        }
+        return null
+    }
+
+    private fun invokeUpdateChannel(
+        nm: Any,
+        iface: Class<*>,
+        pkg: String,
+        uid: Int,
+        channel: Any,
+    ): Boolean {
+        for (m in iface.methods) {
+            if (m.name != "updateNotificationChannelForPackage") continue
+            val t = m.parameterTypes
+            val matches = t.size >= 3 &&
+                t[0] == String::class.java &&
+                t[1] == Integer.TYPE &&
+                t[2].isAssignableFrom(channel.javaClass)
+            if (!matches) continue
+            val args = when (t.size) {
+                3 -> arrayOf(pkg, uid, channel)
+                4 -> arrayOf(
+                    pkg,
+                    uid,
+                    channel,
+                    if (t[3] == java.lang.Boolean.TYPE) false else 0,
+                )
+                else -> continue
+            }
+            val result = runCatching { m.invoke(nm, *args) }
+            if (result.isSuccess) {
+                return true
+            } else {
+                Log.w(TAG, "updateNotificationChannelForPackage failed: ${result.exceptionOrNull()?.cause ?: result.exceptionOrNull()}")
+            }
+        }
+        return false
     }
 
     private fun notificationManager(): Any {

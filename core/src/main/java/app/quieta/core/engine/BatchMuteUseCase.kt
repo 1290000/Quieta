@@ -1,5 +1,6 @@
 package app.quieta.core.engine
 
+import android.util.Log
 import app.quieta.core.model.Channel
 import app.quieta.core.model.RuleAction
 import app.quieta.core.privilege.PrivilegeBackend
@@ -41,6 +42,7 @@ class BatchMuteUseCase(
                     success++
                 }.onFailure { e ->
                     failed++
+                    Log.w(TAG, "setImportance failed ${channel.packageName}/${channel.id}: ${e.message}", e)
                     if (errors.size < 8) {
                         errors += "${channel.packageName}/${channel.id}: ${e.message}"
                     }
@@ -49,5 +51,9 @@ class BatchMuteUseCase(
             delay(batchDelayMs)
         }
         return MuteResult(total = targets.size, success = success, failed = failed, errors = errors)
+    }
+
+    private companion object {
+        const val TAG = "BatchMute"
     }
 }
