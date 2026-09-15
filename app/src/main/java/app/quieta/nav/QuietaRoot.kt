@@ -46,6 +46,8 @@ import app.quieta.feature.privilege.PrivilegeScreen
 import app.quieta.feature.record.RecordScreen
 import app.quieta.feature.settings.LicensesScreen
 import app.quieta.feature.settings.SettingsScreen
+import app.quieta.feature.settings.ThemeScreen
+import app.quieta.core.settings.ThemeMode
 import app.quieta.ui.glass.FloatingBottomBar
 import app.quieta.ui.glass.FloatingBottomBarDefaults
 import app.quieta.ui.glass.FloatingBottomBarMode
@@ -72,8 +74,7 @@ private val tabRoutes = listOf(
 fun QuietaRoot() {
     var selectedRoute by rememberSaveable { mutableStateOf(QuietaRoutes.HOME) }
     var blurEnabled by rememberSaveable { mutableStateOf(true) }
-    var showLicenses by rememberSaveable { mutableStateOf(false) }
-    var showPrivilege by rememberSaveable { mutableStateOf(false) }
+    var secondaryStack by rememberSaveable { mutableStateOf(listOf<String>()) }
     val homeViewModel: HomeViewModel = viewModel()
     val context = LocalContext.current
     val pageStateHolder = rememberSaveableStateHolder()
@@ -97,13 +98,12 @@ fun QuietaRoot() {
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
 
-    if (showLicenses) {
-        BackHandler { showLicenses = false }
-        LicensesScreen(onBack = { showLicenses = false }, blurEnabled = blurEnabled)
-        return
-    }
-
-    if (showPrivilege) {
+    val secondary = secondaryStack.lastOrNull()
+    if (secondary != null) {
+        BackHandler { secondaryStack = secondaryStack.dropLast(1) }
+        when (secondary) {
+            "licenses" -> LicensesScreen(onBack = { secondaryStack = secondaryStack.dropLast(1) }, blurEnabled = blurEnabled)
+            "privilege" -> {
         val homeState by homeViewModel.state.collectAsStateWithLifecycle()
         PrivilegeScreen(
             selected = homeState.preferredAuthorizer,
@@ -113,10 +113,17 @@ fun QuietaRoot() {
             shizukuAvailable = homeState.shizukuAvailable,
             shizukuAuthorized = homeState.shizukuAuthorized,
             dhizukuAvailable = homeState.dhizukuAvailable,
-            onBack = { showPrivilege = false },
+            onBack = { secondaryStack = secondaryStack.dropLast(1) },
             onSelect = { homeViewModel.setPreferredAuthorizer(it) },
             blurEnabled = blurEnabled,
         )
+            }
+            "theme" -> {
+                val settingsViewModel: app.quieta.feature.settings.SettingsViewModel = viewModel()
+                val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
+                ThemeScreen(themeMode, settingsViewModel::setThemeMode, { secondaryStack = secondaryStack.dropLast(1) }, blurEnabled)
+            }
+        }
         return
     }
 
@@ -180,7 +187,7 @@ fun QuietaRoot() {
                         QuietaRoutes.HOME -> HomeScreen(
                             modifier = Modifier.fillMaxSize(),
                             viewModel = homeViewModel,
-                            onOpenPrivilege = { showPrivilege = true },
+                            onOpenPrivilege = { secondaryStack = secondaryStack + "privilege" },
                             onOpenConfig = { selectedRoute = QuietaRoutes.CONFIG },
                             blurEnabled = blurEnabled,
                         )
@@ -190,7 +197,8 @@ fun QuietaRoot() {
                             blurEnabled = blurEnabled,
                             onBlurEnabledChange = { blurEnabled = it },
                             bottomBarMode = mode,
-                            onOpenLicenses = { showLicenses = true },
+                            onOpenLicenses = { secondaryStack = secondaryStack + "licenses" },
+                            onOpenTheme = { secondaryStack = secondaryStack + "theme" },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }

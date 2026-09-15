@@ -27,7 +27,17 @@ enum class PreferredAuthorizer {
     }
 }
 
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
 class AppSettings(private val context: Context) {
+
+    val themeMode: Flow<ThemeMode> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM
+    }
+
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.settingsStore.edit { it[KEY_THEME_MODE] = mode.name }
+    }
 
     val autoMuteNewChannels: Flow<Boolean> = context.settingsStore.data.map { prefs ->
         prefs[KEY_AUTO_MUTE] ?: false
@@ -81,6 +91,7 @@ class AppSettings(private val context: Context) {
     companion object {
         private val KEY_AUTO_MUTE = booleanPreferencesKey("auto_mute_new_channels")
         private val KEY_TIMELINE_ENABLED = booleanPreferencesKey("notification_timeline_enabled")
+        private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_AUTHORIZER = stringPreferencesKey("preferred_authorizer")
         private val KEY_LAST_PRIVILEGE_ID = stringPreferencesKey("last_known_privilege_id")
         private val KEY_LAST_PRIVILEGE_LABEL = stringPreferencesKey("last_known_privilege_label")

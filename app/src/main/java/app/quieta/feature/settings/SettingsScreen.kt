@@ -44,6 +44,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(),
     aboutViewModel: AboutViewModel = viewModel(),
+    onOpenTheme: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val repoUrl = stringResource(R.string.repo_url)
@@ -63,7 +64,7 @@ fun SettingsScreen(
                 NavRow(
                     title = "主题设置",
                     subtitle = "更改应用主题",
-                    onClick = { /* later */ },
+                    onClick = onOpenTheme,
                 )
                 NavRow(
                     title = "液态玻璃",
