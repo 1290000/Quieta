@@ -76,7 +76,6 @@ fun QuietaRoot() {
     var showPrivilege by rememberSaveable { mutableStateOf(false) }
     val homeViewModel: HomeViewModel = viewModel()
     val context = LocalContext.current
-    val homeState by homeViewModel.state.collectAsStateWithLifecycle()
     val pageStateHolder = rememberSaveableStateHolder()
 
     // LibChecker-style incremental package updates — never full rescan on install/remove.
@@ -105,6 +104,7 @@ fun QuietaRoot() {
     }
 
     if (showPrivilege) {
+        val homeState by homeViewModel.state.collectAsStateWithLifecycle()
         PrivilegeScreen(
             selected = homeState.preferredAuthorizer,
             rootAvailable = homeState.rootAvailable,

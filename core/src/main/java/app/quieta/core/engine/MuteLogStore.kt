@@ -1,16 +1,13 @@
 package app.quieta.core.engine
 
 import android.content.Context
+import app.quieta.core.repo.AsyncLocalState
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -29,20 +26,15 @@ data class MuteLogEntry(
  */
 class MuteLogStore private constructor(context: Context) {
 
-    private val file = File(context.applicationContext.filesDir, "mute_logs.json")
-    private val _entries = MutableStateFlow(load())
-    val entries: StateFlow<List<MuteLogEntry>> = _entries.asStateFlow()
+    private val file by lazy { File(context.applicationContext.filesDir, "mute_logs.json") }
+    private val storage = AsyncLocalState(emptyList(), ::load, ::write)
+    val entries: StateFlow<List<MuteLogEntry>> = storage.state
 
-    suspend fun append(entry: MuteLogEntry) = withContext(Dispatchers.IO) {
-        val next = (listOf(entry) + _entries.value).take(MAX)
-        _entries.value = next
-        write(next)
+    suspend fun append(entry: MuteLogEntry) = storage.update { previous ->
+        (listOf(entry) + previous).take(MAX)
     }
 
-    suspend fun clear() = withContext(Dispatchers.IO) {
-        _entries.value = emptyList()
-        write(emptyList())
-    }
+    suspend fun clear() = storage.update { emptyList() }
 
     private fun write(list: List<MuteLogEntry>) {
         val arr = JSONArray()

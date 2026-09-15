@@ -9,7 +9,6 @@ import app.quieta.core.repo.RuleRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -42,7 +41,7 @@ object AutoMuteCoordinator {
         scope.launch {
             mutex.withLock {
                 runCatching {
-                    val rules = repository.rules.first()
+                    val rules = repository.current()
                     if (rules.isEmpty()) return@runCatching
                     val channel = Channel(
                         packageName = packageName,

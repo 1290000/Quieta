@@ -4,12 +4,8 @@ import android.content.Context
 import app.quieta.core.model.Rule
 import java.io.File
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
  * Local JSON rule store (no Room in MVP). File lives in filesDir.
@@ -19,27 +15,18 @@ import kotlinx.coroutines.sync.withLock
  */
 class RuleRepository private constructor(context: Context) {
 
-    private val file = File(context.applicationContext.filesDir, "rules.json")
-    private val _rules = MutableStateFlow(loadFromDisk())
-    private val writeMutex = Mutex()
+    private val file by lazy { File(context.applicationContext.filesDir, "rules.json") }
+    private val storage = AsyncLocalState(emptyList(), ::loadFromDisk, write = {
+        file.writeText(RuleJson.encode(it))
+    })
 
-    val rules: StateFlow<List<Rule>> = _rules.asStateFlow()
+    val rules: StateFlow<List<Rule>> = storage.state
+
+    suspend fun current(): List<Rule> = storage.current()
 
     suspend fun replaceAll(rules: List<Rule>) = update { rules }
 
-    suspend fun update(transform: (List<Rule>) -> List<Rule>) = withContext(Dispatchers.IO) {
-        writeMutex.withLock {
-            val previous = _rules.value
-            val next = transform(previous)
-            _rules.value = next
-            try {
-                file.writeText(RuleJson.encode(next))
-            } catch (error: Exception) {
-                _rules.value = previous
-                throw error
-            }
-        }
-    }
+    suspend fun update(transform: (List<Rule>) -> List<Rule>) = storage.update(transform)
 
     suspend fun importFrom(raw: String): List<Rule> = withContext(Dispatchers.IO) {
         val rules = RuleJson.decode(raw)
@@ -48,7 +35,7 @@ class RuleRepository private constructor(context: Context) {
     }
 
     suspend fun exportTo(): String = withContext(Dispatchers.IO) {
-        RuleJson.encode(_rules.value)
+        RuleJson.encode(current())
     }
 
     private fun loadFromDisk(): List<Rule> {

@@ -1,6 +1,7 @@
 package app.quieta.feature.home
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.quieta.core.engine.BatchMuteUseCase
@@ -26,6 +27,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -88,6 +93,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private var inventoryJob: Job? = null
     private var refreshJob: Job? = null
+    private val cacheJob: Job
 
     init {
         viewModelScope.launch {
@@ -95,13 +101,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update { it.copy(autoMuteOn = autoMute) }
             }
         }
+        cacheJob = viewModelScope.launch {
+            val cached = inventoryStore.current()
+            if (cached.isNotEmpty()) {
+                _state.update { it.copy(apps = cached) }
+            }
+        }
         viewModelScope.launch {
-            ruleRepository.rules.collect { rules ->
-                val channels = _state.value.apps.flatMap { it.channels }
+            ruleRepository.current()
+            combine(ruleRepository.rules, state.map { it.apps }.distinctUntilChanged()) { rules, apps ->
+                rules to apps
+            }.collectLatest { (rules, apps) ->
+                val plan = withContext(Dispatchers.Default) {
+                    RulesEngine(rules).plan(apps.flatMap { it.channels })
+                }
                 _state.update {
-                    it.copy(
+                    if (it.apps != apps || ruleRepository.rules.value != rules) it else it.copy(
                         rulesCount = rules.size,
-                        plan = RulesEngine(rules).plan(channels),
+                        plan = plan,
                     )
                 }
             }
@@ -125,10 +142,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         refreshJob?.cancel()
         inventoryJob?.cancel()
         refreshJob = viewModelScope.launch {
-            _state.update { it.copy(gate = PrivilegeGate.CHECKING, loading = true, error = null) }
-            val shizuku = CapabilityProbe.probeShizuku()
-            val dhizukuOk = runCatching { dhizukuBackend.isAvailable() }.getOrDefault(false)
-            val rootCapabilities = rootBackend.probeCapabilities()
+            _state.update { it.copy(gate = PrivilegeGate.CHECKING, loading = true, error = null,
+                privilege = PrivilegeStatus(PrivilegeId.NONE, false, "检测中")) }
+            val shizukuProbe = async(Dispatchers.IO) { CapabilityProbe.probeShizuku() }
+            val dhizukuProbe = async(Dispatchers.IO) { dhizukuBackend.isAvailable() }
+            val rootProbe = async(Dispatchers.IO) { rootBackend.probeCapabilities() }
+            val shizuku = shizukuProbe.await()
+            val dhizukuOk = dhizukuProbe.await()
+            val rootCapabilities = rootProbe.await()
             val rootIdentity = rootCapabilities.identity
             val rootOk = rootCapabilities.readable
             val rootLabel = rootIdentity.manager ?: appContext.getString(app.quieta.R.string.privilege_root_unknown)
@@ -225,8 +246,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             label = "未检测到可用特权",
                         ),
                         progress = null,
-                        apps = emptyList(),
-                        plan = emptyMap(),
                     )
                 }
             }
@@ -244,13 +263,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val next = _state.value.apps.filterNot { it.packageName == packageName }
                 publishApps(next, loading = _state.value.loading)
             } else {
-                val channels = runCatching { activeBackend.listChannels(packageName) }.getOrDefault(emptyList())
+                val channels = try {
+                    withContext(Dispatchers.IO) { activeBackend.listChannels(packageName) }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    return@launch
+                }
                 if (backend !== activeBackend || !_state.value.privilege.available) return@launch
                 if (channels.isEmpty()) return@launch
-                val label = runCatching {
-                    val ai = appContext.packageManager.getApplicationInfo(packageName, 0)
-                    appContext.packageManager.getApplicationLabel(ai).toString()
-                }.getOrDefault(packageName)
+                val label = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val ai = appContext.packageManager.getApplicationInfo(packageName, 0)
+                        appContext.packageManager.getApplicationLabel(ai).toString()
+                    }.getOrDefault(packageName)
+                }
                 val item = AppChannels(packageName, label, channels)
                 inventoryStore.upsert(item)
                 val next = _state.value.apps.filterNot { it.packageName == packageName } + item
@@ -263,9 +290,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             if (_state.value.gate != PrivilegeGate.READY) return@launch
             val activeBackend = backend
-            val rules = runCatching { ruleRepository.rules.first() }.getOrDefault(emptyList())
-            val channels = _state.value.apps.flatMap { it.channels }
-            val plan = RulesEngine(rules).plan(channels)
+            val rules = ruleRepository.current()
+            val apps = _state.value.apps
+            val plan = withContext(Dispatchers.Default) { RulesEngine(rules).plan(apps.flatMap { it.channels }) }
             _state.update { it.copy(plan = plan) }
             if (plan.isEmpty()) {
                 _state.update { it.copy(muteResult = MuteResult(0, 0, 0, listOf("没有可执行的规则"))) }
@@ -302,16 +329,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         inventoryJob?.cancel()
         val activeBackend = backend
         inventoryJob = viewModelScope.launch {
+            cacheJob.join()
             val cached = withContext(Dispatchers.IO) { inventoryStore.current() }
             if (cached.isNotEmpty()) {
-                publishApps(sortApps(cached), loading = true, progress = "刷新通知渠道…")
+                publishApps(cached, loading = true, progress = "刷新通知渠道…")
             } else {
                 _state.update { it.copy(loading = true, progress = "读取应用列表…") }
             }
 
             runCatching {
-                val rules = ruleRepository.rules.first()
-                val baseApps = withContext(Dispatchers.Default) { InstalledApps.load(appContext) }
+                ruleRepository.current()
+                val baseApps = withContext(Dispatchers.IO) { InstalledApps.load(appContext) }
                 val results = HashMap<String, AppChannels>(baseApps.size + cached.size)
                 cached.forEach { results[it.packageName] = it }
 
@@ -320,6 +348,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val semaphore = Semaphore(SCAN_CONCURRENCY)
                 var done = 0
                 var failures = 0
+                var lastPublish = 0L
                 val total = baseApps.size
 
                 withContext(Dispatchers.Default) {
@@ -342,7 +371,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                                         results[app.packageName] = app.copy(channels = channels)
                                     }
                                     done++
-                                    if (done % PUBLISH_BATCH == 0 || done == total) {
+                                    val now = SystemClock.elapsedRealtime()
+                                    if (done == total || (done % PUBLISH_BATCH == 0 && now - lastPublish >= PUBLISH_INTERVAL_MS)) {
+                                        lastPublish = now
                                         val snapshot = sortApps(results.values.toList())
                                         publishApps(
                                             snapshot,
@@ -360,7 +391,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     }.awaitAll()
                 }
 
-                val finalApps = sortApps(results.values.toList())
+                val finalApps = withContext(Dispatchers.Default) { sortApps(results.values.toList()) }
                 if (failures > 0) {
                     _state.update { it.copy(error = appContext.getString(app.quieta.R.string.inventory_partial_failure, failures)) }
                 }
@@ -373,7 +404,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     finalApps,
                     loading = false,
                     progress = null,
-                    rules = rules,
                     autoMuteOn = appSettings.autoMuteNewChannels.first(),
                 )
             }.onFailure { e ->
@@ -392,18 +422,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         apps: List<AppChannels>,
         loading: Boolean,
         progress: String? = null,
-        rules: List<app.quieta.core.model.Rule>? = null,
         autoMuteOn: Boolean? = null,
     ) {
-        val activeRules = rules ?: runCatching { ruleRepository.rules.first() }.getOrDefault(emptyList())
-        val plan = RulesEngine(activeRules).plan(apps.flatMap { it.channels })
         _state.update {
             it.copy(
                 loading = loading,
                 progress = progress,
                 apps = apps,
-                plan = plan,
-                rulesCount = activeRules.size,
                 autoMuteOn = autoMuteOn ?: it.autoMuteOn,
             )
         }
@@ -412,5 +437,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private companion object {
         const val SCAN_CONCURRENCY = 6
         const val PUBLISH_BATCH = 20
+        const val PUBLISH_INTERVAL_MS = 200L
     }
 }

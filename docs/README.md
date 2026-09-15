@@ -6,6 +6,8 @@
 |------|------|
 | `build-windows.md` | Windows 本机构建方法 |
 | `installerx-interactions.md` | InstallerX 交互适配、上游来源与验收说明 |
+| `root-backend.md` | 独立 Root 后端、管理器识别与真机验收方法 |
+| `startup-performance.md` | LibChecker 启动架构参考、线程约束与性能验证方法 |
 | `icon-concepts/SELECTED-app-icon.png` | 唯一正式应用图标源图 |
 | `icon-concepts/generate_mipmaps.py` | 从正式源图生成 Android 图标资源 |
 

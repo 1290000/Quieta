@@ -95,7 +95,14 @@ fun HomeScreen(
         blurEnabled = blurEnabled,
     ) {
         item {
-            StatusGrid(state = state, onOpenPrivilege = onOpenPrivilege, onOpenConfig = onOpenConfig)
+            StatusGrid(
+                gate = state.gate,
+                privilege = state.privilege,
+                authorizerCount = listOf(state.rootAvailable, state.shizukuAuthorized, state.dhizukuAvailable).count { it },
+                rulesCount = state.rulesCount,
+                onOpenPrivilege = onOpenPrivilege,
+                onOpenConfig = onOpenConfig,
+            )
         }
 
         item {
@@ -111,7 +118,7 @@ fun HomeScreen(
         }
 
         item {
-            DeviceInfoCard(state = state)
+            DeviceInfoCard(privilegeLabel = state.privilege.label, autoMuteOn = state.autoMuteOn)
         }
 
         state.error?.let { message ->
@@ -158,10 +165,17 @@ fun HomeScreen(
 
 /** InstallerX-like: big status card + two stat cards. */
 @Composable
-private fun StatusGrid(state: HomeUiState, onOpenPrivilege: () -> Unit, onOpenConfig: () -> Unit) {
+private fun StatusGrid(
+    gate: PrivilegeGate,
+    privilege: app.quieta.core.model.PrivilegeStatus,
+    authorizerCount: Int,
+    rulesCount: Int,
+    onOpenPrivilege: () -> Unit,
+    onOpenConfig: () -> Unit,
+) {
     // Neutral while probing so the card does not flash red before Shizuku is known.
-    val checking = state.gate == PrivilegeGate.CHECKING && !state.privilege.available
-    val active = state.privilege.available && !checking
+    val checking = gate == PrivilegeGate.CHECKING
+    val active = privilege.available && !checking
     val containerColor = if (isSystemInDarkTheme()) {
         when {
             active -> app.quieta.ui.theme.QuietaColors.StatusGreenDark
@@ -223,16 +237,16 @@ private fun StatusGrid(state: HomeUiState, onOpenPrivilege: () -> Unit, onOpenCo
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = when {
-                            active -> "已通过 ${state.privilege.label} 读取通知渠道"
+                            active -> "已通过 ${privilege.label} 读取通知渠道"
                             checking -> "检测中…"
-                            else -> state.privilege.label
+                            else -> privilege.label
                         },
                         style = app.quieta.ui.theme.QuietaTextStyles.statusDetail,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                     )
                     Spacer(modifier = Modifier.height(36.dp))
                     Text(
-                        text = if (checking) "…" else state.privilege.label,
+                        text = if (checking) "…" else privilege.label,
                         style = app.quieta.ui.theme.QuietaTextStyles.statusDetail,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     )
@@ -251,7 +265,7 @@ private fun StatusGrid(state: HomeUiState, onOpenPrivilege: () -> Unit, onOpenCo
                     .weight(1f)
                     .fillMaxHeight(),
                 title = stringResource(R.string.home_stat_authorizers),
-                value = listOf(state.rootAvailable, state.shizukuAuthorized, state.dhizukuAvailable).count { it }.toString(),
+                value = authorizerCount.toString(),
                 onClick = onOpenPrivilege,
             )
             StatCard(
@@ -259,7 +273,7 @@ private fun StatusGrid(state: HomeUiState, onOpenPrivilege: () -> Unit, onOpenCo
                     .weight(1f)
                     .fillMaxHeight(),
                 title = "规则数量",
-                value = state.rulesCount.toString(),
+                value = rulesCount.toString(),
                 onClick = onOpenConfig,
             )
         }
@@ -356,17 +370,18 @@ private fun GateActions(
 }
 
 @Composable
-private fun DeviceInfoCard(state: HomeUiState) {
+private fun DeviceInfoCard(privilegeLabel: String, autoMuteOn: Boolean) {
+    val deviceName = androidx.compose.runtime.remember { app.quieta.core.device.DeviceNames.display() }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            InfoBlock("机型", app.quieta.core.device.DeviceNames.display())
+            InfoBlock("机型", deviceName)
             InfoBlock("系统", Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")")
-            InfoBlock("正在使用的特权", state.privilege.label)
-            InfoBlock("自动静音", if (state.autoMuteOn) "已开启" else "关闭")
+            InfoBlock("正在使用的特权", privilegeLabel)
+            InfoBlock("自动静音", if (autoMuteOn) "已开启" else "关闭")
         }
     }
 }

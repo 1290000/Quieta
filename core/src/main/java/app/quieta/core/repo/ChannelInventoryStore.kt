@@ -5,11 +5,7 @@ import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
 import app.quieta.core.model.ChannelImportance
 import java.io.File
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -24,27 +20,20 @@ import org.json.JSONObject
  */
 class ChannelInventoryStore private constructor(context: Context) {
 
-    private val file = File(context.applicationContext.filesDir, "channel_inventory.json")
-    private val _snapshot = MutableStateFlow(loadFromDisk())
-    val snapshot: StateFlow<List<AppChannels>> = _snapshot.asStateFlow()
+    private val file by lazy { File(context.applicationContext.filesDir, "channel_inventory.json") }
+    private val storage = AsyncLocalState(emptyList(), ::loadFromDisk, ::write)
+    val snapshot: StateFlow<List<AppChannels>> = storage.state
 
-    fun current(): List<AppChannels> = _snapshot.value
+    suspend fun current(): List<AppChannels> = storage.current()
 
-    suspend fun replaceAll(apps: List<AppChannels>) = withContext(Dispatchers.IO) {
-        _snapshot.value = apps
-        write(apps)
+    suspend fun replaceAll(apps: List<AppChannels>) = storage.update { apps }
+
+    suspend fun upsert(app: AppChannels) = storage.update { previous ->
+        previous.filterNot { it.packageName == app.packageName } + app
     }
 
-    suspend fun upsert(app: AppChannels) = withContext(Dispatchers.IO) {
-        val next = _snapshot.value.filterNot { it.packageName == app.packageName } + app
-        _snapshot.value = next
-        write(next)
-    }
-
-    suspend fun remove(packageName: String) = withContext(Dispatchers.IO) {
-        val next = _snapshot.value.filterNot { it.packageName == packageName }
-        _snapshot.value = next
-        write(next)
+    suspend fun remove(packageName: String) = storage.update { previous ->
+        previous.filterNot { it.packageName == packageName }
     }
 
     private fun write(list: List<AppChannels>) {

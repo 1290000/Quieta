@@ -28,6 +28,7 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         viewModelScope.launch {
+            repo.current()
             repo.rules.collect { rules ->
                 _state.update { it.copy(rules = rules) }
             }
