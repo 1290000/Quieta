@@ -18,6 +18,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         .map { list ->
             list.map {
                 RecordItem(
+                    id = it.id,
                     title = it.label,
                     subtitle = it.detail,
                     time = it.time,

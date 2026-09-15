@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import app.quieta.core.model.Rule
 import app.quieta.core.model.RuleAction
 import app.quieta.core.repo.RuleRepository
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +38,7 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
         if (needle.isEmpty()) return
         viewModelScope.launch {
             val next = _state.value.rules + Rule(
-                id = "r-${System.currentTimeMillis()}",
+                id = UUID.randomUUID().toString(),
                 nameContains = needle,
                 action = action,
             )

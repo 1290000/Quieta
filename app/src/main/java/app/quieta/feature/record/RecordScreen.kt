@@ -35,6 +35,7 @@ import app.quieta.R
 import app.quieta.ui.component.PageTitle
 
 data class RecordItem(
+    val id: String,
     val title: String,
     val subtitle: String,
     val time: String,
@@ -69,6 +70,7 @@ fun RecordScreen(
         }
 
         LazyColumn(
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 110.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -86,7 +88,7 @@ fun RecordScreen(
                 }
             }
 
-            items(items, key = { it.time + it.title }) { row ->
+            items(items, key = { it.id }) { row ->
                 RecordCard(row)
             }
         }

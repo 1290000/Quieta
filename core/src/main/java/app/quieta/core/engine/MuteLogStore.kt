@@ -1,6 +1,11 @@
 package app.quieta.core.engine
 
 import android.content.Context
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -8,12 +13,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 data class MuteLogEntry(
+    /** Stable unique id for Lazy list keys. Never use display text as a key. */
+    val id: String = UUID.randomUUID().toString(),
     val label: String,
     val detail: String,
     val time: String,
@@ -45,6 +48,7 @@ class MuteLogStore(context: Context) {
         list.forEach {
             arr.put(
                 JSONObject()
+                    .put("id", it.id)
                     .put("label", it.label)
                     .put("detail", it.detail)
                     .put("time", it.time)
@@ -58,11 +62,18 @@ class MuteLogStore(context: Context) {
         if (!file.exists()) return emptyList()
         return runCatching {
             val arr = JSONArray(file.readText())
+            val seen = HashSet<String>()
             buildList {
                 for (i in 0 until arr.length()) {
                     val o = arr.getJSONObject(i)
+                    var id = o.optString("id")
+                    if (id.isEmpty() || !seen.add(id)) {
+                        id = UUID.randomUUID().toString()
+                        seen.add(id)
+                    }
                     add(
                         MuteLogEntry(
+                            id = id,
                             label = o.getString("label"),
                             detail = o.getString("detail"),
                             time = o.getString("time"),

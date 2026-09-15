@@ -85,7 +85,7 @@ fun LicensesScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            items(ossLibs, key = { it.name + it.url }) { lib ->
+            items(ossLibs, key = { it.url }) { lib ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
