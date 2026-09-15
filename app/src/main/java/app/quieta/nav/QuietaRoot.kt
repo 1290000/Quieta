@@ -1,5 +1,9 @@
 package app.quieta.nav
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,6 +22,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,11 +32,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
 import app.quieta.feature.config.ConfigScreen
 import app.quieta.feature.home.HomeScreen
+import app.quieta.feature.home.HomeViewModel
 import app.quieta.feature.record.RecordScreen
 import app.quieta.feature.settings.LicensesScreen
 import app.quieta.feature.settings.SettingsScreen
@@ -62,6 +70,27 @@ fun QuietaRoot() {
     var selectedRoute by rememberSaveable { mutableStateOf(QuietaRoutes.HOME) }
     var blurEnabled by rememberSaveable { mutableStateOf(true) }
     var showLicenses by rememberSaveable { mutableStateOf(false) }
+    val homeViewModel: HomeViewModel = viewModel()
+    val context = LocalContext.current
+
+    // LibChecker-style incremental package updates — never full rescan on install/remove.
+    DisposableEffect(homeViewModel) {
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addDataScheme("package")
+        }
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                val pkg = intent?.data?.schemeSpecificPart ?: return
+                val removed = intent.action == Intent.ACTION_PACKAGE_REMOVED
+                homeViewModel.onPackageChanged(pkg, removed)
+            }
+        }
+        context.registerReceiver(receiver, filter)
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
 
     if (showLicenses) {
         BackHandler { showLicenses = false }

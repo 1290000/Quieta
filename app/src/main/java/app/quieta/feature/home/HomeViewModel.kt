@@ -14,9 +14,12 @@ import app.quieta.core.model.RuleAction
 import app.quieta.core.privilege.CapabilityProbe
 import app.quieta.core.privilege.InstalledApps
 import app.quieta.core.privilege.shizuku.ShizukuBackend
+import app.quieta.core.repo.ChannelInventoryStore
 import app.quieta.core.repo.RuleRepository
 import app.quieta.core.settings.AppSettings
+import java.util.concurrent.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +28,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 enum class PrivilegeGate {
@@ -57,6 +63,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val backend = ShizukuBackend(application)
     private val appContext = application.applicationContext
     private val ruleRepository = RuleRepository.getInstance(application)
+    private val inventoryStore = ChannelInventoryStore.getInstance(application)
     private val batchMute = BatchMuteUseCase(backend)
     private val appSettings = AppSettings(application)
     private val muteLog = app.quieta.core.engine.MuteLogStore.getInstance(application)
@@ -64,18 +71,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
+    private var inventoryJob: Job? = null
+
     init {
         viewModelScope.launch {
             val autoMute = runCatching { appSettings.autoMuteNewChannels.first() }.getOrDefault(false)
             _state.update { it.copy(autoMuteOn = autoMute) }
-            // Keep plan in sync with rule toggles on the config page.
             ruleRepository.rules.collect { rules ->
                 val channels = _state.value.apps.flatMap { it.channels }
                 _state.update {
                     it.copy(
                         rulesCount = rules.size,
-                        // Always recompute (empty when no inventory yet) so the
-                        // mute button reflects rule enablement immediately.
                         plan = RulesEngine(rules).plan(channels),
                     )
                 }
@@ -88,7 +94,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() {
         viewModelScope.launch {
-            // Instant privilege status first (so UI turns green/red immediately).
             val caps = CapabilityProbe.probeShizuku()
             when {
                 !caps.binderAlive -> {
@@ -122,7 +127,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 else -> {
-                    // Show READY immediately; inventory loads in background.
                     _state.update {
                         it.copy(
                             gate = PrivilegeGate.READY,
@@ -133,15 +137,37 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             ),
                         )
                     }
-                    loadInventory()
+                    startInventoryRefresh()
                 }
+            }
+        }
+    }
+
+    /** Incremental package add/remove/replace (LibChecker LocalPackageChangeObserver pattern). */
+    fun onPackageChanged(packageName: String, removed: Boolean) {
+        if (packageName == appContext.packageName) return
+        viewModelScope.launch {
+            if (removed) {
+                inventoryStore.remove(packageName)
+                val next = _state.value.apps.filterNot { it.packageName == packageName }
+                publishApps(next, loading = _state.value.loading)
+            } else {
+                val channels = runCatching { backend.listChannels(packageName) }.getOrDefault(emptyList())
+                if (channels.isEmpty()) return@launch
+                val label = runCatching {
+                    val ai = appContext.packageManager.getApplicationInfo(packageName, 0)
+                    appContext.packageManager.getApplicationLabel(ai).toString()
+                }.getOrDefault(packageName)
+                val item = AppChannels(packageName, label, channels)
+                inventoryStore.upsert(item)
+                val next = _state.value.apps.filterNot { it.packageName == packageName } + item
+                publishApps(sortApps(next), loading = _state.value.loading)
             }
         }
     }
 
     fun applyBatchMute() {
         viewModelScope.launch {
-            // Always recompute from the latest rules so config-page toggles apply immediately.
             val rules = runCatching { ruleRepository.rules.first() }.getOrDefault(emptyList())
             val channels = _state.value.apps.flatMap { it.channels }
             val plan = RulesEngine(rules).plan(channels)
@@ -161,56 +187,127 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 ),
             )
             _state.update {
-                it.copy(
-                    progress = null,
-                    muteResult = result,
-                )
+                it.copy(progress = null, muteResult = result)
             }
         }
     }
 
-    private suspend fun loadInventory() = withContext(Dispatchers.Default) {
-        _state.update {
-            it.copy(loading = true, gate = PrivilegeGate.READY, progress = "读取应用列表…")
-        }
-        runCatching {
-            val rules = ruleRepository.rules.first()
-            val baseApps = InstalledApps.load(appContext)
-            _state.update { s -> s.copy(progress = "读取通知渠道 ${baseApps.size} 个应用…") }
-            val withChannels = supervisorScope {
-                baseApps.map { app ->
-                    async {
-                        val channels = backend.listChannels(app.packageName)
-                        if (channels.isEmpty()) null else app.copy(channels = channels)
-                    }
-                }.awaitAll().filterNotNull()
+    /**
+     * Show disk cache first, then scan with limited concurrency and publish in batches
+     * so the UI stays scrollable (LibChecker InitializeAppListUseCase pattern).
+     */
+    private fun startInventoryRefresh() {
+        inventoryJob?.cancel()
+        inventoryJob = viewModelScope.launch {
+            val cached = withContext(Dispatchers.IO) { inventoryStore.current() }
+            if (cached.isNotEmpty()) {
+                publishApps(sortApps(cached), loading = true, progress = "刷新通知渠道…")
+            } else {
+                _state.update { it.copy(loading = true, progress = "读取应用列表…") }
             }
-            val engine = RulesEngine(rules)
-            val channels = withChannels.flatMap { it.channels }
-            app.quieta.core.auto.AutoMuteCoordinator.seedKnown(channels)
-            _state.update {
-                it.copy(
+
+            runCatching {
+                val rules = ruleRepository.rules.first()
+                val baseApps = withContext(Dispatchers.Default) { InstalledApps.load(appContext) }
+                val results = HashMap<String, AppChannels>(baseApps.size + cached.size)
+                cached.forEach { results[it.packageName] = it }
+
+                val mutex = Mutex()
+                // Cap Binder concurrency — hundreds of parallel Shizuku calls jank the process.
+                val semaphore = Semaphore(SCAN_CONCURRENCY)
+                var done = 0
+                val total = baseApps.size
+
+                withContext(Dispatchers.Default) {
+                    baseApps.map { app ->
+                        async {
+                            semaphore.withPermit {
+                                val channels = try {
+                                    backend.listChannels(app.packageName)
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (_: Throwable) {
+                                    emptyList()
+                                }
+                                mutex.withLock {
+                                    if (channels.isEmpty()) {
+                                        results.remove(app.packageName)
+                                    } else {
+                                        results[app.packageName] = app.copy(channels = channels)
+                                    }
+                                    done++
+                                    if (done % PUBLISH_BATCH == 0 || done == total) {
+                                        val snapshot = sortApps(results.values.toList())
+                                        publishApps(
+                                            snapshot,
+                                            loading = done < total,
+                                            progress = if (done < total) {
+                                                "读取通知渠道 $done / $total…"
+                                            } else {
+                                                null
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }.awaitAll()
+                }
+
+                val finalApps = sortApps(results.values.toList())
+                // Do not clobber a good cache with an empty failed scan.
+                if (finalApps.isNotEmpty()) {
+                    withContext(Dispatchers.IO) { inventoryStore.replaceAll(finalApps) }
+                    app.quieta.core.auto.AutoMuteCoordinator.seedKnown(finalApps.flatMap { it.channels })
+                }
+                publishApps(
+                    finalApps,
                     loading = false,
                     progress = null,
-                    privilege = PrivilegeStatus(
-                        id = backend.id,
-                        available = true,
-                        label = "Shizuku",
-                    ),
-                    apps = withChannels,
-                    plan = engine.plan(channels),
-                    rulesCount = rules.size,
+                    rules = rules,
                     autoMuteOn = appSettings.autoMuteNewChannels.first(),
                 )
-            }
-        }.onFailure { e ->
-            _state.update {
-                it.copy(
-                    loading = false,
-                    progress = null,
-                    error = e.message ?: "盘点失败",
-                )
+            }.onFailure { e ->
+                if (e is CancellationException) throw e
+                _state.update {
+                    it.copy(loading = false, progress = null, error = e.message ?: "盘点失败")
+                }
             }
         }
+    }
+
+    private fun sortApps(apps: List<AppChannels>): List<AppChannels> =
+        apps.sortedWith(compareBy({ it.appLabel.lowercase() }, { it.packageName }))
+
+    private suspend fun publishApps(
+        apps: List<AppChannels>,
+        loading: Boolean,
+        progress: String? = null,
+        rules: List<app.quieta.core.model.Rule>? = null,
+        autoMuteOn: Boolean? = null,
+    ) {
+        val activeRules = rules ?: runCatching { ruleRepository.rules.first() }.getOrDefault(emptyList())
+        val plan = RulesEngine(activeRules).plan(apps.flatMap { it.channels })
+        _state.update {
+            it.copy(
+                loading = loading,
+                progress = progress,
+                apps = apps,
+                plan = plan,
+                rulesCount = activeRules.size,
+                autoMuteOn = autoMuteOn ?: it.autoMuteOn,
+                gate = PrivilegeGate.READY,
+                privilege = PrivilegeStatus(
+                    id = backend.id,
+                    available = true,
+                    label = "Shizuku",
+                ),
+            )
+        }
+    }
+
+    private companion object {
+        const val SCAN_CONCURRENCY = 6
+        const val PUBLISH_BATCH = 20
     }
 }

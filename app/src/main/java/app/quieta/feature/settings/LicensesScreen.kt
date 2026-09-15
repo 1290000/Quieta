@@ -46,6 +46,7 @@ private data class OssLib(
 private val ossLibs = listOf(
     OssLib("miuix (local source)", "compose-miuix-ui", "Apache-2.0", "https://github.com/compose-miuix-ui/miuix", "includeBuild"),
     OssLib("InstallerX Revived (reference)", "wxxsfxyzm", "GPL-3.0", "https://github.com/wxxsfxyzm/InstallerX-Revived"),
+    OssLib("LibChecker (scan/cache architecture reference)", "LibChecker", "Apache-2.0", "https://github.com/LibChecker/LibChecker"),
     OssLib("Shizuku API", "RikkaApps", "Apache-2.0", "https://github.com/RikkaApps/Shizuku-API", "13.1.5"),
     OssLib("HiddenApiBypass", "LSPosed", "GPL-3.0", "https://github.com/LSPosed/AndroidHiddenApiBypass", "6.1"),
     OssLib("AndroidLiquidGlass", "Kyant0", "Apache-2.0", "https://github.com/Kyant0/AndroidLiquidGlass"),
