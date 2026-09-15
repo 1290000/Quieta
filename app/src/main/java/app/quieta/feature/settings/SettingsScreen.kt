@@ -79,7 +79,7 @@ fun SettingsScreen(
             SettingsGroup {
                 SwitchRow(
                     title = "新渠道自动静音",
-                    subtitle = "默认关闭。需通知使用权与 Shizuku",
+                    subtitle = stringResource(app.quieta.R.string.auto_mute_requirement),
                     checked = autoMute,
                     onCheckedChange = { viewModel.setAutoMuteNewChannels(it) },
                 )

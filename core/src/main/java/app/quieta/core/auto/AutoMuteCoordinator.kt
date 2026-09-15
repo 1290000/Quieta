@@ -4,7 +4,7 @@ import android.util.Log
 import app.quieta.core.engine.RulesEngine
 import app.quieta.core.model.Channel
 import app.quieta.core.model.RuleAction
-import app.quieta.core.privilege.shizuku.ShizukuBackend
+import app.quieta.core.privilege.PrivilegeBackends
 import app.quieta.core.repo.RuleRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,9 +24,9 @@ object AutoMuteCoordinator {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mutex = Mutex()
     private val seenChannelKeys = mutableSetOf<String>()
-    private val backend = ShizukuBackend()
 
     fun onChannelSeen(
+        context: android.content.Context,
         packageName: String,
         channelId: String,
         channelName: String,
@@ -42,7 +42,6 @@ object AutoMuteCoordinator {
         scope.launch {
             mutex.withLock {
                 runCatching {
-                    if (!backend.isAvailable()) return@runCatching
                     val rules = repository.rules.first()
                     if (rules.isEmpty()) return@runCatching
                     val channel = Channel(
@@ -58,6 +57,7 @@ object AutoMuteCoordinator {
                     )
                     val action = RulesEngine(rules).actionFor(channel)
                     if (action == RuleAction.MUTE || action == RuleAction.DOWNGRADE) {
+                        val backend = PrivilegeBackends.preferred(context) ?: return@runCatching
                         val target = if (action == RuleAction.MUTE) 0 else 2
                         backend.setImportance(packageName, channelId, target)
                         Log.i(TAG, "auto $action $key -> $target")

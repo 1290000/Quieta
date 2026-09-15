@@ -37,6 +37,7 @@ fun PrivilegeScreen(
     selected: PreferredAuthorizer,
     rootAvailable: Boolean,
     rootLabel: String,
+    rootDescription: String,
     shizukuAvailable: Boolean,
     shizukuAuthorized: Boolean,
     dhizukuAvailable: Boolean,
@@ -74,9 +75,8 @@ fun PrivilegeScreen(
                     onClick = { onSelect(PreferredAuthorizer.NONE) },
                 )
                 AuthorizerRow(
-                    title = "ROOT",
-                    description = if (rootAvailable) stringResource(R.string.privilege_root_available, rootLabel)
-                        else stringResource(R.string.privilege_unavailable),
+                    title = if (rootAvailable) "ROOT ($rootLabel)" else "ROOT",
+                    description = rootDescription.ifBlank { stringResource(R.string.privilege_unavailable) },
                     selected = selected == PreferredAuthorizer.ROOT,
                     onClick = { onSelect(PreferredAuthorizer.ROOT) },
                 )

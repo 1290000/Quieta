@@ -109,6 +109,7 @@ fun QuietaRoot() {
             selected = homeState.preferredAuthorizer,
             rootAvailable = homeState.rootAvailable,
             rootLabel = homeState.rootLabel,
+            rootDescription = homeState.rootDescription,
             shizukuAvailable = homeState.shizukuAvailable,
             shizukuAuthorized = homeState.shizukuAuthorized,
             dhizukuAvailable = homeState.dhizukuAvailable,

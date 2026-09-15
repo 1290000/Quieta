@@ -14,6 +14,7 @@ Local miuix reference: `5157b503e86e2bfc2db61db00fff5df41326394a`
 | `ui/theme/Backdrop.kt` | `ui/glass/PageTopBarBackdrop.kt`: separate content backdrop, 25px texture blur, 80% theme surface tint; no liquid lens |
 | `ui/page/miuix/settings/home/priv/MiuixPrivPage.kt` | Two blue notices, SmallTitle, one Card of BasicComponent rows and circular Checkbox indicators |
 | `ui/page/miuix/widgets/MiuixCards.kt` | Theme-aware blue notices with body2 semibold text and 12dp/8dp outer spacing |
+| Home/config/history text roles and miuix `TextStyles` | System font; status 20sp semibold/14sp medium; stats 15sp medium/26sp semibold; settings 17sp medium/14sp normal; rules 18sp medium; records 17sp medium/16sp normal |
 
 The global authorizer remains single-choice: the entire row exposes radio-button
 semantics, while the decorative checkbox has no separate click or accessibility

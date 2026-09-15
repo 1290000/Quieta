@@ -18,6 +18,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "26.09.1"
+        testInstrumentationRunner = "app.quieta.RootBackendInstrumentation"
         vectorDrawables.useSupportLibrary = true
     }
 

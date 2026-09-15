@@ -43,7 +43,7 @@
 
 1. ~~**液态玻璃观感验收**~~ — 已验收（K90 HyperOS）。  
 2. ~~**批量静音真机验收**~~ — K40s / MIUI 14：25/25 成功；其它 ROM（ColorOS / OriginOS / MagicOS / One UI）仍待矩阵覆盖。  
-3. ~~**Root / Dhizuku 后端**~~ — 接口已实现：`DhizukuBackend`（binder 写/读）、`RootBackend`（su 探测 + dumpsys 盘点；写入回落 Shizuku/Dhizuku）；`HomeViewModel` 自动选后端 Shizuku → Dhizuku → Root。真机 Dhizuku/纯 Root 场景仍待验收。  
+3. **Root / Dhizuku 后端** — `DhizukuBackend` 使用 Binder；`RootBackend` 使用 libsu RootService 独立读写并回读校验，不依赖 Shizuku/Dhizuku。自动选择 Root → Shizuku → Dhizuku；不同管理器与 ROM 的真机覆盖仍需扩展。
 4. **通知时间线页**：目前仅有 MuteLog 本地摘要；完整「记录」弱采集 UI 未做。  
 5. **二级页 Navigation**：四栏已用 HorizontalPager；深层二级页（主题设置等）仍无独立返回栈。  
 6. **AboutLibraries 自动收集**：现为手写许可列表；插件生成 aboutlibraries.json 未接通。  
@@ -52,7 +52,7 @@
 
 **一期关于页必做：** 展示应用名与作者；「查看源代码」跳转本应用仓库；「检测更新」手动检查 GitHub Release（可打开最新页，不做静默下载/强制安装）。
 
-**二期：** Root / Dhizuku 后端、营销 vs 重要启发式归类、通知摘要、更多 ROM quirk、宽屏布局。
+**二期：** 营销 vs 重要启发式归类、通知摘要、更多 ROM quirk、宽屏布局。
 
 ---
 
@@ -113,13 +113,13 @@ core 尽量少依赖 Compose；Android 系统 API 收在 backend 实现里
 
 ## 4. 提权（Privilege）
 
-多后端检测可用性，用户选一种作全局授权（对齐 InstallerX Revived 的「可用特权」页）。
+多后端检测可用性，用户选一种作全局授权（对齐 InstallerX Revived 的「可用特权」页）。自动选择顺序固定为 Root → Shizuku → Dhizuku；手动指定不可用时不偷偷改选。主页与可用特权页使用同一探测状态，盘点结果不得覆盖授权名称。Root 管理器在授权后的 su 环境中探测；无法识别时明确显示未知，不凭管理器安装与否推断。
 
 | 后端 | 阶段 | 能力 |
 |------|------|------|
 | 无特权 | 一期 | NotificationListener 统计 + 引导跳系统设置；不能改他人渠道 |
 | Shizuku | 一期主路径 | 枚举 / 修改 importance / 静音 / 删除渠道；拦截新建渠道 |
-| Root（KernelSU/Magisk） | 二期 | 与 Shizuku 同级或更稳 |
+| Root（KernelSU/Magisk/APatch） | 独立实现 | libsu RootService + AIDL 直接读写通知 Binder；不借道 Shizuku/Dhizuku；写后回读确认 |
 | Dhizuku | 二期 | 单独验证渠道 API 能力表；不足则降级提示 |
 
 ### 接口约定
@@ -136,6 +136,8 @@ interface PrivilegeBackend {
 
 - UI 只依赖接口与能力探测结果，不直接绑 Shizuku。  
 - 功能菜单按探测结果显隐；失败降级：自动改 → 跳系统设置 → 仅统计。
+- Root 服务按需绑定、空闲后释放，不使用 daemon 模式；区分授权、读取能力与写入验证状态。探测不修改用户渠道，写入以目标渠道回读结果为准，真机未验证的 ROM 不宣称兼容。
+- Root 读写不得依赖管理器包名；覆盖 Magisk、KernelSU、APatch 及分支的版本标识，未知实现仍按实际授权与能力使用。只返回家族名的分支以“家族 + 已安装管理器”分别展示；隐藏/重命名管理器不影响提权。设备测试只写测试 APK 的临时渠道并清理。
 
 ### 应用自身权限
 
@@ -183,6 +185,8 @@ core/rom/
 
 - 主色为系统蓝；绿色仅状态卡。  
 - 主题默认**跟随系统**；深浅色均须可读。  
+- 字体沿用系统默认及 miuix 文字样式：普通条目标题 17sp Medium、摘要 14sp Normal，状态标题 20sp SemiBold；规则标题 18sp Medium，记录摘要 16sp Normal。不得给所有标题统一加粗或添加负字距。
+- 配置页规则卡提供编辑入口；修改保留规则 ID、顺序、启用状态及未编辑字段，通过共享仓库实时通知主页。
 - 液态玻璃实现放在 `ui/glass`，不散落在业务页。  
 - 底栏默认：支持则 LiquidGlass，否则 Blur；用户可在设置改为 None。  
 - 一期手机竖屏优先。

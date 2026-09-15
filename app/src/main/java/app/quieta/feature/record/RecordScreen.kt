@@ -84,23 +84,19 @@ private fun RecordCard(item: RecordItem) {
                 Text(item.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 TagPill(item.tag)
             }
-            Text(item.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(item.time, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(item.subtitle, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(item.time, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
 private fun TagPill(text: String) {
-    Card(
-        shape = RoundedCornerShape(50),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F0FE)),
-    ) {
-        Text(
+    Text(
             text = text,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
-            color = Color(0xFF1A56A8),
+            color = MaterialTheme.colorScheme.primary,
         )
-    }
 }

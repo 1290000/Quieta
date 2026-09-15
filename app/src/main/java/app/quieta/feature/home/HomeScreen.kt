@@ -104,13 +104,7 @@ fun HomeScreen(
                 onRequestPermission = {
                     runCatching { Shizuku.requestPermission(REQ_SHIZUKU) }
                 },
-                onOpenShizuku = {
-                    runCatching {
-                        context.packageManager
-                            .getLaunchIntentForPackage("moe.shizuku.privileged.api")
-                            ?.let { context.startActivity(it) }
-                    }
-                },
+                onOpenPrivilege = onOpenPrivilege,
                 onRefresh = viewModel::refresh,
                 onApplyMute = viewModel::applyBatchMute,
             )
@@ -233,13 +227,13 @@ private fun StatusGrid(state: HomeUiState, onOpenPrivilege: () -> Unit, onOpenCo
                             checking -> "检测中…"
                             else -> state.privilege.label
                         },
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = app.quieta.ui.theme.QuietaTextStyles.statusDetail,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                     )
                     Spacer(modifier = Modifier.height(36.dp))
                     Text(
                         text = if (checking) "…" else state.privilege.label,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = app.quieta.ui.theme.QuietaTextStyles.statusDetail,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     )
                 }
@@ -286,7 +280,7 @@ private fun StatCard(title: String, value: String, onClick: () -> Unit, modifier
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelLarge,
+                style = app.quieta.ui.theme.QuietaTextStyles.statLabel,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
@@ -302,7 +296,7 @@ private fun StatCard(title: String, value: String, onClick: () -> Unit, modifier
 private fun GateActions(
     state: HomeUiState,
     onRequestPermission: () -> Unit,
-    onOpenShizuku: () -> Unit,
+    onOpenPrivilege: () -> Unit,
     onRefresh: () -> Unit,
     onApplyMute: () -> Unit,
 ) {
@@ -328,8 +322,8 @@ private fun GateActions(
                     }
                 }
                 PrivilegeGate.SHIZUKU_UNAVAILABLE -> {
-                    OutlinedButton(onClick = onOpenShizuku, modifier = Modifier.weight(1f)) {
-                        Text("打开 Shizuku")
+                    OutlinedButton(onClick = onOpenPrivilege, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.home_stat_authorizers))
                     }
                     TextButton(onClick = onRefresh) { Text("重试") }
                 }
@@ -341,7 +335,8 @@ private fun GateActions(
                     }
                     Button(
                         onClick = onApplyMute,
-                        enabled = state.plan.any { it.value != RuleAction.KEEP },
+                        enabled = state.plan.any { it.value != RuleAction.KEEP } &&
+                            (state.privilege.id != app.quieta.core.model.PrivilegeId.ROOT || state.rootWriteSupported),
                         modifier = Modifier.weight(1f),
                         colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,

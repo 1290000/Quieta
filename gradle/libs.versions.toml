@@ -11,8 +11,10 @@ shizuku = "13.1.5"
 dhizuku = "2.6.0"
 aboutLibraries = "12.2.4"
 hiddenApiBypass = "6.1"
+libsu = "6.0.0"
 
 [libraries]
+libsu-service = { group = "com.github.topjohnwu.libsu", name = "service", version.ref = "libsu" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }

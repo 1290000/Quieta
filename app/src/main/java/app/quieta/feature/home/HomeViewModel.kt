@@ -13,6 +13,7 @@ import app.quieta.core.model.PrivilegeStatus
 import app.quieta.core.model.RuleAction
 import app.quieta.core.privilege.CapabilityProbe
 import app.quieta.core.privilege.InstalledApps
+import app.quieta.core.privilege.selectAuthorizer
 import app.quieta.core.privilege.shizuku.ShizukuBackend
 import app.quieta.core.repo.ChannelInventoryStore
 import app.quieta.core.repo.RuleRepository
@@ -60,6 +61,8 @@ data class HomeUiState(
         app.quieta.core.settings.PreferredAuthorizer.AUTO,
     val rootAvailable: Boolean = false,
     val rootLabel: String = "无",
+    val rootDescription: String = "",
+    val rootWriteSupported: Boolean = false,
     val shizukuAvailable: Boolean = false,
     val shizukuAuthorized: Boolean = false,
     val dhizukuAvailable: Boolean = false,
@@ -72,13 +75,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val dhizukuBackend = app.quieta.core.privilege.dhizuku.DhizukuBackend(application)
     private val rootBackend = app.quieta.core.privilege.root.RootBackend(
         context = application,
-        fallback = shizukuBackend,
     )
-    /** Active backend for list/set — chosen in refresh() (Shizuku → Dhizuku → Root). */
+    /** Active backend for list/set, with Root-first automatic selection. */
     private var backend: app.quieta.core.privilege.PrivilegeBackend = shizukuBackend
     private val ruleRepository = RuleRepository.getInstance(application)
     private val inventoryStore = ChannelInventoryStore.getInstance(application)
-    private val batchMute = BatchMuteUseCase(shizukuBackend)
     private val appSettings = AppSettings(application)
     private val muteLog = app.quieta.core.engine.MuteLogStore.getInstance(application)
 
@@ -86,11 +87,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     private var inventoryJob: Job? = null
+    private var refreshJob: Job? = null
 
     init {
         viewModelScope.launch {
-            val autoMute = runCatching { appSettings.autoMuteNewChannels.first() }.getOrDefault(false)
-            _state.update { it.copy(autoMuteOn = autoMute) }
+            appSettings.autoMuteNewChannels.collect { autoMute ->
+                _state.update { it.copy(autoMuteOn = autoMute) }
+            }
+        }
+        viewModelScope.launch {
             ruleRepository.rules.collect { rules ->
                 val channels = _state.value.apps.flatMap { it.channels }
                 _state.update {
@@ -117,11 +122,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        refreshJob?.cancel()
+        inventoryJob?.cancel()
+        refreshJob = viewModelScope.launch {
+            _state.update { it.copy(gate = PrivilegeGate.CHECKING, loading = true, error = null) }
             val shizuku = CapabilityProbe.probeShizuku()
             val dhizukuOk = runCatching { dhizukuBackend.isAvailable() }.getOrDefault(false)
-            val rootOk = runCatching { rootBackend.isAvailable() }.getOrDefault(false)
-            val rootLabel = rootBackend.rootImplementationLabel()
+            val rootCapabilities = rootBackend.probeCapabilities()
+            val rootIdentity = rootCapabilities.identity
+            val rootOk = rootCapabilities.readable
+            val rootLabel = rootIdentity.manager ?: appContext.getString(app.quieta.R.string.privilege_root_unknown)
+            val managers = withContext(Dispatchers.IO) { rootBackend.installedManagers(rootIdentity) }
+            val rootDescription = buildString {
+                append(rootLabel)
+                if (managers.isNotEmpty()) append(appContext.getString(app.quieta.R.string.privilege_root_managers, managers.joinToString()))
+                append("\n")
+                append(appContext.getString(when {
+                    !rootIdentity.available -> app.quieta.R.string.privilege_root_denied
+                    !rootOk -> app.quieta.R.string.privilege_root_read_failed
+                    !rootCapabilities.writeSupported -> app.quieta.R.string.privilege_root_read_only
+                    else -> app.quieta.R.string.privilege_root_write_pending
+                }))
+            }
             val pref = _state.value.preferredAuthorizer
 
             _state.update {
@@ -131,24 +153,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     dhizukuAvailable = dhizukuOk,
                     rootAvailable = rootOk,
                     rootLabel = rootLabel,
+                    rootDescription = rootDescription,
+                    rootWriteSupported = rootCapabilities.writeSupported,
                 )
             }
 
             val shizukuOk = shizuku.binderAlive && shizuku.permissionGranted
-            val chosen = when (pref) {
-                app.quieta.core.settings.PreferredAuthorizer.SHIZUKU ->
-                    if (shizukuOk) shizukuBackend else null
-                app.quieta.core.settings.PreferredAuthorizer.DHIZUKU ->
-                    if (dhizukuOk) dhizukuBackend else null
-                app.quieta.core.settings.PreferredAuthorizer.ROOT ->
-                    if (rootOk) rootBackend else null
-                app.quieta.core.settings.PreferredAuthorizer.NONE -> null
-                app.quieta.core.settings.PreferredAuthorizer.AUTO -> when {
-                    shizukuOk -> shizukuBackend
-                    dhizukuOk -> dhizukuBackend
-                    rootOk -> rootBackend
-                    else -> null
-                }
+            val chosen = when (selectAuthorizer(pref, rootOk, shizukuOk, dhizukuOk)) {
+                PrivilegeId.ROOT -> rootBackend
+                PrivilegeId.SHIZUKU -> shizukuBackend
+                PrivilegeId.DHIZUKU -> dhizukuBackend
+                PrivilegeId.NONE -> null
             }
 
             if (chosen != null) {
@@ -156,12 +171,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val label = when (chosen.id) {
                     PrivilegeId.SHIZUKU -> "Shizuku"
                     PrivilegeId.DHIZUKU -> "Dhizuku"
-                    PrivilegeId.ROOT -> "ROOT · $rootLabel"
+                    PrivilegeId.ROOT -> "ROOT ($rootLabel)"
                     PrivilegeId.NONE -> "无特权"
                 }
                 _state.update {
                     it.copy(
                         gate = PrivilegeGate.READY,
+                        error = null,
                         privilege = PrivilegeStatus(
                             id = chosen.id,
                             available = true,
@@ -183,7 +199,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         progress = null,
                     )
                 }
-            } else if (shizuku.binderAlive && !shizuku.permissionGranted) {
+            } else if (pref in listOf(app.quieta.core.settings.PreferredAuthorizer.AUTO,
+                    app.quieta.core.settings.PreferredAuthorizer.SHIZUKU) &&
+                shizuku.binderAlive && !shizuku.permissionGranted) {
                 _state.update {
                     it.copy(
                         loading = false,
@@ -202,7 +220,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         loading = false,
                         gate = PrivilegeGate.SHIZUKU_UNAVAILABLE,
                         privilege = PrivilegeStatus(
-                            id = PrivilegeId.SHIZUKU,
+                            id = PrivilegeId.NONE,
                             available = false,
                             label = "未检测到可用特权",
                         ),
@@ -219,12 +237,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun onPackageChanged(packageName: String, removed: Boolean) {
         if (packageName == appContext.packageName) return
         viewModelScope.launch {
+            if (_state.value.gate != PrivilegeGate.READY) return@launch
+            val activeBackend = backend
             if (removed) {
                 inventoryStore.remove(packageName)
                 val next = _state.value.apps.filterNot { it.packageName == packageName }
                 publishApps(next, loading = _state.value.loading)
             } else {
-                val channels = runCatching { backend.listChannels(packageName) }.getOrDefault(emptyList())
+                val channels = runCatching { activeBackend.listChannels(packageName) }.getOrDefault(emptyList())
+                if (backend !== activeBackend || !_state.value.privilege.available) return@launch
                 if (channels.isEmpty()) return@launch
                 val label = runCatching {
                     val ai = appContext.packageManager.getApplicationInfo(packageName, 0)
@@ -240,6 +261,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun applyBatchMute() {
         viewModelScope.launch {
+            if (_state.value.gate != PrivilegeGate.READY) return@launch
+            val activeBackend = backend
             val rules = runCatching { ruleRepository.rules.first() }.getOrDefault(emptyList())
             val channels = _state.value.apps.flatMap { it.channels }
             val plan = RulesEngine(rules).plan(channels)
@@ -250,7 +273,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
             _state.update { it.copy(progress = "正在批量静音…", muteResult = null) }
             val result = withContext(Dispatchers.Default) {
-                BatchMuteUseCase(backend).apply(plan)
+                BatchMuteUseCase(activeBackend).apply(plan)
+            }
+            if (activeBackend.id == PrivilegeId.ROOT && backend === activeBackend) {
+                _state.update { it.copy(rootDescription = it.rootDescription.substringBeforeLast('\n') + "\n" +
+                    appContext.getString(if (result.failed == 0 && result.success > 0)
+                        app.quieta.R.string.privilege_root_write_verified else app.quieta.R.string.privilege_root_write_failed)) }
             }
             muteLog.append(
                 app.quieta.core.engine.MuteLogEntry(
@@ -272,6 +300,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
      */
     private fun startInventoryRefresh() {
         inventoryJob?.cancel()
+        val activeBackend = backend
         inventoryJob = viewModelScope.launch {
             val cached = withContext(Dispatchers.IO) { inventoryStore.current() }
             if (cached.isNotEmpty()) {
@@ -290,6 +319,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 // Cap Binder concurrency — hundreds of parallel Shizuku calls jank the process.
                 val semaphore = Semaphore(SCAN_CONCURRENCY)
                 var done = 0
+                var failures = 0
                 val total = baseApps.size
 
                 withContext(Dispatchers.Default) {
@@ -297,14 +327,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         async {
                             semaphore.withPermit {
                                 val channels = try {
-                                    backend.listChannels(app.packageName)
+                                    activeBackend.listChannels(app.packageName)
                                 } catch (e: CancellationException) {
                                     throw e
-                                } catch (_: Throwable) {
-                                    emptyList()
+                                } catch (_: Exception) {
+                                    null
                                 }
                                 mutex.withLock {
-                                    if (channels.isEmpty()) {
+                                    if (channels == null) {
+                                        failures++
+                                    } else if (channels.isEmpty()) {
                                         results.remove(app.packageName)
                                     } else {
                                         results[app.packageName] = app.copy(channels = channels)
@@ -329,6 +361,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val finalApps = sortApps(results.values.toList())
+                if (failures > 0) {
+                    _state.update { it.copy(error = appContext.getString(app.quieta.R.string.inventory_partial_failure, failures)) }
+                }
                 // Do not clobber a good cache with an empty failed scan.
                 if (finalApps.isNotEmpty()) {
                     withContext(Dispatchers.IO) { inventoryStore.replaceAll(finalApps) }
@@ -370,12 +405,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 plan = plan,
                 rulesCount = activeRules.size,
                 autoMuteOn = autoMuteOn ?: it.autoMuteOn,
-                gate = PrivilegeGate.READY,
-                privilege = PrivilegeStatus(
-                    id = backend.id,
-                    available = true,
-                    label = "Shizuku",
-                ),
             )
         }
     }

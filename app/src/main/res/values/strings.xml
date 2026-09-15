@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="inventory_partial_failure">%1$d 个应用的渠道读取失败，已保留可用缓存</string>
+    <string name="rule_add">添加规则</string>
+    <string name="rule_edit">修改规则</string>
+    <string name="rule_package">应用包名（可选）</string>
+    <string name="rule_mute">静音</string>
+    <string name="rule_downgrade">降级</string>
+    <string name="rule_keep">保留</string>
+    <string name="rule_saved">规则已保存</string>
+    <string name="rule_save_failed">保存失败，请检查规则是否已被删除并重试</string>
+    <string name="auto_mute_requirement">默认关闭。需通知使用权与可写入的特权</string>
     <string name="app_name">息匣</string>
     <string name="app_name_en">Quieta</string>
     <string name="nav_home">主页</string>
@@ -45,5 +55,13 @@
     <string name="privilege_shizuku_start">请启动 Shizuku</string>
     <string name="privilege_dhizuku_activate">请激活并授权 Dhizuku</string>
     <string name="privilege_auto">自动选择</string>
-    <string name="privilege_auto_description">优先 Shizuku，其次 Dhizuku、ROOT</string>
+    <string name="privilege_auto_description">优先 ROOT，其次 Shizuku，最后 Dhizuku</string>
+    <string name="privilege_root_unknown">未知实现</string>
+    <string name="privilege_root_managers">；已安装管理器：%1$s</string>
+    <string name="privilege_root_denied">未获得 Root 授权，请在管理器中允许息匣</string>
+    <string name="privilege_root_read_failed">已获 Root，通知服务读取不可用</string>
+    <string name="privilege_root_read_only">读取可用，未找到支持的写入接口</string>
+    <string name="privilege_root_write_pending">读取可用；写入将在实际操作后回读验证</string>
+    <string name="privilege_root_write_verified">最近一次写入已通过回读验证</string>
+    <string name="privilege_root_write_failed">最近一次写入未全部通过验证，请查看操作结果</string>
 </resources>

@@ -41,6 +41,7 @@ class QuietaNotificationListener : NotificationListenerService() {
         scope.launch {
             val enabled = settings.autoMuteNewChannels.first()
             AutoMuteCoordinator.onChannelSeen(
+                context = applicationContext,
                 packageName = pkg,
                 channelId = channelId,
                 channelName = channelId,

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import app.quieta.core.model.Rule
 import app.quieta.core.model.RuleAction
 import app.quieta.core.repo.RuleRepository
+import app.quieta.core.repo.editRule
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,32 +34,36 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun addNameRule(nameContains: String, action: RuleAction) {
-        val needle = nameContains.trim()
-        if (needle.isEmpty()) return
+    fun saveRule(id: String?, name: String, packageName: String, action: RuleAction, onSaved: () -> Unit) {
         viewModelScope.launch {
-            val next = _state.value.rules + Rule(
-                id = UUID.randomUUID().toString(),
-                nameContains = needle,
-                action = action,
-            )
-            repo.replaceAll(next)
-            _state.update { it.copy(message = "已添加规则") }
+            try {
+                repo.update { rules ->
+                    if (id == null) rules + Rule(id = UUID.randomUUID().toString(),
+                        nameContains = name.trim().ifEmpty { null },
+                        packageName = packageName.trim().ifEmpty { null }, action = action)
+                    else rules.editRule(id, name, packageName, action)
+                }
+                _state.update { it.copy(message = getApplication<Application>().getString(app.quieta.R.string.rule_saved)) }
+                onSaved()
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _state.update { it.copy(message = getApplication<Application>().getString(app.quieta.R.string.rule_save_failed)) }
+            }
         }
     }
 
     fun toggle(id: String) {
         viewModelScope.launch {
-            val next = _state.value.rules.map {
+            repo.update { rules -> rules.map {
                 if (it.id == id) it.copy(enabled = !it.enabled) else it
-            }
-            repo.replaceAll(next)
+            } }
         }
     }
 
     fun remove(id: String) {
         viewModelScope.launch {
-            repo.replaceAll(_state.value.rules.filterNot { it.id == id })
+            repo.update { rules -> rules.filterNot { it.id == id } }
         }
     }
 

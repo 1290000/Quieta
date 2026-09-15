@@ -8,7 +8,9 @@ android {
 
     defaultConfig {
         minSdk = 26
+        consumerProguardFiles("consumer-rules.pro")
     }
+    buildFeatures { aidl = true }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -23,6 +25,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.libsu.service)
+    implementation(libs.hidden.api.bypass)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.shizuku.api)

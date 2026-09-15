@@ -53,14 +53,14 @@ object CapabilityProbe {
         }
     }
 
-    fun probeRoot(context: android.content.Context? = null): Pair<Boolean, String> {
+    suspend fun probeRoot(context: android.content.Context? = null): Pair<Boolean, String> {
         return try {
             val backend = app.quieta.core.privilege.root.RootBackend(context)
-            val available = runCatching {
-                kotlinx.coroutines.runBlocking { backend.isAvailable() }
-            }.getOrDefault(false)
-            available to backend.rootImplementationLabel()
-        } catch (_: Throwable) {
+            val result = backend.probeCapabilities()
+            result.readable to (result.identity.manager ?: "未知 Root 实现")
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (_: Exception) {
             false to "无"
         }
     }

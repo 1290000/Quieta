@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Local JSON rule store (no Room in MVP). File lives in filesDir.
@@ -19,12 +21,24 @@ class RuleRepository private constructor(context: Context) {
 
     private val file = File(context.applicationContext.filesDir, "rules.json")
     private val _rules = MutableStateFlow(loadFromDisk())
+    private val writeMutex = Mutex()
 
     val rules: StateFlow<List<Rule>> = _rules.asStateFlow()
 
-    suspend fun replaceAll(rules: List<Rule>) = withContext(Dispatchers.IO) {
-        _rules.value = rules
-        file.writeText(RuleJson.encode(rules))
+    suspend fun replaceAll(rules: List<Rule>) = update { rules }
+
+    suspend fun update(transform: (List<Rule>) -> List<Rule>) = withContext(Dispatchers.IO) {
+        writeMutex.withLock {
+            val previous = _rules.value
+            val next = transform(previous)
+            _rules.value = next
+            try {
+                file.writeText(RuleJson.encode(next))
+            } catch (error: Exception) {
+                _rules.value = previous
+                throw error
+            }
+        }
     }
 
     suspend fun importFrom(raw: String): List<Rule> = withContext(Dispatchers.IO) {

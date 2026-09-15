@@ -35,8 +35,9 @@ private data class OssLib(
  * Static OSS list — reliable on HyperOS; AboutLibraries plugin output not always present.
  */
 private val ossLibs = listOf(
+    OssLib("libsu (core / RootService)", "John Wu (topjohnwu)", "Apache-2.0", "https://github.com/topjohnwu/libsu", "6.0.0"),
     OssLib("miuix (Tilt / TopAppBar / overscroll / controls)", "compose-miuix-ui", "Apache-2.0", "https://github.com/compose-miuix-ui/miuix", "includeBuild"),
-    OssLib("InstallerX Revived (cards / page chrome / privilege layout / glass)", "wxxsfxyzm and contributors", "GPL-3.0-only", "https://github.com/wxxsfxyzm/InstallerX-Revived", "f6ffcd8"),
+    OssLib("InstallerX Revived (cards / typography / page chrome / privilege layout / glass)", "wxxsfxyzm and contributors", "GPL-3.0-only", "https://github.com/wxxsfxyzm/InstallerX-Revived", "f6ffcd8"),
     // Code we ported from InstallerX also contains third-party lineage — list separately:
     OssLib("KernelSU (via InstallerX DampedDrag / pager)", "tiann", "GPL-3.0", "https://github.com/tiann/KernelSU"),
     OssLib("LibChecker (scan/cache architecture reference)", "LibChecker", "Apache-2.0", "https://github.com/LibChecker/LibChecker"),
