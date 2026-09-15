@@ -67,7 +67,7 @@
 | targetSdk / compileSdk | 37（`android.suppressUnsupportedCompileSdk=37,37.0`） |
 | 架构 | 多模块单向依赖；见下文 |
 | DI | 手工构造或 Koin；一期不用 Hilt |
-| 页面导航 | 一期四栏用顶层状态切换（`QuietaRoot`）；二级页再引入 Navigation/miuix-nav |
+| 页面导航 | 四栏 `HorizontalPager` + `MainPagerState`（InstallerX 式 EaseInOut）；二级页再引入 Navigation/miuix-nav |
 | Shizuku | `dev.rikka.shizuku`（api + provider）；不自造绑定协议 |
 | 数据 | 全本地（Room + DataStore），不联网收集用户通知 |
 | 主导航 | 主页 / 配置 / 记录 / 设置（四栏） |
