@@ -43,6 +43,7 @@ fun RecordScreen(
     viewModel: RecordViewModel = viewModel(),
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
+    val timeline by viewModel.timeline.collectAsStateWithLifecycle()
 
     QuietaPage(
         title = stringResource(R.string.record_title),
@@ -52,22 +53,84 @@ fun RecordScreen(
             IconButton(onClick = viewModel::clearAll) {
                 Icon(Icons.Outlined.DeleteSweep, contentDescription = "清空")
             }
-            IconButton(onClick = { /* filter later */ }) {
+            IconButton(onClick = { /* 记录筛选属于后续清单项 */ }) {
                 Icon(Icons.Outlined.Tune, contentDescription = "筛选")
             }
         },
     ) {
-        if (items.isEmpty()) {
+        item(key = "privacy-note") {
+            Text(
+                text = "时间线仅记录应用包名、通知渠道、时间和数量，不保存通知标题、正文或附件。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (timeline.isNotEmpty()) {
+            item(key = "timeline-title") {
+                SectionLabel("通知时间线")
+            }
+            items(timeline, key = { it.id }) { row ->
+                TimelineCard(row)
+            }
+        }
+        if (items.isNotEmpty()) {
+            item(key = "mute-title") {
+                SectionLabel("静音操作")
+            }
+            items(items, key = { it.id }) { row ->
+                RecordCard(row)
+            }
+        }
+        if (items.isEmpty() && timeline.isEmpty()) {
             item {
                 Text(
-                    text = "暂无记录。批量静音或自动静音执行后会出现在这里。",
+                    text = "暂无记录。开启通知使用权后，收到通知时会在这里生成弱采集时间线。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        items(items, key = { it.id }) { row ->
-            RecordCard(row)
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+}
+
+@Composable
+private fun TimelineCard(item: TimelineItem) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(item.packageName, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Text(
+                    text = "${item.count} 次",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Text(
+                text = "渠道：${item.channelId}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            Text(
+                text = item.time,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

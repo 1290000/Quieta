@@ -16,9 +16,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val autoMuteNewChannels: StateFlow<Boolean> = settings.autoMuteNewChannels
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val notificationTimelineEnabled: StateFlow<Boolean> = settings.notificationTimelineEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     fun setAutoMuteNewChannels(enabled: Boolean) {
         viewModelScope.launch {
             settings.setAutoMuteNewChannels(enabled)
+        }
+    }
+
+    fun setNotificationTimelineEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settings.setNotificationTimelineEnabled(enabled)
         }
     }
 }

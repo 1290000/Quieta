@@ -48,6 +48,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val repoUrl = stringResource(R.string.repo_url)
     val autoMute by viewModel.autoMuteNewChannels.collectAsStateWithLifecycle()
+    val timelineEnabled by viewModel.notificationTimelineEnabled.collectAsStateWithLifecycle()
     val updateState by aboutViewModel.state.collectAsStateWithLifecycle()
 
     QuietaPage(
@@ -82,6 +83,12 @@ fun SettingsScreen(
                     subtitle = stringResource(app.quieta.R.string.auto_mute_requirement),
                     checked = autoMute,
                     onCheckedChange = { viewModel.setAutoMuteNewChannels(it) },
+                )
+                SwitchRow(
+                    title = "通知时间线",
+                    subtitle = "仅记录包名、渠道、时间和数量，不保存通知内容",
+                    checked = timelineEnabled,
+                    onCheckedChange = { viewModel.setNotificationTimelineEnabled(it) },
                 )
                 NavRow(
                     title = "通知使用权",

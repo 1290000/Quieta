@@ -37,14 +37,14 @@
 
 **一期明确不做：** 快捷设置 Tile、桌面 Widget、平板/折叠优先布局、应用内静默强更。
 
-**已交付（摘要）：** MVP 盘点/批量静音/可选自动静音；Shizuku 盘点与 setImportance（列表路径 + create/update，K40s 25/25）；本地规则 JSON；四栏 HorizontalPager 壳；关于/许可/检测更新；HyperOS 风格 UI；底栏 InstallerX 移植 + 液态玻璃（K40s/K90 观感已验收）。**未创建 GitHub Release / 未打 tag。**
+**已交付（摘要）：** MVP 盘点/批量静音/可选自动静音；Shizuku 盘点与 setImportance（列表路径 + create/update，K40s 25/25）；本地规则 JSON；弱采集通知时间线（包名/渠道/时间/数量，默认 7 天 / 200 条保留）；四栏 HorizontalPager 壳；关于/许可/检测更新；HyperOS 风格 UI；底栏 InstallerX 移植 + 液态玻璃（K40s/K90 观感已验收）。**未创建 GitHub Release / 未打 tag。**
 
 **已约定、尚未完成 / 待验收（后续代理优先做）：**
 
 1. ~~**液态玻璃观感验收**~~ — 已验收（K90 HyperOS）。  
 2. ~~**批量静音真机验收**~~ — K40s / MIUI 14：25/25 成功；其它 ROM（ColorOS / OriginOS / MagicOS / One UI）仍待矩阵覆盖。  
 3. **Root / Dhizuku 后端** — `DhizukuBackend` 使用 Binder；`RootBackend` 使用 libsu RootService 独立读写并回读校验，不依赖 Shizuku/Dhizuku。自动选择 Root → Shizuku → Dhizuku；不同管理器与 ROM 的真机覆盖仍需扩展。
-4. **通知时间线页**：目前仅有 MuteLog 本地摘要；完整「记录」弱采集 UI 未做。  
+4. ~~**通知时间线页**~~ — 已实现弱采集时间线与本地记录 UI；默认仅保存包名、渠道、时间、数量，支持 7 天 / 200 条滚动保留及设置页关闭。
 5. **二级页 Navigation**：四栏已用 HorizontalPager；深层二级页（主题设置等）仍无独立返回栈。  
 6. **AboutLibraries 自动收集**：现为手写许可列表；插件生成 aboutlibraries.json 未接通。  
 7. **release 签名与首个 Release**：`signing.properties` 流程已约定，未生成正式包、未发 GitHub Release。  

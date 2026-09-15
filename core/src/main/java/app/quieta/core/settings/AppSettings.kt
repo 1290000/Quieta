@@ -33,6 +33,16 @@ class AppSettings(private val context: Context) {
         prefs[KEY_AUTO_MUTE] ?: false
     }
 
+    val notificationTimelineEnabled: Flow<Boolean> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_TIMELINE_ENABLED] ?: true
+    }
+
+    suspend fun setNotificationTimelineEnabled(enabled: Boolean) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_TIMELINE_ENABLED] = enabled
+        }
+    }
+
     suspend fun setAutoMuteNewChannels(enabled: Boolean) {
         context.settingsStore.edit { prefs ->
             prefs[KEY_AUTO_MUTE] = enabled
@@ -70,6 +80,7 @@ class AppSettings(private val context: Context) {
 
     companion object {
         private val KEY_AUTO_MUTE = booleanPreferencesKey("auto_mute_new_channels")
+        private val KEY_TIMELINE_ENABLED = booleanPreferencesKey("notification_timeline_enabled")
         private val KEY_AUTHORIZER = stringPreferencesKey("preferred_authorizer")
         private val KEY_LAST_PRIVILEGE_ID = stringPreferencesKey("last_known_privilege_id")
         private val KEY_LAST_PRIVILEGE_LABEL = stringPreferencesKey("last_known_privilege_label")
