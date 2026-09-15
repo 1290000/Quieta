@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 class RecordViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val store = MuteLogStore(application)
+    private val store = MuteLogStore.getInstance(application)
 
     val items: StateFlow<List<RecordItem>> = store.entries
         .map { list ->

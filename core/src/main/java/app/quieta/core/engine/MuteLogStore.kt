@@ -25,10 +25,11 @@ data class MuteLogEntry(
 
 /**
  * Lightweight local log for mute actions. No notification body content.
+ * Process-wide singleton so Home writes and Record reads share one list.
  */
-class MuteLogStore(context: Context) {
+class MuteLogStore private constructor(context: Context) {
 
-    private val file = File(context.filesDir, "mute_logs.json")
+    private val file = File(context.applicationContext.filesDir, "mute_logs.json")
     private val _entries = MutableStateFlow(load())
     val entries: StateFlow<List<MuteLogEntry>> = _entries.asStateFlow()
 
@@ -87,6 +88,15 @@ class MuteLogStore(context: Context) {
 
     companion object {
         private const val MAX = 100
+
+        @Volatile
+        private var instance: MuteLogStore? = null
+
+        fun getInstance(context: Context): MuteLogStore {
+            return instance ?: synchronized(this) {
+                instance ?: MuteLogStore(context.applicationContext).also { instance = it }
+            }
+        }
 
         fun now(): String =
             SimpleDateFormat("yyyy年M月d日 HH:mm", Locale.getDefault()).format(Date())

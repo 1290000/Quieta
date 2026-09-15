@@ -25,7 +25,7 @@ class QuietaNotificationListener : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         settings = AppSettings(this)
-        rules = RuleRepository(this)
+        rules = RuleRepository.getInstance(this)
     }
 
     override fun onListenerConnected() {

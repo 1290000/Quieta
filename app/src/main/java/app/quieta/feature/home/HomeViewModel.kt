@@ -56,10 +56,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val backend = ShizukuBackend(application)
     private val appContext = application.applicationContext
-    private val ruleRepository = RuleRepository(application)
+    private val ruleRepository = RuleRepository.getInstance(application)
     private val batchMute = BatchMuteUseCase(backend)
     private val appSettings = AppSettings(application)
-    private val muteLog = app.quieta.core.engine.MuteLogStore(application)
+    private val muteLog = app.quieta.core.engine.MuteLogStore.getInstance(application)
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -74,7 +74,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update {
                     it.copy(
                         rulesCount = rules.size,
-                        plan = if (channels.isEmpty()) it.plan else RulesEngine(rules).plan(channels),
+                        // Always recompute (empty when no inventory yet) so the
+                        // mute button reflects rule enablement immediately.
+                        plan = RulesEngine(rules).plan(channels),
                     )
                 }
             }

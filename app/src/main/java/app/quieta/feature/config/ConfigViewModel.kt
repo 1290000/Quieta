@@ -20,7 +20,7 @@ data class ConfigUiState(
 
 class ConfigViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = RuleRepository(application)
+    private val repo = RuleRepository.getInstance(application)
 
     private val _state = MutableStateFlow(ConfigUiState())
     val state: StateFlow<ConfigUiState> = _state.asStateFlow()

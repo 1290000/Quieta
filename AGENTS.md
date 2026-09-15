@@ -218,6 +218,17 @@ core/rom/
 - 崩溃：不接第三方崩溃 SDK；可选「导出日志文件」供用户自提 issue。  
 - 备份：`android:allowBackup` 默认 false；若开启，仅允许规则类配置，渠道缓存与日志不备份。
 
+### 跨页状态与列表（强制，防复发）
+
+违反下列任一条视为未完成改动：
+
+| 规则 | 原因 |
+|------|------|
+| **共享数据源必须进程单例** | `RuleRepository` / `MuteLogStore` 等用 `getInstance(context)`；禁止各 ViewModel `new` 一份，否则配置页开关主页收不到 |
+| **Lazy list `key` 必须是稳定唯一 id** | 禁止用展示文案 / 时间拼 key；同分钟静音日志会 `Key already used` 闪退 |
+| **跨页 UI 只读共享 StateFlow** | 静音按钮等状态从 ViewModel StateFlow 派生；禁止缓存一次性 `first()` 结果当实时值 |
+| **写路径要发 Flow** | `replaceAll` / `append` 先改共享 StateFlow 再落盘，保证订阅方立刻刷新 |
+
 ---
 
 ## 8. 工程约定

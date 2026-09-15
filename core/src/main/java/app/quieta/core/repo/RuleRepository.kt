@@ -2,19 +2,22 @@ package app.quieta.core.repo
 
 import android.content.Context
 import app.quieta.core.model.Rule
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import java.io.File
 
 /**
  * Local JSON rule store (no Room in MVP). File lives in filesDir.
+ *
+ * Process-wide singleton — multiple ViewModels and the notification listener
+ * MUST share one instance or toggles will not propagate across pages.
  */
-class RuleRepository(context: Context) {
+class RuleRepository private constructor(context: Context) {
 
-    private val file = File(context.filesDir, "rules.json")
+    private val file = File(context.applicationContext.filesDir, "rules.json")
     private val _rules = MutableStateFlow(loadFromDisk())
 
     val rules: StateFlow<List<Rule>> = _rules.asStateFlow()
@@ -41,5 +44,16 @@ class RuleRepository(context: Context) {
             return starter
         }
         return runCatching { RuleJson.decode(file.readText()) }.getOrDefault(emptyList())
+    }
+
+    companion object {
+        @Volatile
+        private var instance: RuleRepository? = null
+
+        fun getInstance(context: Context): RuleRepository {
+            return instance ?: synchronized(this) {
+                instance ?: RuleRepository(context.applicationContext).also { instance = it }
+            }
+        }
     }
 }
