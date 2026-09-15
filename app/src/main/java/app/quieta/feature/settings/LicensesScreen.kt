@@ -48,6 +48,7 @@ private val ossLibs = listOf(
     OssLib("InstallerX Revived (reference)", "wxxsfxyzm", "GPL-3.0", "https://github.com/wxxsfxyzm/InstallerX-Revived"),
     OssLib("LibChecker (scan/cache architecture reference)", "LibChecker", "Apache-2.0", "https://github.com/LibChecker/LibChecker"),
     OssLib("Shizuku API", "RikkaApps", "Apache-2.0", "https://github.com/RikkaApps/Shizuku-API", "13.1.5"),
+    OssLib("Dhizuku-API", "iamr0s", "Apache-2.0", "https://github.com/iamr0s/Dhizuku-API", "2.6.0"),
     OssLib("HiddenApiBypass", "LSPosed", "GPL-3.0", "https://github.com/LSPosed/AndroidHiddenApiBypass", "6.1"),
     OssLib("AndroidLiquidGlass", "Kyant0", "Apache-2.0", "https://github.com/Kyant0/AndroidLiquidGlass"),
     OssLib("Jetpack Compose", "Android Open Source Project", "Apache-2.0", "https://developer.android.com/jetpack/compose"),

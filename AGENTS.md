@@ -43,7 +43,7 @@
 
 1. ~~**液态玻璃观感验收**~~ — 已验收（K90 HyperOS）。  
 2. ~~**批量静音真机验收**~~ — K40s / MIUI 14：25/25 成功；其它 ROM（ColorOS / OriginOS / MagicOS / One UI）仍待矩阵覆盖。  
-3. **Root / Dhizuku 后端**（二期接口已预留）。  
+3. ~~**Root / Dhizuku 后端**~~ — 接口已实现：`DhizukuBackend`（binder 写/读）、`RootBackend`（su 探测 + dumpsys 盘点；写入回落 Shizuku/Dhizuku）；`HomeViewModel` 自动选后端 Shizuku → Dhizuku → Root。真机 Dhizuku/纯 Root 场景仍待验收。  
 4. **通知时间线页**：目前仅有 MuteLog 本地摘要；完整「记录」弱采集 UI 未做。  
 5. **二级页 Navigation**：四栏已用 HorizontalPager；深层二级页（主题设置等）仍无独立返回栈。  
 6. **AboutLibraries 自动收集**：现为手写许可列表；插件生成 aboutlibraries.json 未接通。  

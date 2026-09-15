@@ -31,10 +31,37 @@ object CapabilityProbe {
 
     fun isShizukuInstalled(): Boolean {
         return try {
-            // pingBinder is enough to detect a running Shizuku/Sui.
             rikka.shizuku.Shizuku.pingBinder()
         } catch (_: Throwable) {
             false
+        }
+    }
+
+    fun probeDhizuku(context: android.content.Context? = null): PrivilegeCapabilities {
+        return try {
+            val backend = app.quieta.core.privilege.dhizuku.DhizukuBackend(context)
+            val granted = runCatching {
+                kotlinx.coroutines.runBlocking { backend.isAvailable() }
+            }.getOrDefault(false)
+            PrivilegeCapabilities(
+                binderAlive = granted,
+                permissionGranted = granted,
+                canListChannels = granted,
+            )
+        } catch (_: Throwable) {
+            PrivilegeCapabilities(false, false, false)
+        }
+    }
+
+    fun probeRoot(context: android.content.Context? = null): Pair<Boolean, String> {
+        return try {
+            val backend = app.quieta.core.privilege.root.RootBackend(context)
+            val available = runCatching {
+                kotlinx.coroutines.runBlocking { backend.isAvailable() }
+            }.getOrDefault(false)
+            available to backend.rootImplementationLabel()
+        } catch (_: Throwable) {
+            false to "无"
         }
     }
 }

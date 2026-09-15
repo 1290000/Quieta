@@ -60,11 +60,18 @@ data class HomeUiState(
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val backend = ShizukuBackend(application)
     private val appContext = application.applicationContext
+    private val shizukuBackend = ShizukuBackend(application)
+    private val dhizukuBackend = app.quieta.core.privilege.dhizuku.DhizukuBackend(application)
+    private val rootBackend = app.quieta.core.privilege.root.RootBackend(
+        context = application,
+        fallback = shizukuBackend,
+    )
+    /** Active backend for list/set — chosen in refresh() (Shizuku → Dhizuku → Root). */
+    private var backend: app.quieta.core.privilege.PrivilegeBackend = shizukuBackend
     private val ruleRepository = RuleRepository.getInstance(application)
     private val inventoryStore = ChannelInventoryStore.getInstance(application)
-    private val batchMute = BatchMuteUseCase(backend)
+    private val batchMute = BatchMuteUseCase(shizukuBackend)
     private val appSettings = AppSettings(application)
     private val muteLog = app.quieta.core.engine.MuteLogStore.getInstance(application)
 
@@ -94,9 +101,54 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() {
         viewModelScope.launch {
-            val caps = CapabilityProbe.probeShizuku()
+            val shizuku = CapabilityProbe.probeShizuku()
+            val dhizukuOk = runCatching { dhizukuBackend.isAvailable() }.getOrDefault(false)
+            val rootOk = runCatching { rootBackend.isAvailable() }.getOrDefault(false)
+
             when {
-                !caps.binderAlive -> {
+                shizuku.binderAlive && shizuku.permissionGranted -> {
+                    backend = shizukuBackend
+                    _state.update {
+                        it.copy(
+                            gate = PrivilegeGate.READY,
+                            privilege = PrivilegeStatus(
+                                id = PrivilegeId.SHIZUKU,
+                                available = true,
+                                label = "Shizuku",
+                            ),
+                        )
+                    }
+                    startInventoryRefresh()
+                }
+                dhizukuOk -> {
+                    backend = dhizukuBackend
+                    _state.update {
+                        it.copy(
+                            gate = PrivilegeGate.READY,
+                            privilege = PrivilegeStatus(
+                                id = PrivilegeId.DHIZUKU,
+                                available = true,
+                                label = "Dhizuku",
+                            ),
+                        )
+                    }
+                    startInventoryRefresh()
+                }
+                rootOk -> {
+                    backend = rootBackend
+                    _state.update {
+                        it.copy(
+                            gate = PrivilegeGate.READY,
+                            privilege = PrivilegeStatus(
+                                id = PrivilegeId.ROOT,
+                                available = true,
+                                label = "ROOT · ${rootBackend.rootImplementationLabel()}",
+                            ),
+                        )
+                    }
+                    startInventoryRefresh()
+                }
+                !shizuku.binderAlive && !dhizukuOk && !rootOk -> {
                     _state.update {
                         it.copy(
                             loading = false,
@@ -112,7 +164,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                 }
-                !caps.permissionGranted -> {
+                !shizuku.permissionGranted -> {
                     _state.update {
                         it.copy(
                             loading = false,
@@ -177,7 +229,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             _state.update { it.copy(progress = "正在批量静音…", muteResult = null) }
-            val result = withContext(Dispatchers.Default) { batchMute.apply(plan) }
+            val result = withContext(Dispatchers.Default) {
+                BatchMuteUseCase(backend).apply(plan)
+            }
             muteLog.append(
                 app.quieta.core.engine.MuteLogEntry(
                     label = "按规则静音",
