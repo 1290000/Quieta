@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +43,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +60,7 @@ import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
 import app.quieta.core.model.RuleAction
 import app.quieta.ui.component.PageTitle
+import app.quieta.ui.component.cardPressScale
 import rikka.shizuku.Shizuku
 
 private const val REQ_SHIZUKU = 1001
@@ -73,6 +77,7 @@ private val StatusNeutralIcon = Color(0xFF8E8E93)
 fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
+    onOpenPrivilege: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -101,7 +106,7 @@ fun HomeScreen(
         }
 
         item {
-            StatusGrid(state = state)
+            StatusGrid(state = state, onOpenPrivilege = onOpenPrivilege)
         }
 
         item {
@@ -170,7 +175,7 @@ fun HomeScreen(
 
 /** InstallerX-like: big status card + two stat cards. */
 @Composable
-private fun StatusGrid(state: HomeUiState) {
+private fun StatusGrid(state: HomeUiState, onOpenPrivilege: () -> Unit) {
     // Neutral while probing so the card does not flash red before Shizuku is known.
     val checking = state.gate == PrivilegeGate.CHECKING && !state.privilege.available
     val active = state.privilege.available && !checking
@@ -184,10 +189,19 @@ private fun StatusGrid(state: HomeUiState) {
         checking -> StatusNeutralIcon
         else -> StatusRedIcon
     }
+    val statusInteraction = remember { MutableInteractionSource() }
+    val privInteraction = remember { MutableInteractionSource() }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .cardPressScale(statusInteraction)
+                .clickable(
+                    interactionSource = statusInteraction,
+                    indication = null,
+                    onClick = onOpenPrivilege,
+                ),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = containerColor),
         ) {
@@ -227,7 +241,7 @@ private fun StatusGrid(state: HomeUiState) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = when {
-                            active -> "已通过 Shizuku 读取通知渠道"
+                            active -> "已通过 ${state.privilege.label} 读取通知渠道"
                             checking -> "检测中…"
                             else -> state.privilege.label
                         },
@@ -253,8 +267,14 @@ private fun StatusGrid(state: HomeUiState) {
             StatCard(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight(),
-                title = "可用特权",
+                    .fillMaxHeight()
+                    .cardPressScale(privInteraction)
+                    .clickable(
+                        interactionSource = privInteraction,
+                        indication = null,
+                        onClick = onOpenPrivilege,
+                    ),
+                title = stringResource(R.string.home_stat_authorizers),
                 value = if (state.privilege.available) "1" else "0",
             )
             StatCard(

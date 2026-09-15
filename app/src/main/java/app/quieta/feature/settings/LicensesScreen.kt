@@ -46,6 +46,8 @@ private data class OssLib(
 private val ossLibs = listOf(
     OssLib("miuix (local source)", "compose-miuix-ui", "Apache-2.0", "https://github.com/compose-miuix-ui/miuix", "includeBuild"),
     OssLib("InstallerX Revived (reference)", "wxxsfxyzm", "GPL-3.0", "https://github.com/wxxsfxyzm/InstallerX-Revived"),
+    // Code we ported from InstallerX also contains third-party lineage — list separately:
+    OssLib("KernelSU (via InstallerX DampedDrag / pager)", "tiann", "GPL-3.0", "https://github.com/tiann/KernelSU"),
     OssLib("LibChecker (scan/cache architecture reference)", "LibChecker", "Apache-2.0", "https://github.com/LibChecker/LibChecker"),
     OssLib("Shizuku API", "RikkaApps", "Apache-2.0", "https://github.com/RikkaApps/Shizuku-API", "13.1.5"),
     OssLib("Dhizuku-API", "iamr0s", "Apache-2.0", "https://github.com/iamr0s/Dhizuku-API", "2.6.0"),

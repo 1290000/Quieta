@@ -35,11 +35,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
 import app.quieta.feature.config.ConfigScreen
 import app.quieta.feature.home.HomeScreen
 import app.quieta.feature.home.HomeViewModel
+import app.quieta.feature.privilege.PrivilegeScreen
 import app.quieta.feature.record.RecordScreen
 import app.quieta.feature.settings.LicensesScreen
 import app.quieta.feature.settings.SettingsScreen
@@ -70,8 +72,10 @@ fun QuietaRoot() {
     var selectedRoute by rememberSaveable { mutableStateOf(QuietaRoutes.HOME) }
     var blurEnabled by rememberSaveable { mutableStateOf(true) }
     var showLicenses by rememberSaveable { mutableStateOf(false) }
+    var showPrivilege by rememberSaveable { mutableStateOf(false) }
     val homeViewModel: HomeViewModel = viewModel()
     val context = LocalContext.current
+    val homeState by homeViewModel.state.collectAsStateWithLifecycle()
 
     // LibChecker-style incremental package updates — never full rescan on install/remove.
     DisposableEffect(homeViewModel) {
@@ -95,6 +99,20 @@ fun QuietaRoot() {
     if (showLicenses) {
         BackHandler { showLicenses = false }
         LicensesScreen(onBack = { showLicenses = false })
+        return
+    }
+
+    if (showPrivilege) {
+        PrivilegeScreen(
+            selected = homeState.preferredAuthorizer,
+            rootAvailable = homeState.rootAvailable,
+            rootLabel = homeState.rootLabel,
+            shizukuAvailable = homeState.shizukuAvailable,
+            shizukuAuthorized = homeState.shizukuAuthorized,
+            dhizukuAvailable = homeState.dhizukuAvailable,
+            onBack = { showPrivilege = false },
+            onSelect = { homeViewModel.setPreferredAuthorizer(it) },
+        )
         return
     }
 
@@ -154,7 +172,10 @@ fun QuietaRoot() {
                 userScrollEnabled = true,
             ) { page ->
                 when (tabRoutes[page]) {
-                    QuietaRoutes.HOME -> HomeScreen(modifier = Modifier.fillMaxSize())
+                    QuietaRoutes.HOME -> HomeScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    onOpenPrivilege = { showPrivilege = true },
+                )
                     QuietaRoutes.CONFIG -> ConfigScreen(modifier = Modifier.fillMaxSize())
                     QuietaRoutes.RECORD -> RecordScreen(modifier = Modifier.fillMaxSize())
                     QuietaRoutes.SETTINGS -> SettingsScreen(

@@ -56,6 +56,13 @@ data class HomeUiState(
     val progress: String? = null,
     val muteResult: MuteResult? = null,
     val error: String? = null,
+    val preferredAuthorizer: app.quieta.core.settings.PreferredAuthorizer =
+        app.quieta.core.settings.PreferredAuthorizer.AUTO,
+    val rootAvailable: Boolean = false,
+    val rootLabel: String = "无",
+    val shizukuAvailable: Boolean = false,
+    val shizukuAuthorized: Boolean = false,
+    val dhizukuAvailable: Boolean = false,
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -94,8 +101,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+        // Real-time status when user changes authorizer on Privilege page.
         viewModelScope.launch {
-            refresh()
+            appSettings.preferredAuthorizer.collect { pref ->
+                _state.update { it.copy(preferredAuthorizer = pref) }
+                refresh()
+            }
+        }
+    }
+
+    fun setPreferredAuthorizer(authorizer: app.quieta.core.settings.PreferredAuthorizer) {
+        viewModelScope.launch {
+            appSettings.setPreferredAuthorizer(authorizer)
         }
     }
 
@@ -104,92 +121,95 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val shizuku = CapabilityProbe.probeShizuku()
             val dhizukuOk = runCatching { dhizukuBackend.isAvailable() }.getOrDefault(false)
             val rootOk = runCatching { rootBackend.isAvailable() }.getOrDefault(false)
+            val rootLabel = rootBackend.rootImplementationLabel()
+            val pref = _state.value.preferredAuthorizer
 
-            when {
-                shizuku.binderAlive && shizuku.permissionGranted -> {
-                    backend = shizukuBackend
-                    _state.update {
-                        it.copy(
-                            gate = PrivilegeGate.READY,
-                            privilege = PrivilegeStatus(
-                                id = PrivilegeId.SHIZUKU,
-                                available = true,
-                                label = "Shizuku",
-                            ),
-                        )
-                    }
-                    startInventoryRefresh()
+            _state.update {
+                it.copy(
+                    shizukuAvailable = shizuku.binderAlive,
+                    shizukuAuthorized = shizuku.binderAlive && shizuku.permissionGranted,
+                    dhizukuAvailable = dhizukuOk,
+                    rootAvailable = rootOk,
+                    rootLabel = rootLabel,
+                )
+            }
+
+            val shizukuOk = shizuku.binderAlive && shizuku.permissionGranted
+            val chosen = when (pref) {
+                app.quieta.core.settings.PreferredAuthorizer.SHIZUKU ->
+                    if (shizukuOk) shizukuBackend else null
+                app.quieta.core.settings.PreferredAuthorizer.DHIZUKU ->
+                    if (dhizukuOk) dhizukuBackend else null
+                app.quieta.core.settings.PreferredAuthorizer.ROOT ->
+                    if (rootOk) rootBackend else null
+                app.quieta.core.settings.PreferredAuthorizer.NONE -> null
+                app.quieta.core.settings.PreferredAuthorizer.AUTO -> when {
+                    shizukuOk -> shizukuBackend
+                    dhizukuOk -> dhizukuBackend
+                    rootOk -> rootBackend
+                    else -> null
                 }
-                dhizukuOk -> {
-                    backend = dhizukuBackend
-                    _state.update {
-                        it.copy(
-                            gate = PrivilegeGate.READY,
-                            privilege = PrivilegeStatus(
-                                id = PrivilegeId.DHIZUKU,
-                                available = true,
-                                label = "Dhizuku",
-                            ),
-                        )
-                    }
-                    startInventoryRefresh()
+            }
+
+            if (chosen != null) {
+                backend = chosen
+                val label = when (chosen.id) {
+                    PrivilegeId.SHIZUKU -> "Shizuku"
+                    PrivilegeId.DHIZUKU -> "Dhizuku"
+                    PrivilegeId.ROOT -> "ROOT · $rootLabel"
+                    PrivilegeId.NONE -> "无特权"
                 }
-                rootOk -> {
-                    backend = rootBackend
-                    _state.update {
-                        it.copy(
-                            gate = PrivilegeGate.READY,
-                            privilege = PrivilegeStatus(
-                                id = PrivilegeId.ROOT,
-                                available = true,
-                                label = "ROOT · ${rootBackend.rootImplementationLabel()}",
-                            ),
-                        )
-                    }
-                    startInventoryRefresh()
+                _state.update {
+                    it.copy(
+                        gate = PrivilegeGate.READY,
+                        privilege = PrivilegeStatus(
+                            id = chosen.id,
+                            available = true,
+                            label = label,
+                        ),
+                    )
                 }
-                !shizuku.binderAlive && !dhizukuOk && !rootOk -> {
-                    _state.update {
-                        it.copy(
-                            loading = false,
-                            gate = PrivilegeGate.SHIZUKU_UNAVAILABLE,
-                            privilege = PrivilegeStatus(
-                                id = PrivilegeId.SHIZUKU,
-                                available = false,
-                                label = "Shizuku 未运行",
-                            ),
-                            progress = null,
-                            apps = emptyList(),
-                            plan = emptyMap(),
-                        )
-                    }
+                startInventoryRefresh()
+            } else if (pref == app.quieta.core.settings.PreferredAuthorizer.NONE) {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        gate = PrivilegeGate.SHIZUKU_UNAVAILABLE,
+                        privilege = PrivilegeStatus(
+                            id = PrivilegeId.NONE,
+                            available = false,
+                            label = "无特权",
+                        ),
+                        progress = null,
+                    )
                 }
-                !shizuku.permissionGranted -> {
-                    _state.update {
-                        it.copy(
-                            loading = false,
-                            gate = PrivilegeGate.NEED_PERMISSION,
-                            privilege = PrivilegeStatus(
-                                id = PrivilegeId.SHIZUKU,
-                                available = false,
-                                label = "需要 Shizuku 授权",
-                            ),
-                            progress = null,
-                        )
-                    }
+            } else if (shizuku.binderAlive && !shizuku.permissionGranted) {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        gate = PrivilegeGate.NEED_PERMISSION,
+                        privilege = PrivilegeStatus(
+                            id = PrivilegeId.SHIZUKU,
+                            available = false,
+                            label = "需要 Shizuku 授权",
+                        ),
+                        progress = null,
+                    )
                 }
-                else -> {
-                    _state.update {
-                        it.copy(
-                            gate = PrivilegeGate.READY,
-                            privilege = PrivilegeStatus(
-                                id = PrivilegeId.SHIZUKU,
-                                available = true,
-                                label = "Shizuku",
-                            ),
-                        )
-                    }
-                    startInventoryRefresh()
+            } else {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        gate = PrivilegeGate.SHIZUKU_UNAVAILABLE,
+                        privilege = PrivilegeStatus(
+                            id = PrivilegeId.SHIZUKU,
+                            available = false,
+                            label = "未检测到可用特权",
+                        ),
+                        progress = null,
+                        apps = emptyList(),
+                        plan = emptyMap(),
+                    )
                 }
             }
         }
