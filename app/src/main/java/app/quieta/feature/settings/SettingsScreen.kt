@@ -72,8 +72,8 @@ fun SettingsScreen(
                 onClick = { /* later */ },
             )
             NavRow(
-                title = "底栏效果",
-                subtitle = modeLabel(bottomBarMode) + " · 模糊开关",
+                title = "液态玻璃",
+                subtitle = modeLabel(bottomBarMode) + " · 开关",
                 onClick = { },
                 trailing = {
                     QuietaSwitch(checked = blurEnabled, onCheckedChange = onBlurEnabledChange)

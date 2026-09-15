@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.History
@@ -16,9 +18,12 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +50,13 @@ object QuietaRoutes {
     const val SETTINGS = "settings"
 }
 
+private val tabRoutes = listOf(
+    QuietaRoutes.HOME,
+    QuietaRoutes.CONFIG,
+    QuietaRoutes.RECORD,
+    QuietaRoutes.SETTINGS,
+)
+
 @Composable
 fun QuietaRoot() {
     var selectedRoute by rememberSaveable { mutableStateOf(QuietaRoutes.HOME) }
@@ -67,9 +79,6 @@ fun QuietaRoot() {
     val liquidSupported = android.os.Build.VERSION.SDK_INT >= 33
     val mode = resolveBottomBarMode(blurEnabled, liquidSupported)
     val useShader = mode != FloatingBottomBarMode.None
-    // InstallerX rememberMaterial3BlurBackdrop: paint an opaque surface rect into the
-    // layer BEFORE content. Without it, empty pages (no white cards) leave transparent
-    // pixels and the glass rim samples black / washes gray.
     val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
     val pageBackdrop = rememberLayerBackdrop(
         onDraw = {
@@ -77,6 +86,30 @@ fun QuietaRoot() {
             drawContent()
         },
     )
+
+    // InstallerX-style HorizontalPager page switch (EaseInOut custom scroll).
+    val coroutineScope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(initialPage = tabRoutes.indexOf(selectedRoute).coerceAtLeast(0)) {
+        tabRoutes.size
+    }
+    val mainPagerState = rememberMainPagerState(pagerState, coroutineScope)
+
+    LaunchedEffect(selectedRoute) {
+        val target = tabRoutes.indexOf(selectedRoute).coerceAtLeast(0)
+        if (pagerState.currentPage != target) {
+            mainPagerState.animateToPage(target)
+        }
+    }
+
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.collect { page ->
+            mainPagerState.syncPage()
+            val route = tabRoutes.getOrNull(page)
+            if (route != null && route != selectedRoute) {
+                selectedRoute = route
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
@@ -86,25 +119,34 @@ fun QuietaRoot() {
                     if (useShader) Modifier.layerBackdrop(pageBackdrop) else Modifier,
                 ),
         ) {
-            when (selectedRoute) {
-                QuietaRoutes.HOME -> HomeScreen(modifier = Modifier.fillMaxSize())
-                QuietaRoutes.CONFIG -> ConfigScreen(modifier = Modifier.fillMaxSize())
-                QuietaRoutes.RECORD -> RecordScreen(modifier = Modifier.fillMaxSize())
-                QuietaRoutes.SETTINGS -> SettingsScreen(
-                    blurEnabled = blurEnabled,
-                    onBlurEnabledChange = { blurEnabled = it },
-                    bottomBarMode = mode,
-                    onOpenLicenses = { showLicenses = true },
-                    modifier = Modifier.fillMaxSize(),
-                )
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = true,
+                beyondViewportPageCount = 1,
+            ) { page ->
+                when (tabRoutes[page]) {
+                    QuietaRoutes.HOME -> HomeScreen(modifier = Modifier.fillMaxSize())
+                    QuietaRoutes.CONFIG -> ConfigScreen(modifier = Modifier.fillMaxSize())
+                    QuietaRoutes.RECORD -> RecordScreen(modifier = Modifier.fillMaxSize())
+                    QuietaRoutes.SETTINGS -> SettingsScreen(
+                        blurEnabled = blurEnabled,
+                        onBlurEnabledChange = { blurEnabled = it },
+                        bottomBarMode = mode,
+                        onOpenLicenses = { showLicenses = true },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
 
-        // Overlay: compact floating capsule above content (InstallerX layout).
         FloatingBottomBar(
             tabs = tabs,
-            selectedRoute = selectedRoute,
-            onTabSelected = { selectedRoute = it },
+            selectedRoute = tabRoutes[mainPagerState.selectedPage.coerceIn(0, tabRoutes.lastIndex)],
+            onTabSelected = { route ->
+                selectedRoute = route
+                mainPagerState.animateToPage(tabRoutes.indexOf(route).coerceAtLeast(0))
+            },
             mode = mode,
             backdrop = pageBackdrop,
             colors = FloatingBottomBarDefaults.colors(),
