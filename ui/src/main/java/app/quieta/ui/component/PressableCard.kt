@@ -1,38 +1,37 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Adapted from InstallerX Revived MiuixHomePage (2026 contributors).
 package app.quieta.ui.component
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
-/**
- * InstallerX-style springy press scale (≈0.97 while pressed).
- * Pass the same [interactionSource] into `Modifier.clickable`.
- */
+/** Position-aware tilt and press tint shared by actionable standalone cards. */
 @Composable
-fun pressScale(interactionSource: MutableInteractionSource): Float {
-    val pressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.97f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow,
+fun PressableCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.surface,
+    cornerRadius: Dp = 16.dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(
+        modifier = modifier,
+        cornerRadius = cornerRadius,
+        colors = CardDefaults.defaultColors(
+            color = color,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ),
-        label = "pressScale",
+        onClick = onClick,
+        showIndication = true,
+        pressFeedbackType = PressFeedbackType.Tilt,
+        content = content,
     )
-    return scale
-}
-
-@Composable
-fun Modifier.cardPressScale(interactionSource: MutableInteractionSource): Modifier {
-    val scale = pressScale(interactionSource)
-    return this.graphicsLayer {
-        scaleX = scale
-        scaleY = scale
-    }
 }

@@ -6,6 +6,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.darkColorScheme as miuixDarkColorScheme
+import top.yukonga.miuix.kmp.theme.lightColorScheme as miuixLightColorScheme
 
 // Aligned with InstallerX / miuix defaults (compose-miuix-ui Colors.kt).
 // Light surfaceContainer = White; dark surfaceContainer = #242424.
@@ -55,6 +58,7 @@ private val DarkColors = darkColorScheme(
 
 object QuietaColors {
     val Accent = HyperBlue
+    val StatusGreenDark = Color(0xFF163D25)
 }
 
 @Composable
@@ -62,9 +66,22 @@ fun QuietaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = QuietaTypography,
-        content = content,
+    val colors = if (darkTheme) DarkColors else LightColors
+    val miuixColors = (if (darkTheme) miuixDarkColorScheme() else miuixLightColorScheme()).copy(
+        primary = colors.primary,
+        onPrimary = colors.onPrimary,
+        background = colors.background,
+        onBackground = colors.onBackground,
+        surface = colors.background,
+        onSurface = colors.onSurface,
+        surfaceContainer = colors.surface,
+        onSurfaceContainer = colors.onSurface,
+        onSurfaceVariantSummary = colors.onSurfaceVariant,
     )
+    MaterialTheme(
+        colorScheme = colors,
+        typography = QuietaTypography,
+    ) {
+        MiuixTheme(colors = miuixColors, content = content)
+    }
 }

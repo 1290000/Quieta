@@ -32,4 +32,18 @@
     <string name="about_check_update_desc">检查软件更新和新功能</string>
     <string name="repo_url">https://github.com/1290000/Quieta</string>
     <string name="releases_url">https://github.com/1290000/Quieta/releases</string>
+    <string name="navigate_back">返回</string>
+    <string name="privilege_availability_tip">本板块会检测设备上可供息匣使用的授权方式，并允许你选择一种作为全局授权，用于盘点和管理通知渠道。选择授权方式不代表已获得权限，实际操作以设备能力检测结果为准。</string>
+    <string name="privilege_scope_tip">这里的设置用于决定息匣管理通知渠道时使用的授权方式。静音规则与授权方式分别配置；无可用特权时，只能查看缓存或前往系统设置，不能修改其它应用的渠道。</string>
+    <string name="privilege_authorizer">授权方式</string>
+    <string name="privilege_none">无特权</string>
+    <string name="privilege_none_description">不使用任何特殊权限，仅浏览本地缓存</string>
+    <string name="privilege_root_available">可用 (%1$s)</string>
+    <string name="privilege_unavailable">不可用</string>
+    <string name="privilege_running">正在运行</string>
+    <string name="privilege_shizuku_authorize">正在运行，尚未授权息匣</string>
+    <string name="privilege_shizuku_start">请启动 Shizuku</string>
+    <string name="privilege_dhizuku_activate">请激活并授权 Dhizuku</string>
+    <string name="privilege_auto">自动选择</string>
+    <string name="privilege_auto_description">优先 Shizuku，其次 Dhizuku、ROOT</string>
 </resources>

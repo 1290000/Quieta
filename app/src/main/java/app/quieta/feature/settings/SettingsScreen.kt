@@ -8,13 +8,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.Card
@@ -29,15 +26,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.BuildConfig
 import app.quieta.R
 import app.quieta.service.QuietaNotificationListener
-import app.quieta.ui.component.PageTitle
+import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.QuietaSwitch
 import app.quieta.ui.glass.FloatingBottomBarMode
 
@@ -52,99 +46,100 @@ fun SettingsScreen(
     aboutViewModel: AboutViewModel = viewModel(),
 ) {
     val context = LocalContext.current
+    val repoUrl = stringResource(R.string.repo_url)
     val autoMute by viewModel.autoMuteNewChannels.collectAsStateWithLifecycle()
     val updateState by aboutViewModel.state.collectAsStateWithLifecycle()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(horizontal = 20.dp),
+    QuietaPage(
+        title = stringResource(R.string.settings_title),
+        modifier = modifier,
+        blurEnabled = blurEnabled,
+        itemSpacing = 0.dp,
     ) {
-        PageTitle(stringResource(R.string.settings_title))
-
-        SectionTitle("个性化")
-        SettingsGroup {
-            NavRow(
-                title = "主题设置",
-                subtitle = "更改应用主题",
-                onClick = { /* later */ },
-            )
-            NavRow(
-                title = "液态玻璃",
-                subtitle = modeLabel(bottomBarMode) + " · 开关",
-                onClick = { },
-                trailing = {
-                    QuietaSwitch(checked = blurEnabled, onCheckedChange = onBlurEnabledChange)
-                },
-            )
-        }
-
-        SectionTitle("常规")
-        SettingsGroup {
-            SwitchRow(
-                title = "新渠道自动静音",
-                subtitle = "默认关闭。需通知使用权与 Shizuku",
-                checked = autoMute,
-                onCheckedChange = { viewModel.setAutoMuteNewChannels(it) },
-            )
-            NavRow(
-                title = "通知使用权",
-                subtitle = "打开系统设置，允许息匣读取通知",
-                onClick = {
-                    runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-                },
-            )
-        }
-
-        SectionTitle("备份与还原")
-        SettingsGroup {
-            NavRow(
-                title = "导出规则",
-                subtitle = "在配置页分享 JSON 备份",
-                onClick = { /* config tab */ },
-            )
-        }
-
-        SectionTitle("其它")
-        SettingsGroup {
-            NavRow(
-                title = stringResource(R.string.about_source),
-                subtitle = stringResource(R.string.about_source_desc),
-                onClick = { openUrl(context, context.getString(R.string.repo_url)) },
-            )
-            NavRow(
-                title = stringResource(R.string.about_licenses),
-                subtitle = stringResource(R.string.about_licenses_desc),
-                onClick = onOpenLicenses,
-            )
-            NavRow(
-                title = stringResource(R.string.about_check_update),
-                subtitle = updateState.message ?: stringResource(R.string.about_check_update_desc),
-                onClick = { aboutViewModel.checkUpdate() },
-            )
-            updateState.releaseUrl?.let { url ->
+        item(key = "appearance") {
+            SectionTitle("个性化")
+            SettingsGroup {
                 NavRow(
-                    title = "打开 Release 页",
-                    subtitle = url,
-                    onClick = { openUrl(context, url) },
+                    title = "主题设置",
+                    subtitle = "更改应用主题",
+                    onClick = { /* later */ },
+                )
+                NavRow(
+                    title = "液态玻璃",
+                    subtitle = modeLabel(bottomBarMode) + " · 开关",
+                    onClick = { onBlurEnabledChange(!blurEnabled) },
+                    trailing = {
+                        QuietaSwitch(checked = blurEnabled, onCheckedChange = onBlurEnabledChange)
+                    },
                 )
             }
-            NavRow(
-                title = "关于 息匣",
-                subtitle = BuildConfig.VERSION_NAME + " · " + stringResource(R.string.about_author_name),
-                onClick = { },
-            )
-            Text(
-                text = "组件 " + ComponentName(context, QuietaNotificationListener::class.java).flattenToString(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-            )
         }
-
-        Spacer(modifier = Modifier.height(110.dp))
+        item(key = "general") {
+            SectionTitle("常规")
+            SettingsGroup {
+                SwitchRow(
+                    title = "新渠道自动静音",
+                    subtitle = "默认关闭。需通知使用权与 Shizuku",
+                    checked = autoMute,
+                    onCheckedChange = { viewModel.setAutoMuteNewChannels(it) },
+                )
+                NavRow(
+                    title = "通知使用权",
+                    subtitle = "打开系统设置，允许息匣读取通知",
+                    onClick = {
+                        runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                    },
+                )
+            }
+        }
+        item(key = "backup") {
+            SectionTitle("备份与还原")
+            SettingsGroup {
+                NavRow(
+                    title = "导出规则",
+                    subtitle = "在配置页分享 JSON 备份",
+                    onClick = { /* config tab */ },
+                )
+            }
+        }
+        item(key = "about") {
+            SectionTitle("其它")
+            SettingsGroup {
+                NavRow(
+                    title = stringResource(R.string.about_source),
+                    subtitle = stringResource(R.string.about_source_desc),
+                    onClick = { openUrl(context, repoUrl) },
+                )
+                NavRow(
+                    title = stringResource(R.string.about_licenses),
+                    subtitle = stringResource(R.string.about_licenses_desc),
+                    onClick = onOpenLicenses,
+                )
+                NavRow(
+                    title = stringResource(R.string.about_check_update),
+                    subtitle = updateState.message ?: stringResource(R.string.about_check_update_desc),
+                    onClick = { aboutViewModel.checkUpdate() },
+                )
+                updateState.releaseUrl?.let { url ->
+                    NavRow(
+                        title = "打开 Release 页",
+                        subtitle = url,
+                        onClick = { openUrl(context, url) },
+                    )
+                }
+                NavRow(
+                    title = "关于 息匣",
+                    subtitle = BuildConfig.VERSION_NAME + " · " + stringResource(R.string.about_author_name),
+                    onClick = { },
+                )
+                Text(
+                    text = "组件 " + ComponentName(context, QuietaNotificationListener::class.java).flattenToString(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                )
+            }
+        }
     }
 }
 

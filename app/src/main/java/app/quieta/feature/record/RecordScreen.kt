@@ -2,15 +2,9 @@ package app.quieta.feature.record
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
-import app.quieta.ui.component.PageTitle
+import app.quieta.ui.component.QuietaPage
 
 data class RecordItem(
     val id: String,
@@ -45,52 +39,35 @@ data class RecordItem(
 @Composable
 fun RecordScreen(
     modifier: Modifier = Modifier,
+    blurEnabled: Boolean = true,
     viewModel: RecordViewModel = viewModel(),
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBars),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    QuietaPage(
+        title = stringResource(R.string.record_title),
+        modifier = modifier,
+        blurEnabled = blurEnabled,
+        actions = {
             IconButton(onClick = viewModel::clearAll) {
                 Icon(Icons.Outlined.DeleteSweep, contentDescription = "清空")
             }
             IconButton(onClick = { /* filter later */ }) {
                 Icon(Icons.Outlined.Tune, contentDescription = "筛选")
             }
-        }
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 110.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        },
+    ) {
+        if (items.isEmpty()) {
             item {
-                PageTitle(stringResource(R.string.record_title))
+                Text(
+                    text = "暂无记录。批量静音或自动静音执行后会出现在这里。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-
-            if (items.isEmpty()) {
-                item {
-                    Text(
-                        text = "暂无记录。批量静音或自动静音执行后会出现在这里。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            items(items, key = { it.id }) { row ->
-                RecordCard(row)
-            }
+        }
+        items(items, key = { it.id }) { row ->
+            RecordCard(row)
         }
     }
 }

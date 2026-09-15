@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -76,6 +77,7 @@ fun QuietaRoot() {
     val homeViewModel: HomeViewModel = viewModel()
     val context = LocalContext.current
     val homeState by homeViewModel.state.collectAsStateWithLifecycle()
+    val pageStateHolder = rememberSaveableStateHolder()
 
     // LibChecker-style incremental package updates — never full rescan on install/remove.
     DisposableEffect(homeViewModel) {
@@ -98,7 +100,7 @@ fun QuietaRoot() {
 
     if (showLicenses) {
         BackHandler { showLicenses = false }
-        LicensesScreen(onBack = { showLicenses = false })
+        LicensesScreen(onBack = { showLicenses = false }, blurEnabled = blurEnabled)
         return
     }
 
@@ -112,97 +114,103 @@ fun QuietaRoot() {
             dhizukuAvailable = homeState.dhizukuAvailable,
             onBack = { showPrivilege = false },
             onSelect = { homeViewModel.setPreferredAuthorizer(it) },
+            blurEnabled = blurEnabled,
         )
         return
     }
 
-    val tabs = listOf(
-        QuietaNavTab(QuietaRoutes.HOME, stringResource(R.string.nav_home), Icons.Outlined.Home),
-        QuietaNavTab(QuietaRoutes.CONFIG, stringResource(R.string.nav_config), Icons.AutoMirrored.Outlined.Rule),
-        QuietaNavTab(QuietaRoutes.RECORD, stringResource(R.string.nav_record), Icons.Outlined.History),
-        QuietaNavTab(QuietaRoutes.SETTINGS, stringResource(R.string.nav_settings), Icons.Outlined.Settings),
-    )
+    pageStateHolder.SaveableStateProvider("main_pages") {
+        val tabs = listOf(
+            QuietaNavTab(QuietaRoutes.HOME, stringResource(R.string.nav_home), Icons.Outlined.Home),
+            QuietaNavTab(QuietaRoutes.CONFIG, stringResource(R.string.nav_config), Icons.AutoMirrored.Outlined.Rule),
+            QuietaNavTab(QuietaRoutes.RECORD, stringResource(R.string.nav_record), Icons.Outlined.History),
+            QuietaNavTab(QuietaRoutes.SETTINGS, stringResource(R.string.nav_settings), Icons.Outlined.Settings),
+        )
 
-    val liquidSupported = android.os.Build.VERSION.SDK_INT >= 33
-    val mode = resolveBottomBarMode(blurEnabled, liquidSupported)
-    val useShader = mode != FloatingBottomBarMode.None
-    val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
-    val pageBackdrop = rememberLayerBackdrop(
-        onDraw = {
-            drawRect(surfaceColor)
-            drawContent()
-        },
-    )
+        val liquidSupported = android.os.Build.VERSION.SDK_INT >= 33
+        val mode = resolveBottomBarMode(blurEnabled, liquidSupported)
+        val useShader = mode != FloatingBottomBarMode.None
+        val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
+        val pageBackdrop = rememberLayerBackdrop(
+            onDraw = {
+                drawRect(surfaceColor)
+                drawContent()
+            },
+        )
 
-    // InstallerX-style HorizontalPager page switch (EaseInOut custom scroll).
-    val coroutineScope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(initialPage = tabRoutes.indexOf(selectedRoute).coerceAtLeast(0)) {
-        tabRoutes.size
-    }
-    val mainPagerState = rememberMainPagerState(pagerState, coroutineScope)
-
-    LaunchedEffect(selectedRoute) {
-        val target = tabRoutes.indexOf(selectedRoute).coerceAtLeast(0)
-        if (pagerState.currentPage != target) {
-            mainPagerState.animateToPage(target)
+        // InstallerX-style HorizontalPager page switch (EaseInOut custom scroll).
+        val coroutineScope = rememberCoroutineScope()
+        val pagerState = rememberPagerState(initialPage = tabRoutes.indexOf(selectedRoute).coerceAtLeast(0)) {
+            tabRoutes.size
         }
-    }
+        val mainPagerState = rememberMainPagerState(pagerState, coroutineScope)
 
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { page ->
-            mainPagerState.syncPage()
-            val route = tabRoutes.getOrNull(page)
-            if (route != null && route != selectedRoute) {
-                selectedRoute = route
+        LaunchedEffect(selectedRoute) {
+            val target = tabRoutes.indexOf(selectedRoute).coerceAtLeast(0)
+            if (pagerState.currentPage != target) {
+                mainPagerState.animateToPage(target)
             }
         }
-    }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(
-                    if (useShader) Modifier.layerBackdrop(pageBackdrop) else Modifier,
-                ),
-        ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                userScrollEnabled = true,
-            ) { page ->
-                when (tabRoutes[page]) {
-                    QuietaRoutes.HOME -> HomeScreen(
-                    modifier = Modifier.fillMaxSize(),
-                    onOpenPrivilege = { showPrivilege = true },
-                )
-                    QuietaRoutes.CONFIG -> ConfigScreen(modifier = Modifier.fillMaxSize())
-                    QuietaRoutes.RECORD -> RecordScreen(modifier = Modifier.fillMaxSize())
-                    QuietaRoutes.SETTINGS -> SettingsScreen(
-                        blurEnabled = blurEnabled,
-                        onBlurEnabledChange = { blurEnabled = it },
-                        bottomBarMode = mode,
-                        onOpenLicenses = { showLicenses = true },
-                        modifier = Modifier.fillMaxSize(),
-                    )
+        LaunchedEffect(pagerState) {
+            snapshotFlow { pagerState.currentPage }.collect { page ->
+                mainPagerState.syncPage()
+                val route = tabRoutes.getOrNull(page)
+                if (route != null && route != selectedRoute) {
+                    selectedRoute = route
                 }
             }
         }
 
-        FloatingBottomBar(
-            tabs = tabs,
-            selectedRoute = tabRoutes[mainPagerState.selectedPage.coerceIn(0, tabRoutes.lastIndex)],
-            onTabSelected = { route ->
-                selectedRoute = route
-                mainPagerState.animateToPage(tabRoutes.indexOf(route).coerceAtLeast(0))
-            },
-            mode = mode,
-            backdrop = pageBackdrop,
-            colors = FloatingBottomBarDefaults.colors(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 14.dp)
-                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (useShader) Modifier.layerBackdrop(pageBackdrop) else Modifier,
+                    ),
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    userScrollEnabled = true,
+                ) { page ->
+                    when (tabRoutes[page]) {
+                        QuietaRoutes.HOME -> HomeScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            viewModel = homeViewModel,
+                            onOpenPrivilege = { showPrivilege = true },
+                            onOpenConfig = { selectedRoute = QuietaRoutes.CONFIG },
+                            blurEnabled = blurEnabled,
+                        )
+                        QuietaRoutes.CONFIG -> ConfigScreen(modifier = Modifier.fillMaxSize(), blurEnabled = blurEnabled)
+                        QuietaRoutes.RECORD -> RecordScreen(modifier = Modifier.fillMaxSize(), blurEnabled = blurEnabled)
+                        QuietaRoutes.SETTINGS -> SettingsScreen(
+                            blurEnabled = blurEnabled,
+                            onBlurEnabledChange = { blurEnabled = it },
+                            bottomBarMode = mode,
+                            onOpenLicenses = { showLicenses = true },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+            }
+
+            FloatingBottomBar(
+                tabs = tabs,
+                selectedRoute = tabRoutes[mainPagerState.selectedPage.coerceIn(0, tabRoutes.lastIndex)],
+                onTabSelected = { route ->
+                    selectedRoute = route
+                    mainPagerState.animateToPage(tabRoutes.indexOf(route).coerceAtLeast(0))
+                },
+                mode = mode,
+                backdrop = pageBackdrop,
+                colors = FloatingBottomBarDefaults.colors(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 14.dp)
+                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
+            )
+        }
     }
 }

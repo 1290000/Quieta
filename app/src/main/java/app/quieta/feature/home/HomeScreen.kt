@@ -3,14 +3,13 @@ package app.quieta.feature.home
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,11 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,7 +37,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,8 +52,8 @@ import app.quieta.R
 import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
 import app.quieta.core.model.RuleAction
-import app.quieta.ui.component.PageTitle
-import app.quieta.ui.component.cardPressScale
+import app.quieta.ui.component.QuietaPage
+import app.quieta.ui.component.PressableCard
 import rikka.shizuku.Shizuku
 
 private const val REQ_SHIZUKU = 1001
@@ -78,6 +71,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
     onOpenPrivilege: () -> Unit = {},
+    onOpenConfig: () -> Unit = {},
+    blurEnabled: Boolean = true,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -94,19 +89,13 @@ fun HomeScreen(
         onDispose { Shizuku.removeRequestPermissionResultListener(listener) }
     }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBars),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    QuietaPage(
+        title = stringResource(R.string.home_title),
+        modifier = modifier,
+        blurEnabled = blurEnabled,
     ) {
         item {
-            PageTitle(stringResource(R.string.home_title))
-        }
-
-        item {
-            StatusGrid(state = state, onOpenPrivilege = onOpenPrivilege)
+            StatusGrid(state = state, onOpenPrivilege = onOpenPrivilege, onOpenConfig = onOpenConfig)
         }
 
         item {
@@ -175,35 +164,34 @@ fun HomeScreen(
 
 /** InstallerX-like: big status card + two stat cards. */
 @Composable
-private fun StatusGrid(state: HomeUiState, onOpenPrivilege: () -> Unit) {
+private fun StatusGrid(state: HomeUiState, onOpenPrivilege: () -> Unit, onOpenConfig: () -> Unit) {
     // Neutral while probing so the card does not flash red before Shizuku is known.
     val checking = state.gate == PrivilegeGate.CHECKING && !state.privilege.available
     val active = state.privilege.available && !checking
-    val containerColor = when {
-        active -> StatusGreenBg
-        checking -> StatusNeutralBg
-        else -> StatusRedBg
+    val containerColor = if (isSystemInDarkTheme()) {
+        when {
+            active -> app.quieta.ui.theme.QuietaColors.StatusGreenDark
+            checking -> MaterialTheme.colorScheme.surface
+            else -> MaterialTheme.colorScheme.errorContainer
+        }
+    } else {
+        when {
+            active -> StatusGreenBg
+            checking -> StatusNeutralBg
+            else -> StatusRedBg
+        }
     }
     val iconTint = when {
         active -> StatusGreenIcon
         checking -> StatusNeutralIcon
         else -> StatusRedIcon
     }
-    val statusInteraction = remember { MutableInteractionSource() }
-    val privInteraction = remember { MutableInteractionSource() }
-
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .cardPressScale(statusInteraction)
-                .clickable(
-                    interactionSource = statusInteraction,
-                    indication = null,
-                    onClick = onOpenPrivilege,
-                ),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = containerColor),
+        PressableCard(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onOpenPrivilege,
+            cornerRadius = 20.dp,
+            color = containerColor,
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 // Large decorative icon at bottom-right (InstallerX pattern)
@@ -267,15 +255,10 @@ private fun StatusGrid(state: HomeUiState, onOpenPrivilege: () -> Unit) {
             StatCard(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
-                    .cardPressScale(privInteraction)
-                    .clickable(
-                        interactionSource = privInteraction,
-                        indication = null,
-                        onClick = onOpenPrivilege,
-                    ),
+                    .fillMaxHeight(),
                 title = stringResource(R.string.home_stat_authorizers),
-                value = if (state.privilege.available) "1" else "0",
+                value = listOf(state.rootAvailable, state.shizukuAuthorized, state.dhizukuAvailable).count { it }.toString(),
+                onClick = onOpenPrivilege,
             )
             StatCard(
                 modifier = Modifier
@@ -283,17 +266,17 @@ private fun StatusGrid(state: HomeUiState, onOpenPrivilege: () -> Unit) {
                     .fillMaxHeight(),
                 title = "规则数量",
                 value = state.rulesCount.toString(),
+                onClick = onOpenConfig,
             )
         }
     }
 }
 
 @Composable
-private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
-    Card(
+private fun StatCard(title: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    PressableCard(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        onClick = onClick,
     ) {
         Column(
             modifier = Modifier
