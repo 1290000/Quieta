@@ -43,6 +43,7 @@ class ShizukuBackend(
                     id = raw.id,
                     name = raw.name?.toString().orEmpty().ifEmpty { raw.id },
                     importance = raw.importance.toDomain(),
+                    soundEnabled = raw.sound?.toString()?.isNotEmpty() == true,
                 )
             }
         } catch (t: Throwable) {

@@ -14,6 +14,8 @@ data class Channel(
     val id: String,
     val name: String,
     val importance: ChannelImportance,
+    /** True when the system channel still has a non-empty sound URI. */
+    val soundEnabled: Boolean = true,
 )
 
 data class AppChannels(

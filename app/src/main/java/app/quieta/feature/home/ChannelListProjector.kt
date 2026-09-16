@@ -13,6 +13,12 @@ enum class ChannelSort {
     MAX_IMPORTANCE,
 }
 
+enum class SoundFilter {
+    ALL,
+    ON,
+    OFF,
+}
+
 data class ChannelListFilters(
     val hasHigh: Boolean = false,
     val hasNone: Boolean = false,
@@ -20,9 +26,11 @@ data class ChannelListFilters(
     val onlyUser: Boolean = false,
     val onlySystem: Boolean = false,
     val onlyLikelyMarketing: Boolean = false,
+    val sound: SoundFilter = SoundFilter.ALL,
 ) {
     val isActive: Boolean
-        get() = hasHigh || hasNone || willMute || onlyUser || onlySystem || onlyLikelyMarketing
+        get() = hasHigh || hasNone || willMute || onlyUser || onlySystem ||
+            onlyLikelyMarketing || sound != SoundFilter.ALL
 }
 
 data class ChannelListAppItem(
@@ -51,7 +59,9 @@ object ChannelListProjector {
         } else {
             apps.mapNotNull { app -> filterChannelsForSearch(app, needle) }
         }
-        val filtered = searched.filter { app -> matchesFilters(app, filters, plan) }
+        val filtered = searched
+            .map { app -> applySoundChannelFilter(app, filters.sound) }
+            .filter { app -> app.channels.isNotEmpty() && matchesFilters(app, filters, plan) }
         val sorted = sortApps(filtered, sort)
         return sorted.map { app ->
             val expand = expandedPackages.contains(app.packageName) ||
@@ -67,6 +77,14 @@ object ChannelListProjector {
                 likelyMarketingChannelIds = marketingIds,
             )
         }
+    }
+
+    private fun applySoundChannelFilter(app: AppChannels, sound: SoundFilter): AppChannels {
+        if (sound == SoundFilter.ALL) return app
+        val kept = app.channels.filter { ch ->
+            if (sound == SoundFilter.ON) ch.soundEnabled else !ch.soundEnabled
+        }
+        return app.copy(channels = kept)
     }
 
     fun matchesQuery(app: AppChannels, query: String): Boolean {
@@ -101,6 +119,12 @@ object ChannelListProjector {
         if (filters.onlyLikelyMarketing) {
             val hit = app.channels.any {
                 MarketingHeuristic.isLikelyMarketing(it, app.isSystem)
+            }
+            if (!hit) return false
+        }
+        if (filters.sound != SoundFilter.ALL) {
+            val hit = app.channels.any {
+                if (filters.sound == SoundFilter.ON) it.soundEnabled else !it.soundEnabled
             }
             if (!hit) return false
         }

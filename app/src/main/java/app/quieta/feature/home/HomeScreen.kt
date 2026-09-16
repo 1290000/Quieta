@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -290,6 +291,7 @@ fun HomeScreen(
             onToggleOnlyUser = { viewModel.toggleFilter { it.copy(onlyUser = !it.onlyUser, onlySystem = false) } },
             onToggleOnlySystem = { viewModel.toggleFilter { it.copy(onlySystem = !it.onlySystem, onlyUser = false) } },
             onToggleOnlyMarketing = { viewModel.toggleFilter { it.copy(onlyLikelyMarketing = !it.onlyLikelyMarketing) } },
+            onSoundFilter = { sound -> viewModel.toggleFilter { it.copy(sound = sound) } },
             onSortChange = viewModel::setSort,
             onResetFilters = {
                 viewModel.toggleFilter { ChannelListFilters() }
@@ -600,9 +602,11 @@ private fun FilterSortSheet(
     onToggleOnlyUser: () -> Unit,
     onToggleOnlySystem: () -> Unit,
     onToggleOnlyMarketing: () -> Unit,
+    onSoundFilter: (SoundFilter) -> Unit,
     onSortChange: (ChannelSort) -> Unit,
     onResetFilters: () -> Unit,
 ) {
+    var showSoundPicker by remember { mutableStateOf(false) }
     HyperOsPopup(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth()) {
             HyperOsPopupRow("含 HIGH", selected = filters.hasHigh, onClick = onToggleHasHigh)
@@ -611,6 +615,17 @@ private fun FilterSortSheet(
             HyperOsPopupRow("仅用户应用", selected = filters.onlyUser, onClick = onToggleOnlyUser)
             HyperOsPopupRow("仅系统应用", selected = filters.onlySystem, onClick = onToggleOnlySystem)
             HyperOsPopupRow("疑似营销", selected = filters.onlyLikelyMarketing, onClick = onToggleOnlyMarketing)
+            HyperOsPopupRow(
+                title = "声音",
+                selected = filters.sound != SoundFilter.ALL,
+                subtitle = when (filters.sound) {
+                    SoundFilter.ON -> "声音开"
+                    SoundFilter.OFF -> "声音关"
+                    SoundFilter.ALL -> null
+                },
+                onClick = { showSoundPicker = true },
+                showCheck = false,
+            )
             HyperOsPopupRow(
                 title = "重置筛选",
                 selected = false,
@@ -630,6 +645,16 @@ private fun FilterSortSheet(
                     selected = sort == value,
                     onClick = { onSortChange(value) },
                 )
+            }
+        }
+    }
+    if (showSoundPicker) {
+        HyperOsPopup(onDismissRequest = { showSoundPicker = false }, topPadding = 120.dp) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                HyperOsPopupRow("声音开", selected = filters.sound == SoundFilter.ON, onClick = { onSoundFilter(SoundFilter.ON); showSoundPicker = false })
+                HyperOsPopupRow("声音关", selected = filters.sound == SoundFilter.OFF, onClick = { onSoundFilter(SoundFilter.OFF); showSoundPicker = false })
+                HyperOsPopupDivider()
+                HyperOsPopupRow("全部", selected = filters.sound == SoundFilter.ALL, onClick = { onSoundFilter(SoundFilter.ALL); showSoundPicker = false })
             }
         }
     }
@@ -852,6 +877,8 @@ private fun ChannelRow(
             )
         }
         LiveStatusChip(status)
+        Spacer(modifier = Modifier.width(6.dp))
+        SoundDot(enabled = channel.soundEnabled)
     }
 }
 
@@ -888,5 +915,18 @@ private fun LiveStatusChip(status: ChannelLiveStatus) {
     ) {
         Text(status.label, style = MaterialTheme.typography.labelMedium)
     }
+}
+
+/** Sound state on a single channel: gray = on, red = off (before the status pill). */
+@Composable
+private fun SoundDot(enabled: Boolean) {
+    Box(
+        modifier = Modifier
+            .size(10.dp)
+            .background(
+                color = if (enabled) Color(0xFF8E8E93) else Color(0xFFFF3B30),
+                shape = CircleShape,
+            ),
+    )
 }
 

@@ -87,13 +87,19 @@ class RootBackend(private val context: Context? = null) : PrivilegeBackend {
                 check(!more || page.isNotEmpty()) { "Root channel pagination stalled" }
             } while (more)
             channels.distinctBy { it.id }.map {
-                Channel(packageName, it.id, it.name?.toString().orEmpty().ifBlank { it.id }, when (it.importance) {
-                    0 -> ChannelImportance.NONE
-                    1 -> ChannelImportance.MIN
-                    2 -> ChannelImportance.LOW
-                    4, 5 -> ChannelImportance.HIGH
-                    else -> ChannelImportance.DEFAULT
-                })
+                Channel(
+                    packageName = packageName,
+                    id = it.id,
+                    name = it.name?.toString().orEmpty().ifBlank { it.id },
+                    importance = when (it.importance) {
+                        0 -> ChannelImportance.NONE
+                        1 -> ChannelImportance.MIN
+                        2 -> ChannelImportance.LOW
+                        4, 5 -> ChannelImportance.HIGH
+                        else -> ChannelImportance.DEFAULT
+                    },
+                    soundEnabled = it.sound?.toString()?.isNotEmpty() == true,
+                )
             }
         }
     }

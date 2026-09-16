@@ -45,7 +45,8 @@ class ChannelInventoryStore private constructor(context: Context) {
                     JSONObject()
                         .put("id", ch.id)
                         .put("name", ch.name)
-                        .put("importance", ch.importance.name),
+                        .put("importance", ch.importance.name)
+                        .put("soundEnabled", ch.soundEnabled),
                 )
             }
             arr.put(
@@ -78,6 +79,7 @@ class ChannelInventoryStore private constructor(context: Context) {
                                     importance = runCatching {
                                         ChannelImportance.valueOf(c.getString("importance"))
                                     }.getOrDefault(ChannelImportance.DEFAULT),
+                                    soundEnabled = c.optBoolean("soundEnabled", true),
                                 ),
                             )
                         }
