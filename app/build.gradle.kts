@@ -97,4 +97,5 @@ dependencies {
     implementation(libs.aboutlibraries.compose.m3)
     implementation(libs.hidden.api.bypass)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    testImplementation("junit:junit:4.13.2")
 }

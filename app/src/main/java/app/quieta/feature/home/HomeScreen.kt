@@ -2,11 +2,16 @@ package app.quieta.feature.home
 
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,19 +23,27 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,7 +63,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
-import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
 import app.quieta.core.model.RuleAction
 import app.quieta.ui.component.QuietaPage
@@ -139,16 +151,83 @@ fun HomeScreen(
         }
 
         if (state.gate == PrivilegeGate.READY && state.apps.isNotEmpty()) {
-            item {
-                Text(
-                    text = "通知渠道",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+            item(key = "list-header") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "通知渠道",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = viewModel::expandAllVisible) { Text("展开") }
+                            TextButton(onClick = viewModel::collapseAll) { Text("收起") }
+                        }
+                    }
+                    OutlinedTextField(
+                        value = state.searchQuery,
+                        onValueChange = viewModel::setSearchQuery,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("搜索应用、包名或渠道") },
+                        leadingIcon = {
+                            Icon(Icons.Outlined.Search, contentDescription = null)
+                        },
+                        trailingIcon = {
+                            if (state.searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = "清除搜索",
+                                    )
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                    ChannelFilterRow(
+                        filters = state.filters,
+                        sort = state.sort,
+                        onToggleHasHigh = {
+                            viewModel.toggleFilter { it.copy(hasHigh = !it.hasHigh) }
+                        },
+                        onToggleHasNone = {
+                            viewModel.toggleFilter { it.copy(hasNone = !it.hasNone) }
+                        },
+                        onToggleWillMute = {
+                            viewModel.toggleFilter { it.copy(willMute = !it.willMute) }
+                        },
+                        onSortChange = viewModel::setSort,
+                    )
+                    if (state.listSummary.isNotEmpty()) {
+                        Text(
+                            text = state.listSummary,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
-            items(state.apps, key = { it.packageName }) { app ->
-                AppChannelCard(app = app, plan = state.plan)
+            if (state.listItems.isEmpty()) {
+                item(key = "list-empty") {
+                    Text(
+                        text = "没有匹配的应用或渠道。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                items(state.listItems, key = { it.app.packageName }) { item ->
+                    AppChannelCard(
+                        item = item,
+                        plan = state.plan,
+                        onToggleExpand = { viewModel.toggleExpanded(item.app.packageName) },
+                    )
+                }
             }
         }
 
@@ -398,31 +477,110 @@ private fun InfoBlock(title: String, value: String) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AppChannelCard(app: AppChannels, plan: Map<Channel, RuleAction>) {
+private fun ChannelFilterRow(
+    filters: ChannelListFilters,
+    sort: ChannelSort,
+    onToggleHasHigh: () -> Unit,
+    onToggleHasNone: () -> Unit,
+    onToggleWillMute: () -> Unit,
+    onSortChange: (ChannelSort) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = filters.hasHigh,
+                onClick = onToggleHasHigh,
+                label = { Text("含 HIGH") },
+            )
+            FilterChip(
+                selected = filters.hasNone,
+                onClick = onToggleHasNone,
+                label = { Text("含 NONE") },
+            )
+            FilterChip(
+                selected = filters.willMute,
+                onClick = onToggleWillMute,
+                label = { Text("将静音") },
+            )
+        }
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val sortOptions = listOf(
+                ChannelSort.CHANNEL_COUNT to "渠道数",
+                ChannelSort.NAME to "名称",
+                ChannelSort.PACKAGE to "包名",
+                ChannelSort.MAX_IMPORTANCE to "最高级",
+            )
+            sortOptions.forEach { (value, label) ->
+                FilterChip(
+                    selected = sort == value,
+                    onClick = { onSortChange(value) },
+                    label = { Text(label) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppChannelCard(
+    item: ChannelListAppItem,
+    plan: Map<Channel, RuleAction>,
+    onToggleExpand: () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggleExpand),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Box(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary),
                 )
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(app.appLabel, style = MaterialTheme.typography.titleMedium)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(item.app.appLabel, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = item.app.packageName + " · " + item.app.channels.size + " 个渠道",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    imageVector = if (item.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = if (item.expanded) "收起" else "展开",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            Text(
-                text = app.packageName + " · " + app.channels.size + " 个渠道",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            app.channels.forEach { channel ->
-                ChannelRow(channel = channel, action = plan[channel] ?: RuleAction.KEEP)
+            AnimatedVisibility(visible = item.expanded) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item.channels.forEach { channel ->
+                        ChannelRow(channel = channel, action = plan[channel] ?: RuleAction.KEEP)
+                    }
+                }
             }
         }
     }

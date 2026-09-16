@@ -72,6 +72,12 @@ data class HomeUiState(
     val shizukuAvailable: Boolean = false,
     val shizukuAuthorized: Boolean = false,
     val dhizukuAvailable: Boolean = false,
+    val searchQuery: String = "",
+    val filters: ChannelListFilters = ChannelListFilters(),
+    val sort: ChannelSort = ChannelSort.CHANNEL_COUNT,
+    val expandedPackages: Set<String> = emptySet(),
+    val listItems: List<ChannelListAppItem> = emptyList(),
+    val listSummary: String = "",
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -122,17 +128,50 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             ruleRepository.current()
-            combine(ruleRepository.rules, state.map { it.apps }.distinctUntilChanged()) { rules, apps ->
-                rules to apps
-            }.collectLatest { (rules, apps) ->
+            combine(
+                ruleRepository.rules,
+                state.map { Triple(it.apps, it.searchQuery, it.filters) }.distinctUntilChanged(),
+                state.map { Pair(it.sort, it.expandedPackages) }.distinctUntilChanged(),
+            ) { rules, searchTriple, sortPair ->
+                ListProjectionInput(
+                    rules = rules,
+                    apps = searchTriple.first,
+                    query = searchTriple.second,
+                    filters = searchTriple.third,
+                    sort = sortPair.first,
+                    expanded = sortPair.second,
+                )
+            }.collectLatest { input ->
                 val plan = withContext(Dispatchers.Default) {
-                    RulesEngine(rules).plan(apps.flatMap { it.channels })
+                    RulesEngine(input.rules).plan(input.apps.flatMap { it.channels })
+                }
+                val items = withContext(Dispatchers.Default) {
+                    ChannelListProjector.project(
+                        apps = input.apps,
+                        query = input.query,
+                        filters = input.filters,
+                        sort = input.sort,
+                        plan = plan,
+                        expandedPackages = input.expanded,
+                    )
+                }
+                val visibleChannels = items.sumOf { it.channels.size }
+                val summary = if (input.query.isNotBlank() || input.filters.isActive) {
+                    "匹配 ${items.size} 个应用 · $visibleChannels 个渠道"
+                } else {
+                    "${items.size} 个应用 · $visibleChannels 个渠道"
                 }
                 _state.update {
-                    if (it.apps != apps || ruleRepository.rules.value != rules) it else it.copy(
-                        rulesCount = rules.size,
-                        plan = plan,
-                    )
+                    if (it.apps != input.apps || ruleRepository.rules.value != input.rules) {
+                        it
+                    } else {
+                        it.copy(
+                            rulesCount = input.rules.size,
+                            plan = plan,
+                            listItems = items,
+                            listSummary = summary,
+                        )
+                    }
                 }
             }
         }
@@ -143,6 +182,48 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 refresh()
             }
         }
+    }
+
+    private data class ListProjectionInput(
+        val rules: List<app.quieta.core.model.Rule>,
+        val apps: List<AppChannels>,
+        val query: String,
+        val filters: ChannelListFilters,
+        val sort: ChannelSort,
+        val expanded: Set<String>,
+    )
+
+    fun setSearchQuery(query: String) {
+        _state.update { it.copy(searchQuery = query) }
+    }
+
+    fun setSort(sort: ChannelSort) {
+        _state.update { it.copy(sort = sort) }
+    }
+
+    fun toggleFilter(transform: (ChannelListFilters) -> ChannelListFilters) {
+        _state.update { it.copy(filters = transform(it.filters)) }
+    }
+
+    fun toggleExpanded(packageName: String) {
+        _state.update { state ->
+            val next = if (packageName in state.expandedPackages) {
+                state.expandedPackages - packageName
+            } else {
+                state.expandedPackages + packageName
+            }
+            state.copy(expandedPackages = next)
+        }
+    }
+
+    fun expandAllVisible() {
+        val pkgs = _state.value.listItems.map { it.app.packageName }.toSet()
+        if (pkgs.isEmpty()) return
+        _state.update { it.copy(expandedPackages = it.expandedPackages + pkgs) }
+    }
+
+    fun collapseAll() {
+        _state.update { it.copy(expandedPackages = emptySet()) }
     }
 
     fun setPreferredAuthorizer(authorizer: app.quieta.core.settings.PreferredAuthorizer) {
