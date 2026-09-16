@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -324,6 +326,9 @@ private fun RuleCard(
                 )
             }
             if (hitStat != null) {
+                var samplesExpanded by rememberSaveable(rule.id) { mutableStateOf(false) }
+                var showFullSamples by rememberSaveable(rule.id) { mutableStateOf(false) }
+                val previewSamples = hitStat.samples.take(3)
                 Text(
                     text = if (hitStat.effectiveCount == hitStat.matchCount) {
                         "当前盘点命中 ${hitStat.matchCount} 个渠道"
@@ -337,19 +342,59 @@ private fun RuleCard(
                         MaterialTheme.colorScheme.primary
                     },
                 )
-                hitStat.samples.forEach { sample ->
-                    Text(
-                        text = "· ${sample.appLabel} / ${sample.channelName} (${sample.channelId})",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
+                if (hitStat.samples.isNotEmpty()) {
+                    TextButton(
+                        onClick = { samplesExpanded = !samplesExpanded },
+                        modifier = Modifier.padding(start = 0.dp),
+                    ) {
+                        Text(if (samplesExpanded) "收起样本" else "展开样本（${hitStat.samples.size}）")
+                    }
+                }
+                if (samplesExpanded) {
+                    previewSamples.forEach { sample ->
+                        Text(
+                            text = "· ${sample.appLabel} / ${sample.channelName} (${sample.channelId})",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                    if (hitStat.samples.size > previewSamples.size) {
+                        TextButton(onClick = { showFullSamples = true }) {
+                            Text("查看完整 ${hitStat.samples.size} 条")
+                        }
+                    }
                 }
                 if (hitStat.broadKeyword && rule.action != RuleAction.KEEP) {
                     Text(
                         text = "⚠ 关键词过宽，可能误伤",
                         style = MaterialTheme.typography.labelMedium,
                         color = Color(0xFFB45309),
+                    )
+                }
+                if (showFullSamples) {
+                    AlertDialog(
+                        onDismissRequest = { showFullSamples = false },
+                        title = { Text("命中样本（${hitStat.samples.size}）") },
+                        text = {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 360.dp)
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                hitStat.samples.forEach { sample ->
+                                    Text(
+                                        text = sample.appLabel + " / " + sample.channelName + "\n" + sample.channelId,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showFullSamples = false }) { Text("关闭") }
+                        },
                     )
                 }
             }

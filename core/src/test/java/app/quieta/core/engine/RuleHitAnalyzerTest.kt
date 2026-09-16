@@ -31,6 +31,7 @@ class RuleHitAnalyzerTest {
         assertEquals(1, stats.getValue("exact").matchCount)
         assertEquals(1, stats.getValue("exact").effectiveCount)
         assertEquals("营销", stats.getValue("exact").samples.first().channelName)
+        assertTrue(stats.getValue("exact").samples.size >= 1)
     }
 
     @Test

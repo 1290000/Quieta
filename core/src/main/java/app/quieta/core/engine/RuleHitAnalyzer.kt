@@ -15,6 +15,7 @@ data class RuleHitStat(
     val matchCount: Int,
     /** Channels for which this rule is the final decision winner. */
     val effectiveCount: Int,
+    /** All hit samples (effective first, then other matches). UI may show a short preview. */
     val samples: List<RuleHitSample>,
     val broadKeyword: Boolean,
 )
@@ -39,8 +40,6 @@ object BroadKeywords {
 
 object RuleHitAnalyzer {
 
-    private const val SAMPLE_LIMIT = 3
-
     fun analyze(rules: List<Rule>, apps: List<AppChannels>): Map<String, RuleHitStat> {
         if (rules.isEmpty() || apps.isEmpty()) return emptyMap()
         val engine = RulesEngine(rules)
@@ -50,11 +49,12 @@ object RuleHitAnalyzer {
         return rules.associate { rule ->
             val matched = channels.filter { (_, ch, _) -> rule.matches(ch) }
             val effective = matched.filter { (_, _, winner) -> winner == rule.id }
+            val ordered = effective + matched.filterNot { it in effective }
             rule.id to RuleHitStat(
                 ruleId = rule.id,
                 matchCount = matched.size,
                 effectiveCount = effective.size,
-                samples = effective.ifEmpty { matched }.take(SAMPLE_LIMIT).map { (label, ch, _) ->
+                samples = ordered.map { (label, ch, _) ->
                     RuleHitSample(label, ch.name, ch.id)
                 },
                 broadKeyword = BroadKeywords.isBroad(rule.nameContains) ||
