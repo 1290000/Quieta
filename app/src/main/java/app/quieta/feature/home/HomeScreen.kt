@@ -39,22 +39,22 @@ import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
@@ -92,6 +93,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
     onOpenPrivilege: () -> Unit = {},
     onOpenConfig: () -> Unit = {},
+    onOpenMutePreview: () -> Unit = {},
     blurEnabled: Boolean = true,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -108,6 +110,19 @@ fun HomeScreen(
         Shizuku.addRequestPermissionResultListener(listener)
         onDispose { Shizuku.removeRequestPermissionResultListener(listener) }
     }
+
+    var previewNavArmed by remember { mutableStateOf(true) }
+    LaunchedEffect(state.mutePreview) {
+        val preview = state.mutePreview
+        if (preview == null) {
+            previewNavArmed = true
+        } else if (previewNavArmed) {
+            previewNavArmed = false
+            onOpenMutePreview()
+        }
+    }
+
+    var showFilterSheet by rememberSaveable { mutableStateOf(false) }
 
     QuietaPage(
         title = stringResource(R.string.home_title),
@@ -199,19 +214,10 @@ fun HomeScreen(
                         },
                         shape = RoundedCornerShape(14.dp),
                     )
-                    ChannelFilterRow(
+                    FilterSortEntry(
                         filters = state.filters,
                         sort = state.sort,
-                        onToggleHasHigh = {
-                            viewModel.toggleFilter { it.copy(hasHigh = !it.hasHigh) }
-                        },
-                        onToggleHasNone = {
-                            viewModel.toggleFilter { it.copy(hasNone = !it.hasNone) }
-                        },
-                        onToggleWillMute = {
-                            viewModel.toggleFilter { it.copy(willMute = !it.willMute) }
-                        },
-                        onSortChange = viewModel::setSort,
+                        onClick = { showFilterSheet = true },
                     )
                     if (state.listSummary.isNotEmpty()) {
                         Text(
@@ -255,12 +261,18 @@ fun HomeScreen(
         }
     }
 
-    state.mutePreview?.let { preview ->
-        MutePreviewDialog(
-            preview = preview,
-            onConfirm = viewModel::confirmBatchMute,
-            onDismiss = viewModel::dismissMutePreview,
-            onScopeChange = viewModel::setMuteScope,
+    if (showFilterSheet) {
+        FilterSortSheet(
+            filters = state.filters,
+            sort = state.sort,
+            onDismiss = { showFilterSheet = false },
+            onToggleHasHigh = { viewModel.toggleFilter { it.copy(hasHigh = !it.hasHigh) } },
+            onToggleHasNone = { viewModel.toggleFilter { it.copy(hasNone = !it.hasNone) } },
+            onToggleWillMute = { viewModel.toggleFilter { it.copy(willMute = !it.willMute) } },
+            onSortChange = viewModel::setSort,
+            onResetFilters = {
+                viewModel.toggleFilter { ChannelListFilters() }
+            },
         )
     }
 }
@@ -507,59 +519,117 @@ private fun InfoBlock(title: String, value: String) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChannelFilterRow(
+private fun FilterSortEntry(
     filters: ChannelListFilters,
     sort: ChannelSort,
+    onClick: () -> Unit,
+) {
+    val parts = buildList {
+        if (filters.hasHigh) add("含 HIGH")
+        if (filters.hasNone) add("含 NONE")
+        if (filters.willMute) add("将静音")
+        add(
+            "排序 " + when (sort) {
+                ChannelSort.CHANNEL_COUNT -> "渠道数"
+                ChannelSort.NAME -> "名称"
+                ChannelSort.PACKAGE -> "包名"
+                ChannelSort.MAX_IMPORTANCE -> "最高级"
+            },
+        )
+    }
+    val label = if (filters.isActive) {
+        parts.joinToString(" · ")
+    } else {
+        "筛选 / 排序"
+    }
+    MiuixCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(
+                imageVector = Icons.Outlined.ExpandMore,
+                contentDescription = "打开筛选",
+                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FilterSortSheet(
+    filters: ChannelListFilters,
+    sort: ChannelSort,
+    onDismiss: () -> Unit,
     onToggleHasHigh: () -> Unit,
     onToggleHasNone: () -> Unit,
     onToggleWillMute: () -> Unit,
     onSortChange: (ChannelSort) -> Unit,
+    onResetFilters: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FlowRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilterChip(
-                selected = filters.hasHigh,
-                onClick = onToggleHasHigh,
-                label = { Text("含 HIGH") },
-            )
-            FilterChip(
-                selected = filters.hasNone,
-                onClick = onToggleHasNone,
-                label = { Text("含 NONE") },
-            )
-            FilterChip(
-                selected = filters.willMute,
-                onClick = onToggleWillMute,
-                label = { Text("将静音") },
-            )
-        }
-        FlowRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val sortOptions = listOf(
-                ChannelSort.CHANNEL_COUNT to "渠道数",
-                ChannelSort.NAME to "名称",
-                ChannelSort.PACKAGE to "包名",
-                ChannelSort.MAX_IMPORTANCE to "最高级",
-            )
-            sortOptions.forEach { (value, label) ->
-                FilterChip(
-                    selected = sort == value,
-                    onClick = { onSortChange(value) },
-                    label = { Text(label) },
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        MiuixCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text("筛选", style = MiuixTheme.textStyles.title4)
+                FilterCheckRow("含 HIGH", filters.hasHigh, onToggleHasHigh)
+                FilterCheckRow("含 NONE", filters.hasNone, onToggleHasNone)
+                FilterCheckRow("将静音", filters.willMute, onToggleWillMute)
+                Text("排序", style = MiuixTheme.textStyles.title4)
+                val sortOptions = listOf(
+                    ChannelSort.CHANNEL_COUNT to "渠道数",
+                    ChannelSort.NAME to "名称",
+                    ChannelSort.PACKAGE to "包名",
+                    ChannelSort.MAX_IMPORTANCE to "最高级",
                 )
+                sortOptions.forEach { (value, name) ->
+                    FilterCheckRow(
+                        title = name,
+                        checked = sort == value,
+                        onClick = { onSortChange(value) },
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    top.yukonga.miuix.kmp.basic.TextButton(text = "重置筛选", onClick = onResetFilters)
+                    top.yukonga.miuix.kmp.basic.TextButton(text = "关闭", onClick = onDismiss)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun FilterCheckRow(title: String, checked: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, style = MiuixTheme.textStyles.body2, modifier = Modifier.weight(1f))
+        app.quieta.ui.component.QuietaSwitch(checked = checked, onCheckedChange = { onClick() })
     }
 }
 
@@ -716,84 +786,3 @@ private fun LiveStatusChip(status: ChannelLiveStatus) {
     }
 }
 
-@Composable
-private fun MutePreviewDialog(
-    preview: MutePreview,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    onScopeChange: (MuteScope) -> Unit,
-) {
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("确认按规则静音") },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 400.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (preview.filterActive) {
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        MuteScope.entries.forEachIndexed { index, scope ->
-                            SegmentedButton(
-                                selected = preview.scope == scope,
-                                onClick = { onScopeChange(scope) },
-                                shape = SegmentedButtonDefaults.itemShape(index, MuteScope.entries.size),
-                            ) {
-                                Text(
-                                    when (scope) {
-                                        MuteScope.ALL -> "全部命中"
-                                        MuteScope.FILTERED -> "仅当前筛选"
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-                Text(
-                    text = "将静音 ${preview.muteCount} 个渠道，降级 ${preview.downgradeCount} 个渠道。" +
-                        if (preview.scope == MuteScope.FILTERED) "（范围：当前搜索/筛选结果）" else "",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                if (preview.items.isEmpty()) {
-                    Text("没有可执行的规则命中渠道。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    preview.items.take(40).forEach { item ->
-                        Column {
-                            Text(
-                                text = item.appLabel + " · " + item.channelName,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Text(
-                                text = item.channelId + " → " +
-                                    when (item.action) {
-                                        RuleAction.MUTE -> "静音"
-                                        RuleAction.DOWNGRADE -> "降级"
-                                        RuleAction.KEEP -> "保留"
-                                    },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = item.reason,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                    if (preview.items.size > 40) {
-                        Text("…以及另外 ${preview.items.size - 40} 个渠道", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm, enabled = preview.items.isNotEmpty()) { Text("确认静音") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        },
-    )
-}

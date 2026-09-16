@@ -42,6 +42,7 @@ import app.quieta.R
 import app.quieta.feature.config.ConfigScreen
 import app.quieta.feature.home.HomeScreen
 import app.quieta.feature.home.HomeViewModel
+import app.quieta.feature.home.MutePreviewScreen
 import app.quieta.feature.privilege.PrivilegeScreen
 import app.quieta.feature.record.RecordScreen
 import app.quieta.feature.settings.LicensesScreen
@@ -123,6 +124,22 @@ fun QuietaRoot() {
                 val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
                 ThemeScreen(themeMode, settingsViewModel::setThemeMode, { secondaryStack = secondaryStack.dropLast(1) }, blurEnabled)
             }
+            "mute_preview" -> {
+                val homeState by homeViewModel.state.collectAsStateWithLifecycle()
+                MutePreviewScreen(
+                    preview = homeState.mutePreview,
+                    onBack = {
+                        homeViewModel.dismissMutePreview()
+                        secondaryStack = secondaryStack.dropLast(1)
+                    },
+                    onConfirm = {
+                        homeViewModel.confirmBatchMute()
+                        secondaryStack = secondaryStack.dropLast(1)
+                    },
+                    onScopeChange = homeViewModel::setMuteScope,
+                    blurEnabled = blurEnabled,
+                )
+            }
         }
         return
     }
@@ -189,6 +206,7 @@ fun QuietaRoot() {
                             viewModel = homeViewModel,
                             onOpenPrivilege = { secondaryStack = secondaryStack + "privilege" },
                             onOpenConfig = { selectedRoute = QuietaRoutes.CONFIG },
+                            onOpenMutePreview = { secondaryStack = secondaryStack + "mute_preview" },
                             blurEnabled = blurEnabled,
                         )
                         QuietaRoutes.CONFIG -> ConfigScreen(modifier = Modifier.fillMaxSize(), blurEnabled = blurEnabled)
