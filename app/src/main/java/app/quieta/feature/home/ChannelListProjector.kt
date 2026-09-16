@@ -1,5 +1,6 @@
 package app.quieta.feature.home
 
+import app.quieta.core.engine.MarketingHeuristic
 import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
 import app.quieta.core.model.ChannelImportance
@@ -16,15 +17,20 @@ data class ChannelListFilters(
     val hasHigh: Boolean = false,
     val hasNone: Boolean = false,
     val willMute: Boolean = false,
+    val onlyUser: Boolean = false,
+    val onlySystem: Boolean = false,
+    val onlyLikelyMarketing: Boolean = false,
 ) {
     val isActive: Boolean
-        get() = hasHigh || hasNone || willMute
+        get() = hasHigh || hasNone || willMute || onlyUser || onlySystem || onlyLikelyMarketing
 }
 
 data class ChannelListAppItem(
     val app: AppChannels,
     val channels: List<Channel>,
     val expanded: Boolean,
+    /** Suggest-only tags; never auto-applied. */
+    val likelyMarketingChannelIds: Set<String> = emptySet(),
 )
 
 /** Pure list projection: search → filter → sort → collapse. No IO. */
@@ -50,10 +56,15 @@ object ChannelListProjector {
         return sorted.map { app ->
             val expand = expandedPackages.contains(app.packageName) ||
                 (autoExpandOnSearch && needle.isNotEmpty())
+            val marketingIds = app.channels
+                .filter { ch -> MarketingHeuristic.isLikelyMarketing(ch, app.isSystem) }
+                .map { it.id }
+                .toSet()
             ChannelListAppItem(
                 app = app,
                 channels = app.channels,
                 expanded = expand,
+                likelyMarketingChannelIds = marketingIds,
             )
         }
     }
@@ -82,9 +93,17 @@ object ChannelListProjector {
         plan: Map<Channel, RuleAction>,
     ): Boolean {
         if (!filters.isActive) return true
+        if (filters.onlyUser && app.isSystem) return false
+        if (filters.onlySystem && !app.isSystem) return false
         if (filters.hasHigh && app.channels.none { it.importance == ChannelImportance.HIGH }) return false
         if (filters.hasNone && app.channels.none { it.importance == ChannelImportance.NONE }) return false
         if (filters.willMute && app.channels.none { plan[it] == RuleAction.MUTE }) return false
+        if (filters.onlyLikelyMarketing) {
+            val hit = app.channels.any {
+                MarketingHeuristic.isLikelyMarketing(it, app.isSystem)
+            }
+            if (!hit) return false
+        }
         return true
     }
 

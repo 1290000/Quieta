@@ -287,6 +287,9 @@ fun HomeScreen(
             onToggleHasHigh = { viewModel.toggleFilter { it.copy(hasHigh = !it.hasHigh) } },
             onToggleHasNone = { viewModel.toggleFilter { it.copy(hasNone = !it.hasNone) } },
             onToggleWillMute = { viewModel.toggleFilter { it.copy(willMute = !it.willMute) } },
+            onToggleOnlyUser = { viewModel.toggleFilter { it.copy(onlyUser = !it.onlyUser, onlySystem = false) } },
+            onToggleOnlySystem = { viewModel.toggleFilter { it.copy(onlySystem = !it.onlySystem, onlyUser = false) } },
+            onToggleOnlyMarketing = { viewModel.toggleFilter { it.copy(onlyLikelyMarketing = !it.onlyLikelyMarketing) } },
             onSortChange = viewModel::setSort,
             onResetFilters = {
                 viewModel.toggleFilter { ChannelListFilters() }
@@ -594,6 +597,9 @@ private fun FilterSortSheet(
     onToggleHasHigh: () -> Unit,
     onToggleHasNone: () -> Unit,
     onToggleWillMute: () -> Unit,
+    onToggleOnlyUser: () -> Unit,
+    onToggleOnlySystem: () -> Unit,
+    onToggleOnlyMarketing: () -> Unit,
     onSortChange: (ChannelSort) -> Unit,
     onResetFilters: () -> Unit,
 ) {
@@ -602,6 +608,9 @@ private fun FilterSortSheet(
             HyperOsPopupRow("含 HIGH", selected = filters.hasHigh, onClick = onToggleHasHigh)
             HyperOsPopupRow("含 NONE", selected = filters.hasNone, onClick = onToggleHasNone)
             HyperOsPopupRow("将静音", selected = filters.willMute, onClick = onToggleWillMute)
+            HyperOsPopupRow("仅用户应用", selected = filters.onlyUser, onClick = onToggleOnlyUser)
+            HyperOsPopupRow("仅系统应用", selected = filters.onlySystem, onClick = onToggleOnlySystem)
+            HyperOsPopupRow("疑似营销", selected = filters.onlyLikelyMarketing, onClick = onToggleOnlyMarketing)
             HyperOsPopupRow(
                 title = "重置筛选",
                 selected = false,
@@ -692,6 +701,7 @@ private fun AppChannelCard(
                         channel = channel,
                         plannedAction = plan[channel] ?: RuleAction.KEEP,
                         onClick = { actionTarget = channel },
+                        likelyMarketing = item.likelyMarketingChannelIds.contains(channel.id),
                     )
                 }
             }
@@ -800,13 +810,17 @@ private fun ChannelRow(
     channel: Channel,
     plannedAction: RuleAction,
     onClick: () -> Unit,
+    likelyMarketing: Boolean = false,
 ) {
     val status = remember(channel.importance) { ChannelLiveStatus.from(channel.importance) }
-    val secondary = remember(status, plannedAction, channel.id) {
+    val secondary = remember(status, plannedAction, channel.id, likelyMarketing) {
         buildString {
             append(channel.id)
             append(" · ")
             append(status.label)
+            if (likelyMarketing) {
+                append(" · 疑似营销")
+            }
             if (plannedAction != RuleAction.KEEP) {
                 append(" · 规则 ")
                 append(

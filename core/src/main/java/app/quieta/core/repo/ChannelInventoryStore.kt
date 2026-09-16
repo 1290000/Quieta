@@ -52,6 +52,7 @@ class ChannelInventoryStore private constructor(context: Context) {
                 JSONObject()
                     .put("packageName", app.packageName)
                     .put("appLabel", app.appLabel)
+                    .put("isSystem", app.isSystem)
                     .put("channels", channels),
             )
         }
@@ -86,6 +87,7 @@ class ChannelInventoryStore private constructor(context: Context) {
                             packageName = o.getString("packageName"),
                             appLabel = o.optString("appLabel").ifEmpty { o.getString("packageName") },
                             channels = channels,
+                            isSystem = o.optBoolean("isSystem", false),
                         ),
                     )
                 }

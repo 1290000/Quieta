@@ -439,12 +439,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 if (backend !== activeBackend || !_state.value.privilege.available) return@launch
                 if (channels.isEmpty()) return@launch
                 val label = withContext(Dispatchers.IO) {
-                    runCatching {
-                        val ai = appContext.packageManager.getApplicationInfo(packageName, 0)
-                        appContext.packageManager.getApplicationLabel(ai).toString()
+                    val ai = runCatching { appContext.packageManager.getApplicationInfo(packageName, 0) }.getOrNull()
+                    val name = runCatching {
+                        appContext.packageManager.getApplicationLabel(ai!!).toString()
                     }.getOrDefault(packageName)
+                    val system = ai != null &&
+                        (ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+                    name to system
                 }
-                val item = AppChannels(packageName, label, channels)
+                val item = AppChannels(
+                    packageName = packageName,
+                    appLabel = label.first,
+                    channels = channels,
+                    isSystem = label.second,
+                )
                 inventoryStore.upsert(item)
                 val next = _state.value.apps.filterNot { it.packageName == packageName } + item
                 publishApps(sortApps(next), loading = _state.value.loading)
@@ -721,7 +729,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 ruleRepository.current()
                 val baseApps = withContext(Dispatchers.IO) { InstalledApps.load(appContext) }
                 val results = HashMap<String, AppChannels>(baseApps.size + cached.size)
-                cached.forEach { results[it.packageName] = it }
+                val systemByPkg = baseApps.associate { it.packageName to it.isSystem }
+                cached.forEach { item ->
+                    results[item.packageName] = item.copy(
+                        isSystem = systemByPkg[item.packageName] ?: item.isSystem,
+                    )
+                }
 
                 val mutex = Mutex()
                 // Cap Binder concurrency — hundreds of parallel Shizuku calls jank the process.

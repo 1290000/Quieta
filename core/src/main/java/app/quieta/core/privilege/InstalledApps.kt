@@ -26,8 +26,13 @@ object InstalledApps {
                 Triple(pkg.packageName, label, isSystem)
             }
             .sortedWith(compareBy({ it.third }, { it.second.lowercase() }))
-            .map { (pkg, label, _) ->
-                AppChannels(packageName = pkg, appLabel = label, channels = emptyList())
+            .map { (pkg, label, isSystem) ->
+                AppChannels(
+                    packageName = pkg,
+                    appLabel = label,
+                    channels = emptyList(),
+                    isSystem = isSystem,
+                )
             }
             .toList()
     }

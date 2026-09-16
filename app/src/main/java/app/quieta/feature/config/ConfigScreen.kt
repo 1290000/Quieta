@@ -168,6 +168,32 @@ fun ConfigScreen(
                     )
                 }
             }
+
+            item(key = "packs-title") {
+                SmallTitle(
+                    text = "规则包（导入后覆盖当前规则）",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+            }
+            item(key = "packs") {
+                Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                    val packs = app.quieta.core.repo.RulePresetPacks.all
+                    packs.forEachIndexed { index, pack ->
+                        if (index > 0) {
+                            top.yukonga.miuix.kmp.basic.HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                thickness = 0.5.dp,
+                                color = MiuixTheme.colorScheme.dividerLine,
+                            )
+                        }
+                        top.yukonga.miuix.kmp.basic.BasicComponent(
+                            title = pack.title,
+                            summary = pack.description,
+                            onClick = { viewModel.importPresetPack(pack.id) },
+                        )
+                    }
+                }
+            }
         }
 
         FloatingActionButton(

@@ -20,4 +20,6 @@ data class AppChannels(
     val packageName: String,
     val appLabel: String,
     val channels: List<Channel>,
+    /** System / updated-system package. Used for list filter + marketing heuristics. */
+    val isSystem: Boolean = false,
 )

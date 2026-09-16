@@ -144,6 +144,19 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun importPresetPack(packId: String) {
+        viewModelScope.launch {
+            runCatching {
+                val pack = app.quieta.core.repo.RulePresetPacks.requirePack(packId)
+                val rules = app.quieta.core.repo.RulePresetPacks.decodeRules(pack)
+                repo.replaceAll(rules)
+                _state.update { it.copy(message = "已导入规则包「${pack.title}」（${rules.size} 条）") }
+            }.onFailure { e ->
+                _state.update { it.copy(message = "导入规则包失败：${e.message}") }
+            }
+        }
+    }
+
     fun toggle(id: String) {
         viewModelScope.launch {
             repo.update { rules ->
