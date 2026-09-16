@@ -239,8 +239,22 @@ core/rom/
 
 - 列表卡：`QuietaPage` 已有 12dp 水平边距，卡内**不要再加一层 12dp 外边距**；内边距 16dp；标题 `titleLarge`、摘要 `bodyMedium`。  
 - 分组规则/选项：一张 Card 多行 + `HorizontalDivider`（特权页同构），不要一行一张孤立卡。  
-- 独立可点卡用 `PressableCard`（squircle + Tilt）。  
+- 独立可点卡用 `PressableCard`（squircle + Tilt）；**展开后的信息卡用静态 `Card`，不要整卡 Tilt**。  
 - 弹层底部：左「取消/重置」TextButton，右「完成/确认」Button；避免两个同权 TextButton 并排。
+
+### 二级页 / Sheet 图标化（InstallerX，强制）
+
+| 场景 | 约定 |
+|------|------|
+| 可发现操作入口 | 用图标：筛选 `Tune`、更多 `MoreVert`、刷新 `Refresh`、撤销 `Undo`、关闭 `Close` |
+| 弹层/Sheet 关闭 | 右上角 `Close`；**不要**底部「取消」文字钮 |
+| 次要重置 | 标题旁 `Undo` 图标，不用「重置」文字钮 |
+| Sheet 内容行 | miuix `BasicComponent`（title + summary + startAction 图标 + endActions） |
+| 单选写入范围 | 与特权页相同：`BasicComponent` + 圆形 `Checkbox` + `selectableGroup` |
+| 主 CTA | Sheet/二级页底部全宽 `Button`（确认静音/完成） |
+| 顶栏返回 | `ArrowBack`；动作图标最多 1–2 个，不堆文字 |
+
+禁止：在列表头并排「展开/收起」文字钮；在 Sheet 底部并排「取消」+主按钮。
 
 ### 应用图标（已选定，强制）
 

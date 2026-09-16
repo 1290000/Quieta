@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
@@ -18,19 +18,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import app.quieta.R
 import app.quieta.core.model.RuleAction
-import app.quieta.ui.component.PressableCard
 import app.quieta.ui.component.QuietaPage
-import app.quieta.ui.theme.QuietaTextStyles
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -66,7 +70,6 @@ fun MutePreviewScreen(
         }
 
         item(key = "tip") {
-            // Same blue notice as InstallerX / privilege page.
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -89,10 +92,14 @@ fun MutePreviewScreen(
                     text = "写入范围",
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 )
-                Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .selectableGroup(),
+                ) {
                     ScopeRow(
                         title = "全部命中",
-                        subtitle = "当前盘点中所有规则命中的渠道",
+                        summary = "当前盘点中所有规则命中的渠道",
                         selected = preview.scope == MuteScope.ALL,
                         onClick = { onScopeChange(MuteScope.ALL) },
                     )
@@ -103,7 +110,7 @@ fun MutePreviewScreen(
                     )
                     ScopeRow(
                         title = "仅当前筛选",
-                        subtitle = "只写入主页搜索/筛选结果",
+                        summary = "只写入主页搜索/筛选结果",
                         selected = preview.scope == MuteScope.FILTERED,
                         onClick = { onScopeChange(MuteScope.FILTERED) },
                     )
@@ -111,23 +118,15 @@ fun MutePreviewScreen(
             }
         }
 
-        item(key = "actions") {
-            Row(
+        item(key = "confirm") {
+            Button(
+                onClick = onConfirm,
+                enabled = preview.items.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(text = "取消", onClick = onBack)
-                Spacer(modifier = Modifier.weight(1f))
-                Button(
-                    onClick = onConfirm,
-                    modifier = Modifier.weight(1f),
-                    enabled = preview.items.isNotEmpty(),
-                ) {
-                    Text("确认静音")
-                }
+                Text("确认静音")
             }
         }
 
@@ -148,7 +147,6 @@ fun MutePreviewScreen(
                 )
             }
         } else {
-            // Group by app for InstallerX-like list density.
             val grouped = preview.items.groupBy { it.appLabel to it.packageName }
             grouped.forEach { (key, list) ->
                 item(key = "g-" + key.second) {
@@ -182,61 +180,44 @@ fun MutePreviewScreen(
 @Composable
 private fun ScopeRow(
     title: String,
-    subtitle: String,
+    summary: String,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    PressableCard(
+    BasicComponent(
+        modifier = Modifier.semantics { this.selected = selected },
+        title = title,
+        summary = summary,
+        role = Role.RadioButton,
         onClick = onClick,
-        cornerRadius = 0.dp,
-        color = androidx.compose.ui.graphics.Color.Transparent,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleLarge)
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text(
-                text = if (selected) "✓" else "",
-                style = QuietaTextStyles.statusDetail,
-                color = MiuixTheme.colorScheme.primary,
+        endActions = {
+            Checkbox(
+                state = ToggleableState(selected),
+                onClick = null,
+                modifier = Modifier.clearAndSetSemantics { },
             )
-        }
-    }
+        },
+    )
 }
 
 @Composable
 private fun PreviewChannelRow(item: MutePreviewItem) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(item.channelName, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = item.channelId + " · " +
-                    when (item.action) {
-                        RuleAction.MUTE -> "静音"
-                        RuleAction.DOWNGRADE -> "降级"
-                        RuleAction.KEEP -> "保留"
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = item.reason,
-                style = MaterialTheme.typography.labelSmall,
-                color = MiuixTheme.colorScheme.primary,
-            )
-        }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(item.channelName, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = item.channelId + " · " +
+                when (item.action) {
+                    RuleAction.MUTE -> "静音"
+                    RuleAction.DOWNGRADE -> "降级"
+                    RuleAction.KEEP -> "保留"
+                },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = item.reason,
+            style = MaterialTheme.typography.labelSmall,
+            color = MiuixTheme.colorScheme.primary,
+        )
     }
 }

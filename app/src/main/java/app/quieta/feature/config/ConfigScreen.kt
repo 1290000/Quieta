@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
@@ -413,33 +414,50 @@ private fun RuleRow(
     if (showSamples && hitStat != null) {
         Dialog(onDismissRequest = { showSamples = false }) {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("命中样本 ${hitStat.samples.size} 条", style = MiuixTheme.textStyles.title4)
-                    if (hitStat.broadKeyword && rule.action != RuleAction.KEEP) {
-                        Text(
-                            text = "关键词过宽，可能误伤物流/客服/系统渠道。",
-                            style = MiuixTheme.textStyles.body2,
-                            color = Color(0xFFB45309),
-                        )
-                    }
-                    Column(
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 360.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                            .padding(start = 16.dp, end = 4.dp, top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        hitStat.samples.forEach { sample ->
-                            Column {
-                                Text(sample.appLabel, style = MiuixTheme.textStyles.body2)
-                                Text(
-                                    text = sample.channelName + " (" + sample.channelId + ")",
-                                    style = MiuixTheme.textStyles.footnote2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                )
+                        Text(
+                            text = "命中样本 ${hitStat.samples.size} 条",
+                            style = MiuixTheme.textStyles.title4,
+                            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                        )
+                        IconButton(onClick = { showSamples = false }) {
+                            Icon(Icons.Outlined.Close, contentDescription = "关闭")
+                        }
+                    }
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (hitStat.broadKeyword && rule.action != RuleAction.KEEP) {
+                            Text(
+                                text = "关键词过宽，可能误伤物流/客服/系统渠道。",
+                                style = MiuixTheme.textStyles.body2,
+                                color = Color(0xFFB45309),
+                            )
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 360.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            hitStat.samples.forEach { sample ->
+                                Column {
+                                    Text(sample.appLabel, style = MiuixTheme.textStyles.body2)
+                                    Text(
+                                        text = sample.channelName + " (" + sample.channelId + ")",
+                                        style = MiuixTheme.textStyles.footnote2,
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    )
+                                }
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }

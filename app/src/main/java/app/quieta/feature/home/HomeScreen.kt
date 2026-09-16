@@ -31,8 +31,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SettingsBackupRestore
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
@@ -182,16 +186,30 @@ fun HomeScreen(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
                             text = "通知渠道",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick = viewModel::expandAllVisible) { Text("展开") }
-                            TextButton(onClick = viewModel::collapseAll) { Text("收起") }
+                        IconButton(onClick = viewModel::collapseAll) {
+                            Icon(Icons.Outlined.ExpandLess, contentDescription = "全部收起")
+                        }
+                        IconButton(onClick = viewModel::expandAllVisible) {
+                            Icon(Icons.Outlined.ExpandMore, contentDescription = "全部展开")
+                        }
+                        IconButton(onClick = { showFilterSheet = true }) {
+                            Icon(
+                                Icons.Outlined.Tune,
+                                contentDescription = "筛选与排序",
+                                tint = if (state.filters.isActive) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
                         }
                     }
                     OutlinedTextField(
@@ -214,11 +232,6 @@ fun HomeScreen(
                             }
                         },
                         shape = RoundedCornerShape(14.dp),
-                    )
-                    FilterSortEntry(
-                        filters = state.filters,
-                        sort = state.sort,
-                        onClick = { showFilterSheet = true },
                     )
                     if (state.listSummary.isNotEmpty()) {
                         Text(
@@ -461,14 +474,12 @@ private fun GateActions(
                     TextButton(onClick = onRefresh) { Text("重试") }
                 }
                 PrivilegeGate.CHECKING, PrivilegeGate.READY -> {
-                    OutlinedButton(onClick = onRefresh, enabled = !state.checkingPrivilege) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.size(4.dp))
-                        Text("刷新")
+                    IconButton(onClick = onRefresh, enabled = !state.checkingPrivilege) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                     }
                     if (canUndo) {
-                        OutlinedButton(onClick = onUndo, enabled = !state.checkingPrivilege) {
-                            Text("撤销")
+                        IconButton(onClick = onUndo, enabled = !state.checkingPrivilege) {
+                            Icon(Icons.Outlined.Undo, contentDescription = undoLabel ?: "撤销")
                         }
                     }
                     Button(
@@ -593,7 +604,12 @@ private fun FilterSortSheet(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("筛选与排序", style = MiuixTheme.textStyles.title4, modifier = Modifier.weight(1f))
-                    top.yukonga.miuix.kmp.basic.TextButton(text = "重置", onClick = onResetFilters)
+                    IconButton(onClick = onResetFilters) {
+                        Icon(Icons.Outlined.Undo, contentDescription = "重置筛选")
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Outlined.Close, contentDescription = "关闭")
+                    }
                 }
                 FilterCheckRow("含 HIGH", filters.hasHigh, onToggleHasHigh)
                 FilterCheckRow("含 NONE", filters.hasNone, onToggleHasNone)
@@ -669,10 +685,9 @@ private fun AppChannelCard(
                 )
             }
             if (item.expanded) {
-                top.yukonga.miuix.kmp.basic.TextButton(
-                    text = "操作",
-                    onClick = { showAppActions = true },
-                )
+                IconButton(onClick = { showAppActions = true }) {
+                    Icon(Icons.Outlined.MoreVert, contentDescription = "应用操作")
+                }
             }
             Icon(
                 imageVector = if (item.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
@@ -757,27 +772,59 @@ private fun AppActionSheet(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         MiuixCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(appLabel, style = MaterialTheme.typography.titleLarge)
-                Text(
-                    text = "对本应用全部渠道执行",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                ActionSheetRow("整应用静音", "全部渠道 importance → NONE") { onMuteApp() }
-                ActionSheetRow("整应用恢复", "全部渠道 importance → DEFAULT") { onRestoreApp() }
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 4.dp, top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    top.yukonga.miuix.kmp.basic.TextButton(text = "取消", onClick = onDismiss)
+                    Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
+                        Text(appLabel, style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            text = "对本应用全部渠道执行",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Outlined.Close, contentDescription = "关闭")
+                    }
                 }
+                Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    Column {
+                        top.yukonga.miuix.kmp.basic.BasicComponent(
+                            title = "整应用静音",
+                            summary = "全部渠道 importance → NONE",
+                            startAction = {
+                                Icon(
+                                    Icons.Outlined.VolumeOff,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            onClick = onMuteApp,
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = 0.5.dp,
+                            color = MiuixTheme.colorScheme.dividerLine,
+                        )
+                        top.yukonga.miuix.kmp.basic.BasicComponent(
+                            title = "整应用恢复",
+                            summary = "全部渠道 importance → DEFAULT",
+                            startAction = {
+                                Icon(
+                                    Icons.Outlined.SettingsBackupRestore,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            onClick = onRestoreApp,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
@@ -792,51 +839,77 @@ private fun ChannelActionSheet(
     val status = ChannelLiveStatus.from(channel.importance)
     Dialog(onDismissRequest = onDismiss) {
         MiuixCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(channel.name, style = MaterialTheme.typography.titleLarge)
-                Text(
-                    text = channel.id + " · 当前 " + status.label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                ActionSheetRow("静音", "将 importance 设为 NONE") { onAction(RuleAction.MUTE) }
-                ActionSheetRow("降级", "将 importance 设为 LOW") { onAction(RuleAction.DOWNGRADE) }
-                ActionSheetRow("恢复", "恢复为 DEFAULT") { onAction(RuleAction.KEEP) }
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 4.dp, top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    top.yukonga.miuix.kmp.basic.TextButton(text = "取消", onClick = onDismiss)
+                    Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
+                        Text(channel.name, style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            text = channel.id + " · 当前 " + status.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Outlined.Close, contentDescription = "关闭")
+                    }
                 }
+                Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    Column {
+                        top.yukonga.miuix.kmp.basic.BasicComponent(
+                            title = "静音",
+                            summary = "importance → NONE",
+                            startAction = {
+                                Icon(
+                                    Icons.Outlined.VolumeOff,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            onClick = { onAction(RuleAction.MUTE) },
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = 0.5.dp,
+                            color = MiuixTheme.colorScheme.dividerLine,
+                        )
+                        top.yukonga.miuix.kmp.basic.BasicComponent(
+                            title = "降级",
+                            summary = "importance → LOW",
+                            startAction = {
+                                Icon(
+                                    Icons.Outlined.VolumeOff,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                )
+                            },
+                            onClick = { onAction(RuleAction.DOWNGRADE) },
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = 0.5.dp,
+                            color = MiuixTheme.colorScheme.dividerLine,
+                        )
+                        top.yukonga.miuix.kmp.basic.BasicComponent(
+                            title = "恢复",
+                            summary = "importance → DEFAULT",
+                            startAction = {
+                                Icon(
+                                    Icons.Outlined.SettingsBackupRestore,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            onClick = { onAction(RuleAction.KEEP) },
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-        }
-    }
-}
-
-@Composable
-private fun ActionSheetRow(title: String, subtitle: String, onClick: () -> Unit) {
-    PressableCard(
-        onClick = onClick,
-        cornerRadius = 0.dp,
-        color = Color.Transparent,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 12.dp),
-        ) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
