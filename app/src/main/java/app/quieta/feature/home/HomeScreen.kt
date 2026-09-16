@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.MoreVert
@@ -593,28 +594,42 @@ private fun FilterSortSheet(
     onSortChange: (ChannelSort) -> Unit,
     onResetFilters: () -> Unit,
 ) {
+    // HyperOS file-explorer style: compact popup, list rows, checkmark on selection.
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        MiuixCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("筛选与排序", style = MiuixTheme.textStyles.title4, modifier = Modifier.weight(1f))
-                    IconButton(onClick = onResetFilters) {
-                        Icon(Icons.Outlined.Undo, contentDescription = "重置筛选")
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Outlined.Close, contentDescription = "关闭")
-                    }
-                }
-                FilterCheckRow("含 HIGH", filters.hasHigh, onToggleHasHigh)
-                FilterCheckRow("含 NONE", filters.hasNone, onToggleHasNone)
-                FilterCheckRow("将静音", filters.willMute, onToggleWillMute)
-                Text("排序", style = MiuixTheme.textStyles.title4)
+        MiuixCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                PopupCheckRow(
+                    title = "含 HIGH",
+                    selected = filters.hasHigh,
+                    onClick = onToggleHasHigh,
+                )
+                PopupCheckRow(
+                    title = "含 NONE",
+                    selected = filters.hasNone,
+                    onClick = onToggleHasNone,
+                )
+                PopupCheckRow(
+                    title = "将静音",
+                    selected = filters.willMute,
+                    onClick = onToggleWillMute,
+                )
+                PopupCheckRow(
+                    title = "重置筛选",
+                    selected = false,
+                    onClick = {
+                        onResetFilters()
+                    },
+                    showCheck = false,
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                    thickness = 0.5.dp,
+                    color = MiuixTheme.colorScheme.dividerLine,
+                )
                 val sortOptions = listOf(
                     ChannelSort.CHANNEL_COUNT to "渠道数",
                     ChannelSort.NAME to "名称",
@@ -622,18 +637,13 @@ private fun FilterSortSheet(
                     ChannelSort.MAX_IMPORTANCE to "最高级",
                 )
                 sortOptions.forEach { (value, name) ->
-                    FilterCheckRow(
+                    PopupCheckRow(
                         title = name,
-                        checked = sort == value,
-                        onClick = { onSortChange(value) },
+                        selected = sort == value,
+                        onClick = {
+                            onSortChange(value)
+                        },
                     )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                top.yukonga.miuix.kmp.basic.Button(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("完成")
                 }
             }
         }
@@ -641,16 +651,42 @@ private fun FilterSortSheet(
 }
 
 @Composable
-private fun FilterCheckRow(title: String, checked: Boolean, onClick: () -> Unit) {
+private fun PopupCheckRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    showCheck: Boolean = true,
+    subtitle: String? = null,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(title, style = MiuixTheme.textStyles.body2, modifier = Modifier.weight(1f))
-        app.quieta.ui.component.QuietaSwitch(checked = checked, onCheckedChange = { onClick() })
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = if (selected) MiuixTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (showCheck && selected) {
+            Icon(
+                imageVector = Icons.Outlined.Check,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.primary,
+            )
+        }
     }
 }
 
@@ -770,61 +806,28 @@ private fun AppActionSheet(
     onMuteApp: () -> Unit,
     onRestoreApp: () -> Unit,
 ) {
+    // HyperOS popup list (same shell as filter/sort).
     Dialog(onDismissRequest = onDismiss) {
-        MiuixCard(modifier = Modifier.fillMaxWidth()) {
+        MiuixCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+        ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 4.dp, top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
-                        Text(appLabel, style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            text = "对本应用全部渠道执行",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Outlined.Close, contentDescription = "关闭")
-                    }
-                }
-                Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    Column {
-                        top.yukonga.miuix.kmp.basic.BasicComponent(
-                            title = "整应用静音",
-                            summary = "全部渠道 importance → NONE",
-                            startAction = {
-                                Icon(
-                                    Icons.Outlined.VolumeOff,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
-                            onClick = onMuteApp,
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            thickness = 0.5.dp,
-                            color = MiuixTheme.colorScheme.dividerLine,
-                        )
-                        top.yukonga.miuix.kmp.basic.BasicComponent(
-                            title = "整应用恢复",
-                            summary = "全部渠道 importance → DEFAULT",
-                            startAction = {
-                                Icon(
-                                    Icons.Outlined.SettingsBackupRestore,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
-                            onClick = onRestoreApp,
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
+                PopupCheckRow(
+                    title = "整应用静音",
+                    selected = false,
+                    showCheck = false,
+                    subtitle = "全部渠道 importance → NONE",
+                    onClick = onMuteApp,
+                )
+                PopupCheckRow(
+                    title = "整应用恢复",
+                    selected = false,
+                    showCheck = false,
+                    subtitle = "全部渠道 importance → DEFAULT",
+                    onClick = onRestoreApp,
+                )
             }
         }
     }
@@ -836,79 +839,34 @@ private fun ChannelActionSheet(
     onDismiss: () -> Unit,
     onAction: (RuleAction) -> Unit,
 ) {
-    val status = ChannelLiveStatus.from(channel.importance)
     Dialog(onDismissRequest = onDismiss) {
-        MiuixCard(modifier = Modifier.fillMaxWidth()) {
+        MiuixCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+        ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 4.dp, top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
-                        Text(channel.name, style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            text = channel.id + " · 当前 " + status.label,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Outlined.Close, contentDescription = "关闭")
-                    }
-                }
-                Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    Column {
-                        top.yukonga.miuix.kmp.basic.BasicComponent(
-                            title = "静音",
-                            summary = "importance → NONE",
-                            startAction = {
-                                Icon(
-                                    Icons.Outlined.VolumeOff,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
-                            onClick = { onAction(RuleAction.MUTE) },
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            thickness = 0.5.dp,
-                            color = MiuixTheme.colorScheme.dividerLine,
-                        )
-                        top.yukonga.miuix.kmp.basic.BasicComponent(
-                            title = "降级",
-                            summary = "importance → LOW",
-                            startAction = {
-                                Icon(
-                                    Icons.Outlined.VolumeOff,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                )
-                            },
-                            onClick = { onAction(RuleAction.DOWNGRADE) },
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            thickness = 0.5.dp,
-                            color = MiuixTheme.colorScheme.dividerLine,
-                        )
-                        top.yukonga.miuix.kmp.basic.BasicComponent(
-                            title = "恢复",
-                            summary = "importance → DEFAULT",
-                            startAction = {
-                                Icon(
-                                    Icons.Outlined.SettingsBackupRestore,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
-                            onClick = { onAction(RuleAction.KEEP) },
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
+                PopupCheckRow(
+                    title = "静音",
+                    selected = false,
+                    showCheck = false,
+                    subtitle = "importance → NONE",
+                    onClick = { onAction(RuleAction.MUTE) },
+                )
+                PopupCheckRow(
+                    title = "降级",
+                    selected = false,
+                    showCheck = false,
+                    subtitle = "importance → LOW",
+                    onClick = { onAction(RuleAction.DOWNGRADE) },
+                )
+                PopupCheckRow(
+                    title = "恢复",
+                    selected = false,
+                    showCheck = false,
+                    subtitle = "importance → DEFAULT",
+                    onClick = { onAction(RuleAction.KEEP) },
+                )
             }
         }
     }

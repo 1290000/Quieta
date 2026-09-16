@@ -256,6 +256,16 @@ core/rom/
 
 禁止：在列表头并排「展开/收起」文字钮；在 Sheet 底部并排「取消」+主按钮。
 
+### 弹层与表单（HyperOS / InstallerX，强制）
+
+| 场景 | 约定 |
+|------|------|
+| 轻量选择（筛选/排序/整应用/渠道动作） | **HyperOS 弹出列表**：居中 `Card` + `padding(24.dp)`，行高约 16dp 垂直内边距；选中项 **主色文字 + 右侧 `Check`**；组间 `HorizontalDivider`；点外关闭，**无** 完成/取消钮 |
+| 全屏/长表单（规则新增·编辑） | **InstallerX 页**：顶栏左 `Close` 右 `Check`；大标题 `headlineSmall`；输入用白 `FieldCard`；分区灰 `SectionLabel`；开关/单选进 `Card` + `BasicComponent` |
+| 勾选行 | 多选可保持勾选态；单选排序/动作用 Check，不用 Switch |
+
+禁止：HyperOS 弹出列表里放 Switch 或底部主按钮；表单用底部「取消/确定」文字钮。
+
 ### 应用图标（已选定，强制）
 
 | 项 | 约定 |
