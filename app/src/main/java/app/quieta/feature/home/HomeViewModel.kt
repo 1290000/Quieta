@@ -334,6 +334,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _state.update {
                 it.copy(progress = null, muteResult = result)
             }
+            // Re-read inventory so the home list shows the post-mute importance.
+            startInventoryRefresh()
         }
     }
 

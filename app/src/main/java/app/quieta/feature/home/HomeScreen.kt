@@ -438,7 +438,7 @@ private fun ChannelRow(channel: Channel, action: RuleAction) {
         Column(modifier = Modifier.weight(1f)) {
             Text(channel.name, style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = channel.id,
+                text = channel.id + " · 当前 " + channel.importance.name,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -451,8 +451,8 @@ private fun ChannelRow(channel: Channel, action: RuleAction) {
 private fun ActionChip(action: RuleAction) {
     val label = when (action) {
         RuleAction.KEEP -> "保留"
-        RuleAction.MUTE -> "静音"
-        RuleAction.DOWNGRADE -> "降级"
+        RuleAction.MUTE -> "将静音"
+        RuleAction.DOWNGRADE -> "将降级"
     }
     val container = when (action) {
         RuleAction.KEEP -> MaterialTheme.colorScheme.surfaceVariant

@@ -109,7 +109,11 @@ class DhizukuBackend(
         val updated = invokeUpdateChannel(nm, iface, packageName, uid, existing) ||
             invokeCreateChannel(nm, iface, packageName, uid, existing)
         if (!updated) error("updateNotificationChannelForPackage failed uid=$uid")
-        Log.d(TAG, "setImportance $packageName/$channelId -> $importance uid=$uid")
+        val actual = queryNotificationChannels(packageName).find { it.id == channelId }?.importance
+        if (actual != importance) {
+            error("importance mismatch after write: expected=$importance actual=$actual")
+        }
+        Log.d(TAG, "setImportance $packageName/$channelId -> $importance uid=$uid verified")
     }
 
     /**

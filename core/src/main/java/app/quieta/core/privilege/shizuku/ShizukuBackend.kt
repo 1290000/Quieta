@@ -76,7 +76,12 @@ class ShizukuBackend(
         if (!updated) {
             error("updateNotificationChannelForPackage failed uid=$uid")
         }
-        Log.d(TAG, "setImportance $packageName/$channelId -> $importance uid=$uid")
+        // Binder success alone is not proof — MIUI may ignore create-on-existing updates.
+        val actual = queryNotificationChannels(packageName).find { it.id == channelId }?.importance
+        if (actual != importance) {
+            error("importance mismatch after write: expected=$importance actual=$actual")
+        }
+        Log.d(TAG, "setImportance $packageName/$channelId -> $importance uid=$uid verified")
     }
 
     private fun invokeCreateChannel(
