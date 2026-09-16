@@ -68,39 +68,9 @@ fun ConfigScreen(
     modifier: Modifier = Modifier,
     blurEnabled: Boolean = true,
     viewModel: ConfigViewModel = viewModel(),
+    onOpenEditor: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var showAdd by rememberSaveable { mutableStateOf(false) }
-    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
-    var nameInput by rememberSaveable { mutableStateOf("") }
-    var packageInput by rememberSaveable { mutableStateOf("") }
-    var packagePrefixInput by rememberSaveable { mutableStateOf("") }
-    var channelIdExactInput by rememberSaveable { mutableStateOf("") }
-    var channelIdPrefixInput by rememberSaveable { mutableStateOf("") }
-    var matchName by rememberSaveable { mutableStateOf(true) }
-    var matchId by rememberSaveable { mutableStateOf(true) }
-    var actionInput by rememberSaveable { mutableStateOf(RuleAction.MUTE.name) }
-    val draft = RuleDraft(
-        nameContains = nameInput,
-        packageName = packageInput,
-        packagePrefix = packagePrefixInput,
-        channelIdExact = channelIdExactInput,
-        channelIdPrefix = channelIdPrefixInput,
-        matchName = matchName,
-        matchId = matchId,
-        action = RuleAction.valueOf(actionInput),
-    )
-    fun loadDraft(next: RuleDraft, id: String?) {
-        editingId = id
-        nameInput = next.nameContains
-        packageInput = next.packageName
-        packagePrefixInput = next.packagePrefix
-        channelIdExactInput = next.channelIdExact
-        channelIdPrefixInput = next.channelIdPrefix
-        matchName = next.matchName
-        matchId = next.matchId
-        actionInput = next.action.name
-    }
 
     Box(modifier = modifier.fillMaxSize()) {
         QuietaPage(
@@ -149,8 +119,8 @@ fun ConfigScreen(
                                 onToggle = { viewModel.toggle(rule.id) },
                                 onRemove = { viewModel.remove(rule.id) },
                                 onEdit = {
-                                    loadDraft(viewModel.draftOf(rule), rule.id)
-                                    showAdd = true
+                                    viewModel.openEditRule(rule)
+                                    onOpenEditor()
                                 },
                             )
                         }
@@ -179,8 +149,8 @@ fun ConfigScreen(
                                 onToggle = { viewModel.toggle(rule.id) },
                                 onRemove = { viewModel.remove(rule.id) },
                                 onEdit = {
-                                    loadDraft(viewModel.draftOf(rule), rule.id)
-                                    showAdd = true
+                                    viewModel.openEditRule(rule)
+                                    onOpenEditor()
                                 },
                             )
                         }
@@ -202,8 +172,8 @@ fun ConfigScreen(
 
         FloatingActionButton(
             onClick = {
-                loadDraft(RuleDraft(), null)
-                showAdd = true
+                viewModel.openAddRule()
+                onOpenEditor()
             },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -214,43 +184,51 @@ fun ConfigScreen(
         }
     }
 
-    if (showAdd) {
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = { showAdd = false },
-            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-        ) {
-            RuleEditorScreen(
-                title = stringResource(if (editingId == null) R.string.rule_add else R.string.rule_edit),
-                packageInput = packageInput,
-                onPackageInput = { packageInput = it },
-                packagePrefixInput = packagePrefixInput,
-                onPackagePrefixInput = { packagePrefixInput = it },
-                channelIdExactInput = channelIdExactInput,
-                onChannelIdExactInput = { channelIdExactInput = it },
-                channelIdPrefixInput = channelIdPrefixInput,
-                onChannelIdPrefixInput = { channelIdPrefixInput = it },
-                nameInput = nameInput,
-                onNameInput = { nameInput = it },
-                matchName = matchName,
-                onMatchName = { matchName = it },
-                matchId = matchId,
-                onMatchId = { matchId = it },
-                action = draft.action,
-                onAction = { actionInput = it.name },
-                canSave = draft.packageName.isNotBlank() ||
-                    draft.packagePrefix.isNotBlank() ||
-                    draft.channelIdExact.isNotBlank() ||
-                    draft.channelIdPrefix.isNotBlank() ||
-                    draft.nameContains.isNotBlank() ||
-                    editingId != null,
-                message = state.message,
-                onClose = { showAdd = false },
-                onSave = { viewModel.saveRule(editingId, draft) { showAdd = false } },
-            )
-        }
-    }
 }
 
+
+/** Secondary host: reads draft from ConfigViewModel (status bar handled by QuietaPage). */
+@Composable
+fun ConfigRuleEditorScreen(
+    viewModel: ConfigViewModel,
+    onBack: () -> Unit,
+    blurEnabled: Boolean = true,
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val draft = state.draft
+    RuleEditorScreen(
+        title = stringResource(if (state.editingRuleId == null) R.string.rule_add else R.string.rule_edit),
+        packageInput = draft.packageName,
+        onPackageInput = { viewModel.updateDraft(draft.copy(packageName = it)) },
+        packagePrefixInput = draft.packagePrefix,
+        onPackagePrefixInput = { viewModel.updateDraft(draft.copy(packagePrefix = it)) },
+        channelIdExactInput = draft.channelIdExact,
+        onChannelIdExactInput = { viewModel.updateDraft(draft.copy(channelIdExact = it)) },
+        channelIdPrefixInput = draft.channelIdPrefix,
+        onChannelIdPrefixInput = { viewModel.updateDraft(draft.copy(channelIdPrefix = it)) },
+        nameInput = draft.nameContains,
+        onNameInput = { viewModel.updateDraft(draft.copy(nameContains = it)) },
+        matchName = draft.matchName,
+        onMatchName = { viewModel.updateDraft(draft.copy(matchName = it)) },
+        matchId = draft.matchId,
+        onMatchId = { viewModel.updateDraft(draft.copy(matchId = it)) },
+        action = draft.action,
+        onAction = { viewModel.updateDraft(draft.copy(action = it)) },
+        canSave = draft.packageName.isNotBlank() ||
+            draft.packagePrefix.isNotBlank() ||
+            draft.channelIdExact.isNotBlank() ||
+            draft.channelIdPrefix.isNotBlank() ||
+            draft.nameContains.isNotBlank() ||
+            state.editingRuleId != null,
+        message = state.message,
+        onClose = {
+            viewModel.closeRuleEditor()
+            onBack()
+        },
+        onSave = { viewModel.saveEditor(onSaved = onBack) },
+        blurEnabled = blurEnabled,
+    )
+}
 /** InstallerX Revived: miuix TopAppBar (Close/Ok + large title), field cards, grouped rows. */
 @Composable
 private fun RuleEditorScreen(
@@ -275,11 +253,12 @@ private fun RuleEditorScreen(
     message: String?,
     onClose: () -> Unit,
     onSave: () -> Unit,
+    blurEnabled: Boolean = true,
 ) {
     // Same chrome as other Quieta secondary pages / InstallerX edit: TopAppBar large title.
     app.quieta.ui.component.QuietaPage(
         title = title,
-        blurEnabled = true,
+        blurEnabled = blurEnabled,
         bottomPadding = 32.dp,
         itemSpacing = 0.dp,
         navigationIcon = {

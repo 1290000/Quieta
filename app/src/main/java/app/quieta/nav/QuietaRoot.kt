@@ -140,6 +140,14 @@ fun QuietaRoot() {
                     blurEnabled = blurEnabled,
                 )
             }
+            "rule_editor" -> {
+                val configViewModel: app.quieta.feature.config.ConfigViewModel = viewModel()
+                app.quieta.feature.config.ConfigRuleEditorScreen(
+                    viewModel = configViewModel,
+                    onBack = { secondaryStack = secondaryStack.dropLast(1) },
+                    blurEnabled = blurEnabled,
+                )
+            }
         }
         return
     }
@@ -209,7 +217,15 @@ fun QuietaRoot() {
                             onOpenMutePreview = { secondaryStack = secondaryStack + "mute_preview" },
                             blurEnabled = blurEnabled,
                         )
-                        QuietaRoutes.CONFIG -> ConfigScreen(modifier = Modifier.fillMaxSize(), blurEnabled = blurEnabled)
+                        QuietaRoutes.CONFIG -> {
+                            val configViewModel: app.quieta.feature.config.ConfigViewModel = viewModel()
+                            app.quieta.feature.config.ConfigScreen(
+                                modifier = Modifier.fillMaxSize(),
+                                blurEnabled = blurEnabled,
+                                viewModel = configViewModel,
+                                onOpenEditor = { secondaryStack = secondaryStack + "rule_editor" },
+                            )
+                        }
                         QuietaRoutes.RECORD -> RecordScreen(modifier = Modifier.fillMaxSize(), blurEnabled = blurEnabled)
                         QuietaRoutes.SETTINGS -> SettingsScreen(
                             blurEnabled = blurEnabled,

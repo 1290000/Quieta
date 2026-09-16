@@ -260,7 +260,7 @@ core/rom/
 
 | 场景 | 约定 |
 |------|------|
-| 轻量选择（筛选/排序/整应用/渠道动作） | `ui/component/HyperOsPopup`：**TopEnd 锚点**（top≈84dp / end≈12dp），**固定宽 280dp**（勿满宽），圆角 **24dp**，行字 **titleLarge 17sp** + 垂直 18dp；选中主色 + `Check`；组间 divider；**点外/返回关闭** |
+| 轻量选择（筛选/排序/整应用/渠道动作） | `HyperOsPopup`：**宽高随最长行自适应**（`IntrinsicSize.Max` + `widthIn(max=280)`），**禁止**写死满宽；行 **bodyLarge 16sp**、垂直 **12dp**；勾选右缘对齐；点外/返回关闭 |
 | 全屏/长表单（规则新增·编辑） | **InstallerX `MiuixEditPage`**：miuix `QuietaPage`/`TopAppBar`（`Close` 导航 + `Ok` 动作 + 大标题）；字段为独立 `TextField`（垂直 6dp，**不要**再套一层 Card）；`SmallTitle` 分区 + 一张 `Card` 多行 |
 | 勾选行 | 多选可保持勾选态；单选排序/动作用 Check，不用 Switch |
 

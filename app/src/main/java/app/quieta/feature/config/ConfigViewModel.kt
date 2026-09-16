@@ -37,6 +37,9 @@ data class ConfigUiState(
     val hitStats: Map<String, RuleHitStat> = emptyMap(),
     val inventoryReady: Boolean = false,
     val message: String? = null,
+    val editorOpen: Boolean = false,
+    val editingRuleId: String? = null,
+    val draft: RuleDraft = RuleDraft(),
 )
 
 class ConfigViewModel(application: Application) : AndroidViewModel(application) {
@@ -77,6 +80,33 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
         matchId = rule.matchId,
         action = rule.action,
     )
+
+    fun openAddRule() {
+        _state.update {
+            it.copy(editorOpen = true, editingRuleId = null, draft = RuleDraft(), message = null)
+        }
+    }
+
+    fun openEditRule(rule: Rule) {
+        _state.update {
+            it.copy(editorOpen = true, editingRuleId = rule.id, draft = draftOf(rule), message = null)
+        }
+    }
+
+    fun closeRuleEditor() {
+        _state.update { it.copy(editorOpen = false, editingRuleId = null) }
+    }
+
+    fun updateDraft(draft: RuleDraft) {
+        _state.update { it.copy(draft = draft) }
+    }
+
+    fun saveEditor(onSaved: () -> Unit) {
+        saveRule(_state.value.editingRuleId, _state.value.draft) {
+            _state.update { it.copy(editorOpen = false, editingRuleId = null) }
+            onSaved()
+        }
+    }
 
     fun saveRule(id: String?, draft: RuleDraft, onSaved: () -> Unit) {
         viewModelScope.launch {
