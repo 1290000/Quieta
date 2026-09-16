@@ -440,7 +440,6 @@ private fun RuleRow(
                             }
                         }
                     }
-                    TextButton(text = "关闭", onClick = { showSamples = false })
                 }
             }
         }

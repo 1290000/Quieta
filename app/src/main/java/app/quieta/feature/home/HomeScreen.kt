@@ -591,7 +591,10 @@ private fun FilterSortSheet(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text("筛选", style = MiuixTheme.textStyles.title4)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("筛选与排序", style = MiuixTheme.textStyles.title4, modifier = Modifier.weight(1f))
+                    top.yukonga.miuix.kmp.basic.TextButton(text = "重置", onClick = onResetFilters)
+                }
                 FilterCheckRow("含 HIGH", filters.hasHigh, onToggleHasHigh)
                 FilterCheckRow("含 NONE", filters.hasNone, onToggleHasNone)
                 FilterCheckRow("将静音", filters.willMute, onToggleWillMute)
@@ -609,15 +612,12 @@ private fun FilterSortSheet(
                         onClick = { onSortChange(value) },
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    top.yukonga.miuix.kmp.basic.TextButton(text = "重置筛选", onClick = onResetFilters)
-                    Spacer(modifier = Modifier.weight(1f))
-                    top.yukonga.miuix.kmp.basic.Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("完成")
-                    }
+                Spacer(modifier = Modifier.height(4.dp))
+                top.yukonga.miuix.kmp.basic.Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("完成")
                 }
             }
         }
@@ -648,6 +648,7 @@ private fun AppChannelCard(
     onRestoreApp: () -> Unit,
 ) {
     var actionTarget by remember { mutableStateOf<Channel?>(null) }
+    var showAppActions by remember { mutableStateOf(false) }
     val header: @Composable () -> Unit = {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -665,6 +666,12 @@ private fun AppChannelCard(
                     text = item.app.packageName + " · " + item.app.channels.size + " 个渠道",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (item.expanded) {
+                top.yukonga.miuix.kmp.basic.TextButton(
+                    text = "操作",
+                    onClick = { showAppActions = true },
                 )
             }
             Icon(
@@ -685,23 +692,7 @@ private fun AppChannelCard(
                 ) {
                     header()
                 }
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    top.yukonga.miuix.kmp.basic.Button(
-                        onClick = onMuteApp,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("整应用静音")
-                    }
-                    top.yukonga.miuix.kmp.basic.TextButton(
-                        text = "整应用恢复",
-                        onClick = onRestoreApp,
-                    )
-                }
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 item.channels.forEachIndexed { index, channel ->
                     if (index > 0) {
                         HorizontalDivider(
@@ -730,6 +721,21 @@ private fun AppChannelCard(
         }
     }
 
+    if (showAppActions) {
+        AppActionSheet(
+            appLabel = item.app.appLabel,
+            onDismiss = { showAppActions = false },
+            onMuteApp = {
+                showAppActions = false
+                onMuteApp()
+            },
+            onRestoreApp = {
+                showAppActions = false
+                onRestoreApp()
+            },
+        )
+    }
+
     actionTarget?.let { channel ->
         ChannelActionSheet(
             channel = channel,
@@ -739,6 +745,41 @@ private fun AppChannelCard(
                 actionTarget = null
             },
         )
+    }
+}
+
+@Composable
+private fun AppActionSheet(
+    appLabel: String,
+    onDismiss: () -> Unit,
+    onMuteApp: () -> Unit,
+    onRestoreApp: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        MiuixCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(appLabel, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    text = "对本应用全部渠道执行",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                ActionSheetRow("整应用静音", "全部渠道 importance → NONE") { onMuteApp() }
+                ActionSheetRow("整应用恢复", "全部渠道 importance → DEFAULT") { onRestoreApp() }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    top.yukonga.miuix.kmp.basic.TextButton(text = "取消", onClick = onDismiss)
+                }
+            }
+        }
     }
 }
 
