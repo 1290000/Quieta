@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -116,12 +117,10 @@ fun MutePreviewScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(
-                    text = "取消",
-                    onClick = onBack,
-                    modifier = Modifier.weight(1f),
-                )
+                TextButton(text = "取消", onClick = onBack)
+                Spacer(modifier = Modifier.weight(1f))
                 Button(
                     onClick = onConfirm,
                     modifier = Modifier.weight(1f),

@@ -1,6 +1,7 @@
 package app.quieta.feature.config
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -371,7 +372,7 @@ private fun RuleRow(
                     },
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 QuietaSwitch(checked = rule.enabled, onCheckedChange = { onToggle() })
                 if (hitStat != null) {
                     val hitLabel = if (hitStat.effectiveCount == hitStat.matchCount) {
@@ -379,7 +380,24 @@ private fun RuleRow(
                     } else {
                         "匹配 ${hitStat.matchCount} · 生效 ${hitStat.effectiveCount}"
                     }
-                    TextButton(text = hitLabel, onClick = { if (hitStat.samples.isNotEmpty()) showSamples = true }, enabled = hitStat.samples.isNotEmpty())
+                    val canOpen = hitStat.samples.isNotEmpty()
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                if (canOpen) MiuixTheme.colorScheme.primary.copy(alpha = 0.10f)
+                                else MiuixTheme.colorScheme.secondaryVariant.copy(alpha = 0.35f),
+                                CircleShape,
+                            )
+                            .clickable(enabled = canOpen) { showSamples = true }
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = hitLabel,
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = if (canOpen) MiuixTheme.colorScheme.primary
+                            else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = onEdit) {

@@ -611,7 +611,13 @@ private fun FilterSortSheet(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     top.yukonga.miuix.kmp.basic.TextButton(text = "重置筛选", onClick = onResetFilters)
-                    top.yukonga.miuix.kmp.basic.TextButton(text = "关闭", onClick = onDismiss)
+                    Spacer(modifier = Modifier.weight(1f))
+                    top.yukonga.miuix.kmp.basic.Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("完成")
+                    }
                 }
             }
         }
@@ -641,6 +647,7 @@ private fun AppChannelCard(
     onMuteApp: () -> Unit,
     onRestoreApp: () -> Unit,
 ) {
+    var actionTarget by remember { mutableStateOf<Channel?>(null) }
     // InstallerX home-card: one squircle surface, 20dp radius, 16dp inner padding.
     PressableCard(
         onClick = onToggleExpand,
@@ -672,12 +679,23 @@ private fun AppChannelCard(
                 )
             }
             if (item.expanded) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    top.yukonga.miuix.kmp.basic.TextButton(text = "整应用静音", onClick = onMuteApp)
-                    top.yukonga.miuix.kmp.basic.TextButton(text = "整应用恢复", onClick = onRestoreApp)
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    top.yukonga.miuix.kmp.basic.Button(
+                        onClick = onMuteApp,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("整应用静音")
+                    }
+                    top.yukonga.miuix.kmp.basic.TextButton(
+                        text = "整应用恢复",
+                        onClick = onRestoreApp,
+                    )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 item.channels.forEachIndexed { index, channel ->
                     if (index > 0) {
                         HorizontalDivider(
@@ -689,12 +707,79 @@ private fun AppChannelCard(
                     ChannelRow(
                         channel = channel,
                         plannedAction = plan[channel] ?: RuleAction.KEEP,
-                        onMute = { onChannelAction(channel, RuleAction.MUTE) },
-                        onDowngrade = { onChannelAction(channel, RuleAction.DOWNGRADE) },
-                        onRestore = { onChannelAction(channel, RuleAction.KEEP) },
+                        onClick = { actionTarget = channel },
                     )
                 }
             }
+        }
+    }
+
+    actionTarget?.let { channel ->
+        ChannelActionSheet(
+            channel = channel,
+            onDismiss = { actionTarget = null },
+            onAction = { action ->
+                onChannelAction(channel, action)
+                actionTarget = null
+            },
+        )
+    }
+}
+
+@Composable
+private fun ChannelActionSheet(
+    channel: Channel,
+    onDismiss: () -> Unit,
+    onAction: (RuleAction) -> Unit,
+) {
+    val status = ChannelLiveStatus.from(channel.importance)
+    Dialog(onDismissRequest = onDismiss) {
+        MiuixCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(channel.name, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    text = channel.id + " · 当前 " + status.label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                ActionSheetRow("静音", "将 importance 设为 NONE") { onAction(RuleAction.MUTE) }
+                ActionSheetRow("降级", "将 importance 设为 LOW") { onAction(RuleAction.DOWNGRADE) }
+                ActionSheetRow("恢复", "恢复为 DEFAULT") { onAction(RuleAction.KEEP) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    top.yukonga.miuix.kmp.basic.TextButton(text = "取消", onClick = onDismiss)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionSheetRow(title: String, subtitle: String, onClick: () -> Unit) {
+    PressableCard(
+        onClick = onClick,
+        cornerRadius = 0.dp,
+        color = Color.Transparent,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 12.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -703,9 +788,7 @@ private fun AppChannelCard(
 private fun ChannelRow(
     channel: Channel,
     plannedAction: RuleAction,
-    onMute: () -> Unit,
-    onDowngrade: () -> Unit,
-    onRestore: () -> Unit,
+    onClick: () -> Unit,
 ) {
     val status = remember(channel.importance) { ChannelLiveStatus.from(channel.importance) }
     val secondary = remember(status, plannedAction, channel.id) {
@@ -725,29 +808,25 @@ private fun ChannelRow(
             }
         }
     }
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(channel.name, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = secondary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            LiveStatusChip(status)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(channel.name, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = secondary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            top.yukonga.miuix.kmp.basic.TextButton(text = "静音", onClick = onMute)
-            top.yukonga.miuix.kmp.basic.TextButton(text = "降级", onClick = onDowngrade)
-            top.yukonga.miuix.kmp.basic.TextButton(text = "恢复", onClick = onRestore)
-        }
+        LiveStatusChip(status)
     }
 }
 
