@@ -251,7 +251,7 @@ fun ConfigScreen(
     }
 }
 
-/** InstallerX Revived style: X + check top bar, large title, white field cards, gray sections. */
+/** InstallerX Revived: miuix TopAppBar (Close/Ok + large title), field cards, grouped rows. */
 @Composable
 private fun RuleEditorScreen(
     title: String,
@@ -276,148 +276,115 @@ private fun RuleEditorScreen(
     onClose: () -> Unit,
     onSave: () -> Unit,
 ) {
-    androidx.compose.material3.Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
+    // Same chrome as other Quieta secondary pages / InstallerX edit: TopAppBar large title.
+    app.quieta.ui.component.QuietaPage(
+        title = title,
+        blurEnabled = true,
+        bottomPadding = 32.dp,
+        itemSpacing = 0.dp,
+        navigationIcon = {
+            IconButton(onClick = onClose) {
+                Icon(
+                    Icons.Outlined.Close,
+                    contentDescription = "关闭",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = onSave, enabled = canSave) {
+                Icon(
+                    Icons.Outlined.Check,
+                    contentDescription = "保存",
+                    tint = if (canSave) MiuixTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                )
+            }
+        },
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(
-                    onClick = onClose,
-                    modifier = Modifier.size(48.dp),
-                ) {
-                    Icon(
-                        Icons.Outlined.Close,
-                        contentDescription = "关闭",
-                        modifier = Modifier.size(28.dp),
-                        tint = MaterialTheme.colorScheme.onSurface,
+        item { FieldCard(value = packageInput, onValueChange = onPackageInput, placeholder = "包名（精确）") }
+        item { FieldCard(value = packagePrefixInput, onValueChange = onPackagePrefixInput, placeholder = "包名前缀") }
+        item { FieldCard(value = channelIdExactInput, onValueChange = onChannelIdExactInput, placeholder = "渠道 ID（精确）") }
+        item { FieldCard(value = channelIdPrefixInput, onValueChange = onChannelIdPrefixInput, placeholder = "渠道 ID 前缀") }
+        item { FieldCard(value = nameInput, onValueChange = onNameInput, placeholder = "关键词包含…") }
+
+        item { SmallTitle("匹配") }
+        item {
+            Card(modifier = Modifier.padding(horizontal = 0.dp)) {
+                Column {
+                    SwitchRow("匹配名称", "关键词作用于渠道显示名", matchName, onMatchName)
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        thickness = 0.5.dp,
+                        color = MiuixTheme.colorScheme.dividerLine,
                     )
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(
-                    onClick = onSave,
-                    enabled = canSave,
-                    modifier = Modifier.size(48.dp),
-                ) {
-                    Icon(
-                        Icons.Outlined.Check,
-                        contentDescription = "保存",
-                        modifier = Modifier.size(28.dp),
-                        tint = if (canSave) MiuixTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                    )
+                    SwitchRow("匹配渠道 ID", "关键词作用于渠道 id", matchId, onMatchId)
                 }
             }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-                FieldCard(value = packageInput, onValueChange = onPackageInput, placeholder = "包名（精确）")
-                FieldCard(value = packagePrefixInput, onValueChange = onPackagePrefixInput, placeholder = "包名前缀")
-                FieldCard(value = channelIdExactInput, onValueChange = onChannelIdExactInput, placeholder = "渠道 ID（精确）")
-                FieldCard(value = channelIdPrefixInput, onValueChange = onChannelIdPrefixInput, placeholder = "渠道 ID 前缀")
-                FieldCard(value = nameInput, onValueChange = onNameInput, placeholder = "关键词包含…")
+        }
 
-                SectionLabel("匹配")
-                Card(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
-                    Column {
-                        SwitchRow("匹配名称", "关键词作用于渠道显示名", matchName, onMatchName)
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            thickness = 0.5.dp,
-                            color = MiuixTheme.colorScheme.dividerLine,
-                        )
-                        SwitchRow("匹配渠道 ID", "关键词作用于渠道 id", matchId, onMatchId)
-                    }
-                }
-
-                SectionLabel("动作")
-                Card(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
-                    Column {
-                        RuleAction.entries.forEachIndexed { index, item ->
-                            if (index > 0) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = 16.dp),
-                                    thickness = 0.5.dp,
-                                    color = MiuixTheme.colorScheme.dividerLine,
-                                )
-                            }
-                            ActionSelectRow(
-                                title = stringResource(
-                                    when (item) {
-                                        RuleAction.MUTE -> R.string.rule_mute
-                                        RuleAction.DOWNGRADE -> R.string.rule_downgrade
-                                        RuleAction.KEEP -> R.string.rule_keep
-                                    },
-                                ),
-                                selected = action == item,
-                                onClick = { onAction(item) },
+        item { SmallTitle("动作") }
+        item {
+            Card {
+                Column {
+                    RuleAction.entries.forEachIndexed { index, item ->
+                        if (index > 0) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                thickness = 0.5.dp,
+                                color = MiuixTheme.colorScheme.dividerLine,
                             )
                         }
+                        ActionSelectRow(
+                            title = stringResource(
+                                when (item) {
+                                    RuleAction.MUTE -> R.string.rule_mute
+                                    RuleAction.DOWNGRADE -> R.string.rule_downgrade
+                                    RuleAction.KEEP -> R.string.rule_keep
+                                },
+                            ),
+                            selected = action == item,
+                            onClick = { onAction(item) },
+                        )
                     }
                 }
+            }
+        }
 
-                val draftBroad = app.quieta.core.engine.BroadKeywords.isBroad(nameInput) ||
-                    app.quieta.core.engine.BroadKeywords.isBroad(channelIdPrefixInput) ||
-                    app.quieta.core.engine.BroadKeywords.isBroad(packagePrefixInput)
-                if (draftBroad) {
-                    Text(
-                        text = "关键词可能过宽，容易误伤。建议改为包前缀或渠道 ID 前缀。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFFB45309),
-                    )
-                }
-                message?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MiuixTheme.colorScheme.primary)
-                }
-                Spacer(modifier = Modifier.height(24.dp))
+        val draftBroad = app.quieta.core.engine.BroadKeywords.isBroad(nameInput) ||
+            app.quieta.core.engine.BroadKeywords.isBroad(channelIdPrefixInput) ||
+            app.quieta.core.engine.BroadKeywords.isBroad(packagePrefixInput)
+        if (draftBroad) {
+            item {
+                Text(
+                    text = "关键词可能过宽，容易误伤。建议改为包前缀或渠道 ID 前缀。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFFB45309),
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+        message?.let {
+            item {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MiuixTheme.colorScheme.primary)
             }
         }
     }
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleSmall,
-        color = Color(0xFF8E8E93),
-        modifier = Modifier.padding(top = 8.dp),
-    )
-}
-
-@Composable
 private fun FieldCard(value: String, onValueChange: (String) -> Unit, placeholder: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 20.dp,
-    ) {
-        TextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = placeholder,
-            useLabelAsPlaceholder = true,
-            singleLine = true,
-            textStyle = MiuixTheme.textStyles.body1,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-        )
-    }
+    // InstallerX MiuixHintTextField: standalone field with side padding, no nested card chrome.
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = placeholder,
+        useLabelAsPlaceholder = true,
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+    )
 }
 
 @Composable
