@@ -42,6 +42,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -297,6 +299,7 @@ private fun InfoBanner(text: String, onDismiss: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RuleCard(
     rule: Rule,
@@ -305,18 +308,24 @@ private fun RuleCard(
     onRemove: () -> Unit,
     onEdit: () -> Unit,
 ) {
+    var showSamples by rememberSaveable(rule.id) { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = ruleSummary(rule),
                     style = app.quieta.ui.theme.QuietaTextStyles.ruleTitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                if (hitStat?.broadKeyword == true && rule.action != RuleAction.KEEP) {
+                    SurfacePill(text = "过宽", warning = true)
+                }
                 SurfacePill(
                     text = when (rule.action) {
                         RuleAction.MUTE -> "静音"
@@ -325,86 +334,26 @@ private fun RuleCard(
                     },
                 )
             }
-            if (hitStat != null) {
-                var samplesExpanded by rememberSaveable(rule.id) { mutableStateOf(false) }
-                var showFullSamples by rememberSaveable(rule.id) { mutableStateOf(false) }
-                val previewSamples = hitStat.samples.take(3)
-                Text(
-                    text = if (hitStat.effectiveCount == hitStat.matchCount) {
-                        "当前盘点命中 ${hitStat.matchCount} 个渠道"
-                    } else {
-                        "匹配 ${hitStat.matchCount} 个 · 最终生效 ${hitStat.effectiveCount} 个"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (hitStat.matchCount == 0) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                )
-                if (hitStat.samples.isNotEmpty()) {
-                    TextButton(
-                        onClick = { samplesExpanded = !samplesExpanded },
-                        modifier = Modifier.padding(start = 0.dp),
-                    ) {
-                        Text(if (samplesExpanded) "收起样本" else "展开样本（${hitStat.samples.size}）")
-                    }
-                }
-                if (samplesExpanded) {
-                    previewSamples.forEach { sample ->
-                        Text(
-                            text = "· ${sample.appLabel} / ${sample.channelName} (${sample.channelId})",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                        )
-                    }
-                    if (hitStat.samples.size > previewSamples.size) {
-                        TextButton(onClick = { showFullSamples = true }) {
-                            Text("查看完整 ${hitStat.samples.size} 条")
-                        }
-                    }
-                }
-                if (hitStat.broadKeyword && rule.action != RuleAction.KEEP) {
-                    Text(
-                        text = "⚠ 关键词过宽，可能误伤",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFB45309),
-                    )
-                }
-                if (showFullSamples) {
-                    AlertDialog(
-                        onDismissRequest = { showFullSamples = false },
-                        title = { Text("命中样本（${hitStat.samples.size}）") },
-                        text = {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 360.dp)
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                hitStat.samples.forEach { sample ->
-                                    Text(
-                                        text = sample.appLabel + " / " + sample.channelName + "\n" + sample.channelId,
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
-                            }
-                        },
-                        confirmButton = {
-                            TextButton(onClick = { showFullSamples = false }) { Text("关闭") }
-                        },
-                    )
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Switch(
                     checked = rule.enabled,
                     onCheckedChange = { onToggle() },
-                    modifier = Modifier.padding(start = 4.dp),
                     colors = app.quieta.ui.component.installerLikeSwitchColors(),
                 )
+                if (hitStat != null) {
+                    val hitLabel = if (hitStat.effectiveCount == hitStat.matchCount) {
+                        "命中 ${hitStat.matchCount}"
+                    } else {
+                        "匹配 ${hitStat.matchCount} · 生效 ${hitStat.effectiveCount}"
+                    }
+                    TextButton(
+                        onClick = { if (hitStat.samples.isNotEmpty()) showSamples = true },
+                        enabled = hitStat.samples.isNotEmpty(),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Text(hitLabel, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
                 Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = onEdit) {
                     Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.rule_edit))
@@ -412,6 +361,53 @@ private fun RuleCard(
                 IconButton(onClick = onRemove) {
                     Icon(Icons.Outlined.Delete, contentDescription = "删除")
                 }
+            }
+        }
+    }
+
+    if (showSamples && hitStat != null) {
+        ModalBottomSheet(
+            onDismissRequest = { showSamples = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "命中样本 ${hitStat.samples.size} 条",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                if (hitStat.broadKeyword && rule.action != RuleAction.KEEP) {
+                    Text(
+                        text = "⚠ 关键词过宽，可能误伤物流/客服/系统渠道。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFB45309),
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    hitStat.samples.forEach { sample ->
+                        Column {
+                            Text(sample.appLabel, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = sample.channelName + " (" + sample.channelId + ")",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                TextButton(onClick = { showSamples = false }) { Text("关闭") }
             }
         }
     }
@@ -437,12 +433,14 @@ private fun ruleSummary(rule: Rule): String {
 }
 
 @Composable
-private fun SurfacePill(text: String) {
+private fun SurfacePill(text: String, warning: Boolean = false) {
+    val bg = if (warning) Color(0xFFFFF1CC) else MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    val fg = if (warning) Color(0xFFB45309) else MaterialTheme.colorScheme.primary
     Box(
         modifier = Modifier
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .background(bg, CircleShape)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
-        Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text(text, style = MaterialTheme.typography.labelSmall, color = fg)
     }
 }
