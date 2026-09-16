@@ -55,22 +55,52 @@ class RulesEngineTest {
     }
 
     @Test
-    fun `first matching rule wins`() {
+    fun `keep whitelist wins over mute`() {
         val engine = RulesEngine(
             listOf(
-                Rule(id = "1", nameContains = "推广", action = RuleAction.DOWNGRADE),
-                Rule(id = "2", packageName = "com.example.app", action = RuleAction.MUTE),
+                Rule(id = "mute", nameContains = "推广", action = RuleAction.MUTE),
+                Rule(id = "keep", packageName = "com.example.app", nameContains = "订单", action = RuleAction.KEEP),
             ),
         )
-        assertEquals(RuleAction.DOWNGRADE, engine.actionFor(channel()))
+        assertEquals(RuleAction.KEEP, engine.actionFor(channel(name = "订单推广")))
     }
 
     @Test
-    fun `match checks channel id as well`() {
+    fun `higher specificity wins among non keep`() {
         val engine = RulesEngine(
-            listOf(Rule(id = "1", nameContains = "promo", action = RuleAction.MUTE)),
+            listOf(
+                Rule(id = "wide", nameContains = "promo", action = RuleAction.DOWNGRADE),
+                Rule(id = "precise", channelIdExact = "promo", action = RuleAction.MUTE),
+            ),
         )
-        assertEquals(RuleAction.MUTE, engine.actionFor(channel(id = "promo_channel")))
+        assertEquals(RuleAction.MUTE, engine.actionFor(channel(id = "promo")))
+    }
+
+    @Test
+    fun `package prefix matches family`() {
+        val engine = RulesEngine(
+            listOf(Rule(id = "1", packagePrefix = "com.example.", nameContains = "promo", action = RuleAction.MUTE)),
+        )
+        assertEquals(RuleAction.MUTE, engine.actionFor(channel(pkg = "com.example.app")))
+        assertEquals(RuleAction.KEEP, engine.actionFor(channel(pkg = "com.other.app")))
+    }
+
+    @Test
+    fun `channel id prefix matches`() {
+        val engine = RulesEngine(
+            listOf(Rule(id = "1", channelIdPrefix = "lab.marketing.", action = RuleAction.MUTE)),
+        )
+        assertEquals(RuleAction.MUTE, engine.actionFor(channel(id = "lab.marketing.promo")))
+        assertEquals(RuleAction.KEEP, engine.actionFor(channel(id = "lab.order.status")))
+    }
+
+    @Test
+    fun `match id disabled ignores nameContains on id`() {
+        val engine = RulesEngine(
+            listOf(Rule(id = "1", nameContains = "promo", matchId = false, matchName = true, action = RuleAction.MUTE)),
+        )
+        assertEquals(RuleAction.KEEP, engine.actionFor(channel(id = "promo", name = "订单")))
+        assertEquals(RuleAction.MUTE, engine.actionFor(channel(id = "other", name = "promo活动")))
     }
 
     @Test

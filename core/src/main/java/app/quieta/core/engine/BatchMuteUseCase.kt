@@ -33,11 +33,9 @@ class BatchMuteUseCase(
         entries.chunked(batchSize).forEach { batch ->
             batch.forEach { (channel, action) ->
                 runCatching {
-                    val importance = when (action) {
-                        RuleAction.MUTE -> 0
-                        RuleAction.DOWNGRADE -> 2
-                        else -> return@runCatching
-                    }
+                    val importance = ChannelImportanceWriter.targetImportance(action)
+                        ?: return@runCatching
+                    if (action == RuleAction.KEEP) return@runCatching
                     backend.setImportance(channel.packageName, channel.id, importance)
                     success++
                 }.onFailure { e ->

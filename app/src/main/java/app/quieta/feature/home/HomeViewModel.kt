@@ -5,6 +5,7 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.quieta.core.engine.BatchMuteUseCase
+import app.quieta.core.engine.ChannelActionUseCase
 import app.quieta.core.engine.MuteResult
 import app.quieta.core.engine.RulesEngine
 import app.quieta.core.model.AppChannels
@@ -79,6 +80,22 @@ data class HomeUiState(
     val baseListItems: List<ChannelListAppItem> = emptyList(),
     val listItems: List<ChannelListAppItem> = emptyList(),
     val listSummary: String = "",
+    val mutePreview: MutePreview? = null,
+)
+
+data class MutePreviewItem(
+    val packageName: String,
+    val appLabel: String,
+    val channelName: String,
+    val channelId: String,
+    val action: RuleAction,
+    val reason: String,
+)
+
+data class MutePreview(
+    val items: List<MutePreviewItem>,
+    val muteCount: Int,
+    val downgradeCount: Int,
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -409,14 +426,58 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun applyBatchMute() {
+    /** Opens a dry-run preview instead of writing immediately. */
+    fun requestBatchMutePreview() {
         viewModelScope.launch {
             if (_state.value.checkingPrivilege || _state.value.gate != PrivilegeGate.READY) return@launch
+            val rules = ruleRepository.current()
+            val apps = _state.value.apps
+            val engine = RulesEngine(rules)
+            val targets = withContext(Dispatchers.Default) {
+                apps.flatMap { app ->
+                    app.channels.mapNotNull { channel ->
+                        val decision = engine.decisionFor(channel)
+                        if (decision.action == RuleAction.MUTE || decision.action == RuleAction.DOWNGRADE) {
+                            MutePreviewItem(
+                                packageName = channel.packageName,
+                                appLabel = app.appLabel,
+                                channelName = channel.name,
+                                channelId = channel.id,
+                                action = decision.action,
+                                reason = decision.reason,
+                            )
+                        } else null
+                    }
+                }.sortedWith(compareBy({ it.packageName }, { it.channelId }))
+            }
+            _state.update {
+                it.copy(
+                    mutePreview = MutePreview(
+                        items = targets,
+                        muteCount = targets.count { p -> p.action == RuleAction.MUTE },
+                        downgradeCount = targets.count { p -> p.action == RuleAction.DOWNGRADE },
+                    ),
+                    muteResult = null,
+                )
+            }
+        }
+    }
+
+    fun dismissMutePreview() {
+        _state.update { it.copy(mutePreview = null) }
+    }
+
+    fun confirmBatchMute() {
+        viewModelScope.launch {
+            if (_state.value.checkingPrivilege || _state.value.gate != PrivilegeGate.READY) {
+                _state.update { it.copy(mutePreview = null) }
+                return@launch
+            }
             val activeBackend = backend
             val rules = ruleRepository.current()
             val apps = _state.value.apps
             val plan = withContext(Dispatchers.Default) { RulesEngine(rules).plan(apps.flatMap { it.channels }) }
-            _state.update { it.copy(plan = plan) }
+            _state.update { it.copy(plan = plan, mutePreview = null) }
             if (plan.isEmpty()) {
                 _state.update { it.copy(muteResult = MuteResult(0, 0, 0, listOf("没有可执行的规则"))) }
                 return@launch
@@ -426,9 +487,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 BatchMuteUseCase(activeBackend).apply(plan)
             }
             if (activeBackend.id == PrivilegeId.ROOT && backend === activeBackend) {
-                _state.update { it.copy(rootDescription = it.rootDescription.substringBeforeLast('\n') + "\n" +
-                    appContext.getString(if (result.failed == 0 && result.success > 0)
-                        app.quieta.R.string.privilege_root_write_verified else app.quieta.R.string.privilege_root_write_failed)) }
+                _state.update {
+                    it.copy(
+                        rootDescription = it.rootDescription.substringBeforeLast('\n') + "\n" +
+                            appContext.getString(
+                                if (result.failed == 0 && result.success > 0) {
+                                    app.quieta.R.string.privilege_root_write_verified
+                                } else {
+                                    app.quieta.R.string.privilege_root_write_failed
+                                },
+                            ),
+                    )
+                }
             }
             muteLog.append(
                 app.quieta.core.engine.MuteLogEntry(
@@ -438,10 +508,42 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     tag = if (result.failed == 0) "成功" else "部分失败",
                 ),
             )
-            _state.update {
-                it.copy(progress = null, muteResult = result)
+            _state.update { it.copy(progress = null, muteResult = result) }
+            startInventoryRefresh()
+        }
+    }
+
+    fun applyChannelAction(channel: Channel, action: RuleAction) {
+        viewModelScope.launch {
+            if (_state.value.checkingPrivilege || _state.value.gate != PrivilegeGate.READY) return@launch
+            val activeBackend = backend
+            val ok = withContext(Dispatchers.Default) {
+                ChannelActionUseCase(activeBackend).apply(channel, action)
             }
-            // Re-read inventory so the home list shows the post-mute importance.
+            val label = when (action) {
+                RuleAction.MUTE -> "手动静音"
+                RuleAction.DOWNGRADE -> "手动降级"
+                RuleAction.KEEP -> "手动恢复"
+            }
+            muteLog.append(
+                app.quieta.core.engine.MuteLogEntry(
+                    label = label,
+                    detail = channel.packageName + "/" + channel.id + if (ok.isSuccess) " 成功" else " 失败",
+                    time = app.quieta.core.engine.MuteLogStore.now(),
+                    tag = if (ok.isSuccess) "成功" else "失败",
+                ),
+            )
+            _state.update {
+                it.copy(
+                    muteResult = MuteResult(
+                        total = 1,
+                        success = if (ok.isSuccess) 1 else 0,
+                        failed = if (ok.isSuccess) 0 else 1,
+                        errors = if (ok.isSuccess) emptyList() else listOf(ok.exceptionOrNull()?.message ?: "unknown"),
+                    ),
+                    mutePreview = null,
+                )
+            }
             startInventoryRefresh()
         }
     }

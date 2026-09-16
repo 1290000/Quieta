@@ -6,7 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object RuleJson {
-    const val SCHEMA_VERSION = 1
+    const val SCHEMA_VERSION = 2
 
     fun encode(rules: List<Rule>): String {
         val root = JSONObject()
@@ -17,8 +17,13 @@ object RuleJson {
                 JSONObject()
                     .put("id", rule.id)
                     .put("enabled", rule.enabled)
-                    .put("packageName", rule.packageName)
-                    .put("nameContains", rule.nameContains)
+                    .putOpt("packageName", rule.packageName)
+                    .putOpt("packagePrefix", rule.packagePrefix)
+                    .putOpt("nameContains", rule.nameContains)
+                    .putOpt("channelIdExact", rule.channelIdExact)
+                    .putOpt("channelIdPrefix", rule.channelIdPrefix)
+                    .put("matchName", rule.matchName)
+                    .put("matchId", rule.matchId)
                     .put("action", rule.action.name),
             )
         }
@@ -34,14 +39,19 @@ object RuleJson {
         return buildList {
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
-                val actionName = o.getString("action")
                 add(
                     Rule(
                         id = o.getString("id"),
                         enabled = o.optBoolean("enabled", true),
                         packageName = o.optString("packageName").takeIf { it.isNotEmpty() },
+                        packagePrefix = o.optString("packagePrefix").takeIf { it.isNotEmpty() },
                         nameContains = o.optString("nameContains").takeIf { it.isNotEmpty() },
-                        action = RuleAction.valueOf(actionName),
+                        channelIdExact = o.optString("channelIdExact").takeIf { it.isNotEmpty() },
+                        channelIdPrefix = o.optString("channelIdPrefix").takeIf { it.isNotEmpty() },
+                        // v1 rules matched both name and id via nameContains.
+                        matchName = o.optBoolean("matchName", true),
+                        matchId = o.optBoolean("matchId", true),
+                        action = RuleAction.valueOf(o.getString("action")),
                     ),
                 )
             }

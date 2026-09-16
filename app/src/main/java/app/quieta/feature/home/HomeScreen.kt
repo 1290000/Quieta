@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandLess
@@ -126,7 +128,7 @@ fun HomeScreen(
                 },
                 onOpenPrivilege = onOpenPrivilege,
                 onRefresh = viewModel::refresh,
-                onApplyMute = viewModel::applyBatchMute,
+                onApplyMute = viewModel::requestBatchMutePreview,
             )
         }
 
@@ -226,6 +228,7 @@ fun HomeScreen(
                         item = item,
                         plan = state.plan,
                         onToggleExpand = { viewModel.toggleExpanded(item.app.packageName) },
+                        onChannelAction = viewModel::applyChannelAction,
                     )
                 }
             }
@@ -240,6 +243,14 @@ fun HomeScreen(
                 )
             }
         }
+    }
+
+    state.mutePreview?.let { preview ->
+        MutePreviewDialog(
+            preview = preview,
+            onConfirm = viewModel::confirmBatchMute,
+            onDismiss = viewModel::dismissMutePreview,
+        )
     }
 }
 
@@ -538,6 +549,7 @@ private fun AppChannelCard(
     item: ChannelListAppItem,
     plan: Map<Channel, RuleAction>,
     onToggleExpand: () -> Unit,
+    onChannelAction: (Channel, RuleAction) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -578,7 +590,13 @@ private fun AppChannelCard(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item.channels.forEach { channel ->
-                        ChannelRow(channel = channel, plannedAction = plan[channel] ?: RuleAction.KEEP)
+                        ChannelRow(
+                            channel = channel,
+                            plannedAction = plan[channel] ?: RuleAction.KEEP,
+                            onMute = { onChannelAction(channel, RuleAction.MUTE) },
+                            onDowngrade = { onChannelAction(channel, RuleAction.DOWNGRADE) },
+                            onRestore = { onChannelAction(channel, RuleAction.KEEP) },
+                        )
                     }
                 }
             }
@@ -587,10 +605,15 @@ private fun AppChannelCard(
 }
 
 @Composable
-private fun ChannelRow(channel: Channel, plannedAction: RuleAction) {
-    // Live state comes from system importance; rule plan is secondary context only.
+private fun ChannelRow(
+    channel: Channel,
+    plannedAction: RuleAction,
+    onMute: () -> Unit,
+    onDowngrade: () -> Unit,
+    onRestore: () -> Unit,
+) {
     val status = remember(channel.importance) { ChannelLiveStatus.from(channel.importance) }
-    val secondary = remember(status, plannedAction) {
+    val secondary = remember(status, plannedAction, channel.id) {
         buildString {
             append(channel.id)
             append(" · ")
@@ -607,22 +630,29 @@ private fun ChannelRow(channel: Channel, plannedAction: RuleAction) {
             }
         }
     }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(channel.name, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = secondary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(channel.name, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = secondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            LiveStatusChip(status)
         }
-        LiveStatusChip(status)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TextButton(onClick = onMute) { Text("静音") }
+            TextButton(onClick = onDowngrade) { Text("降级") }
+            TextButton(onClick = onRestore) { Text("恢复") }
+        }
     }
 }
 
@@ -659,4 +689,66 @@ private fun LiveStatusChip(status: ChannelLiveStatus) {
             style = MaterialTheme.typography.labelMedium,
         )
     }
+}
+
+@Composable
+private fun MutePreviewDialog(
+    preview: MutePreview,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("确认按规则静音") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 360.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "将静音 ${preview.muteCount} 个渠道，降级 ${preview.downgradeCount} 个渠道。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (preview.items.isEmpty()) {
+                    Text("没有可执行的规则命中渠道。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    preview.items.take(40).forEach { item ->
+                        Column {
+                            Text(
+                                text = item.appLabel + " · " + item.channelName,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                text = item.channelId + " → " +
+                                    when (item.action) {
+                                        RuleAction.MUTE -> "静音"
+                                        RuleAction.DOWNGRADE -> "降级"
+                                        RuleAction.KEEP -> "保留"
+                                    },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = item.reason,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                    if (preview.items.size > 40) {
+                        Text("…以及另外 ${preview.items.size - 40} 个渠道", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = preview.items.isNotEmpty()) { Text("确认静音") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
 }

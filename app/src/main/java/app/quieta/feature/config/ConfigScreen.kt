@@ -1,34 +1,30 @@
 package app.quieta.feature.config
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,6 +34,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -67,10 +66,36 @@ fun ConfigScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showAdd by rememberSaveable { mutableStateOf(false) }
-    var nameInput by rememberSaveable { mutableStateOf("") }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var nameInput by rememberSaveable { mutableStateOf("") }
     var packageInput by rememberSaveable { mutableStateOf("") }
-    var actionInput by rememberSaveable { mutableStateOf(RuleAction.MUTE) }
+    var packagePrefixInput by rememberSaveable { mutableStateOf("") }
+    var channelIdExactInput by rememberSaveable { mutableStateOf("") }
+    var channelIdPrefixInput by rememberSaveable { mutableStateOf("") }
+    var matchName by rememberSaveable { mutableStateOf(true) }
+    var matchId by rememberSaveable { mutableStateOf(true) }
+    var actionInput by rememberSaveable { mutableStateOf(RuleAction.MUTE.name) }
+    val draft = RuleDraft(
+        nameContains = nameInput,
+        packageName = packageInput,
+        packagePrefix = packagePrefixInput,
+        channelIdExact = channelIdExactInput,
+        channelIdPrefix = channelIdPrefixInput,
+        matchName = matchName,
+        matchId = matchId,
+        action = RuleAction.valueOf(actionInput),
+    )
+    fun loadDraft(next: RuleDraft, id: String?) {
+        editingId = id
+        nameInput = next.nameContains
+        packageInput = next.packageName
+        packagePrefixInput = next.packagePrefix
+        channelIdExactInput = next.channelIdExact
+        channelIdPrefixInput = next.channelIdPrefix
+        matchName = next.matchName
+        matchId = next.matchId
+        actionInput = next.action.name
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         QuietaPage(
@@ -79,7 +104,7 @@ fun ConfigScreen(
         ) {
             item {
                 InfoBanner(
-                    text = "规则按名称匹配通知渠道。第一个命中的启用规则生效。可在主页一键静音。",
+                    text = "白名单（保留）优先于静音/降级；其余按更精确的规则优先。可匹配包名/包前缀/渠道id/名称。主页可先预览再静音。",
                     onDismiss = { /* hint only */ },
                 )
             }
@@ -100,10 +125,7 @@ fun ConfigScreen(
                     onToggle = { viewModel.toggle(rule.id) },
                     onRemove = { viewModel.remove(rule.id) },
                     onEdit = {
-                        editingId = rule.id
-                        nameInput = rule.nameContains.orEmpty()
-                        packageInput = rule.packageName.orEmpty()
-                        actionInput = rule.action
+                        loadDraft(viewModel.draftOf(rule), rule.id)
                         showAdd = true
                     },
                 )
@@ -118,10 +140,7 @@ fun ConfigScreen(
 
         FloatingActionButton(
             onClick = {
-                editingId = null
-                nameInput = ""
-                packageInput = ""
-                actionInput = RuleAction.MUTE
+                loadDraft(RuleDraft(), null)
                 showAdd = true
             },
             containerColor = MaterialTheme.colorScheme.primary,
@@ -138,30 +157,66 @@ fun ConfigScreen(
     if (showAdd) {
         ModalBottomSheet(
             onDismissRequest = { showAdd = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surface,
         ) {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(stringResource(if (editingId == null) R.string.rule_add else R.string.rule_edit),
-                    style = MaterialTheme.typography.titleLarge)
-                OutlinedTextField(
-                    value = nameInput,
-                    onValueChange = { nameInput = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("渠道名包含…") },
-                    placeholder = { Text("例如：推广") },
+                Text(
+                    stringResource(if (editingId == null) R.string.rule_add else R.string.rule_edit),
+                    style = MaterialTheme.typography.titleLarge,
                 )
                 OutlinedTextField(
                     value = packageInput,
                     onValueChange = { packageInput = it },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text(stringResource(R.string.rule_package)) },
+                    label = { Text("包名（精确）") },
+                    placeholder = { Text("app.quieta.notiflab.debug") },
                 )
+                OutlinedTextField(
+                    value = packagePrefixInput,
+                    onValueChange = { packagePrefixInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("包名前缀") },
+                    placeholder = { Text("com.tencent.") },
+                )
+                OutlinedTextField(
+                    value = channelIdExactInput,
+                    onValueChange = { channelIdExactInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("渠道 ID（精确）") },
+                )
+                OutlinedTextField(
+                    value = channelIdPrefixInput,
+                    onValueChange = { channelIdPrefixInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("渠道 ID 前缀") },
+                    placeholder = { Text("lab.marketing.") },
+                )
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = { nameInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("关键词包含…") },
+                    placeholder = { Text("例如：推广") },
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("匹配名称", modifier = Modifier.weight(1f))
+                    Switch(checked = matchName, onCheckedChange = { matchName = it })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("匹配渠道 ID", modifier = Modifier.weight(1f))
+                    Switch(checked = matchId, onCheckedChange = { matchId = it })
+                }
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     RuleAction.entries.forEachIndexed { index, action ->
                         SegmentedButton(
@@ -169,24 +224,38 @@ fun ConfigScreen(
                                 activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                 activeContentColor = MaterialTheme.colorScheme.primary,
                             ),
-                            selected = actionInput == action,
-                            onClick = { actionInput = action },
+                            selected = draft.action == action,
+                            onClick = { actionInput = action.name },
                             shape = SegmentedButtonDefaults.itemShape(index, RuleAction.entries.size),
-                        ) { Text(stringResource(when (action) {
-                            RuleAction.MUTE -> R.string.rule_mute
-                            RuleAction.DOWNGRADE -> R.string.rule_downgrade
-                            RuleAction.KEEP -> R.string.rule_keep
-                        })) }
+                        ) {
+                            Text(
+                                stringResource(
+                                    when (action) {
+                                        RuleAction.MUTE -> R.string.rule_mute
+                                        RuleAction.DOWNGRADE -> R.string.rule_downgrade
+                                        RuleAction.KEEP -> R.string.rule_keep
+                                    },
+                                ),
+                            )
+                        }
                     }
                 }
+                Text(
+                    "说明：条件为「与」关系；保留=白名单，命中后不再静音。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = { showAdd = false }) { Text("取消") }
                     TextButton(
-                        onClick = {
-                            viewModel.saveRule(editingId, nameInput, packageInput, actionInput) { showAdd = false }
-                        },
-                        enabled = nameInput.isNotBlank() || packageInput.isNotBlank() || editingId != null,
+                        onClick = { viewModel.saveRule(editingId, draft) { showAdd = false } },
+                        enabled = draft.packageName.isNotBlank() ||
+                            draft.packagePrefix.isNotBlank() ||
+                            draft.channelIdExact.isNotBlank() ||
+                            draft.channelIdPrefix.isNotBlank() ||
+                            draft.nameContains.isNotBlank() ||
+                            editingId != null,
                     ) { Text("确定") }
                 }
             }
@@ -225,7 +294,7 @@ private fun RuleCard(rule: Rule, onToggle: () -> Unit, onRemove: () -> Unit, onE
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = rule.nameContains ?: rule.packageName ?: "(全部)",
+                    text = ruleSummary(rule),
                     style = app.quieta.ui.theme.QuietaTextStyles.ruleTitle,
                     modifier = Modifier.weight(1f),
                 )
@@ -254,6 +323,25 @@ private fun RuleCard(rule: Rule, onToggle: () -> Unit, onRemove: () -> Unit, onE
             }
         }
     }
+}
+
+private fun ruleSummary(rule: Rule): String {
+    val parts = buildList {
+        rule.channelIdExact?.let { add("id=$it") }
+        rule.channelIdPrefix?.let { add("id前缀=$it") }
+        rule.packageName?.let { add("包名=$it") }
+        rule.packagePrefix?.let { add("包前缀=$it") }
+        rule.nameContains?.let {
+            val scope = when {
+                rule.matchName && rule.matchId -> "名称/id"
+                rule.matchName -> "名称"
+                rule.matchId -> "id"
+                else -> "关键词"
+            }
+            add("${scope}含“$it”")
+        }
+    }
+    return parts.joinToString(" · ").ifEmpty { "(空)" }
 }
 
 @Composable
