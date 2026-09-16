@@ -76,6 +76,7 @@ data class HomeUiState(
     val filters: ChannelListFilters = ChannelListFilters(),
     val sort: ChannelSort = ChannelSort.CHANNEL_COUNT,
     val expandedPackages: Set<String> = emptySet(),
+    val baseListItems: List<ChannelListAppItem> = emptyList(),
     val listItems: List<ChannelListAppItem> = emptyList(),
     val listSummary: String = "",
 )
@@ -128,50 +129,76 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             ruleRepository.current()
+            // Heavy projection (rules + search + filter + sort) is decoupled from expand flags
+            // so tapping a card header does not re-run RulesEngine over the full inventory.
             combine(
                 ruleRepository.rules,
                 state.map { Triple(it.apps, it.searchQuery, it.filters) }.distinctUntilChanged(),
-                state.map { Pair(it.sort, it.expandedPackages) }.distinctUntilChanged(),
-            ) { rules, searchTriple, sortPair ->
-                ListProjectionInput(
+                state.map { it.sort }.distinctUntilChanged(),
+            ) { rules, searchTriple, sort ->
+                ProjectionCore(
                     rules = rules,
                     apps = searchTriple.first,
                     query = searchTriple.second,
                     filters = searchTriple.third,
-                    sort = sortPair.first,
-                    expanded = sortPair.second,
+                    sort = sort,
                 )
-            }.collectLatest { input ->
+            }.collectLatest { core ->
                 val plan = withContext(Dispatchers.Default) {
-                    RulesEngine(input.rules).plan(input.apps.flatMap { it.channels })
+                    RulesEngine(core.rules).plan(core.apps.flatMap { it.channels })
                 }
                 val items = withContext(Dispatchers.Default) {
                     ChannelListProjector.project(
-                        apps = input.apps,
-                        query = input.query,
-                        filters = input.filters,
-                        sort = input.sort,
+                        apps = core.apps,
+                        query = core.query,
+                        filters = core.filters,
+                        sort = core.sort,
                         plan = plan,
-                        expandedPackages = input.expanded,
+                        expandedPackages = emptySet(),
+                        autoExpandOnSearch = false,
                     )
                 }
-                val visibleChannels = items.sumOf { it.channels.size }
-                val summary = if (input.query.isNotBlank() || input.filters.isActive) {
-                    "匹配 ${items.size} 个应用 · $visibleChannels 个渠道"
-                } else {
-                    "${items.size} 个应用 · $visibleChannels 个渠道"
-                }
                 _state.update {
-                    if (it.apps != input.apps || ruleRepository.rules.value != input.rules) {
+                    if (it.apps != core.apps || ruleRepository.rules.value != core.rules) {
                         it
                     } else {
                         it.copy(
-                            rulesCount = input.rules.size,
+                            rulesCount = core.rules.size,
                             plan = plan,
-                            listItems = items,
-                            listSummary = summary,
+                            baseListItems = items,
                         )
                     }
+                }
+            }
+        }
+        viewModelScope.launch {
+            // Cheap expand remap: only swaps the expanded flag on existing items.
+            combine(
+                state.map { it.baseListItems }.distinctUntilChanged(),
+                state.map { Pair(it.expandedPackages, it.searchQuery) }.distinctUntilChanged(),
+            ) { items, expandPair ->
+                items to expandPair
+            }.collectLatest { (items, expandPair) ->
+                val (expanded, query) = expandPair
+                val autoExpand = query.isNotBlank()
+                val projected = if (items.isEmpty()) {
+                    items
+                } else {
+                    items.map { item ->
+                        val shouldExpand = autoExpand || expanded.contains(item.app.packageName)
+                        if (item.expanded == shouldExpand) item else item.copy(expanded = shouldExpand)
+                    }
+                }
+                val visibleChannels = projected.sumOf { it.channels.size }
+                val filtersActive = _state.value.filters.isActive
+                val summary = if (query.isNotBlank() || filtersActive) {
+                    "匹配 ${projected.size} 个应用 · $visibleChannels 个渠道"
+                } else {
+                    "${projected.size} 个应用 · $visibleChannels 个渠道"
+                }
+                _state.update { state ->
+                    if (state.baseListItems !== items) state
+                    else state.copy(listItems = projected, listSummary = summary)
                 }
             }
         }
@@ -184,13 +211,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private data class ListProjectionInput(
+    private data class ProjectionCore(
         val rules: List<app.quieta.core.model.Rule>,
         val apps: List<AppChannels>,
         val query: String,
         val filters: ChannelListFilters,
         val sort: ChannelSort,
-        val expanded: Set<String>,
     )
 
     fun setSearchQuery(query: String) {
@@ -217,7 +243,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun expandAllVisible() {
-        val pkgs = _state.value.listItems.map { it.app.packageName }.toSet()
+        val pkgs = _state.value.baseListItems.map { it.app.packageName }.toSet()
         if (pkgs.isEmpty()) return
         _state.update { it.copy(expandedPackages = it.expandedPackages + pkgs) }
     }

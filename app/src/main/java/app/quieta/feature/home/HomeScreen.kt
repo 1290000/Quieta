@@ -2,7 +2,6 @@ package app.quieta.feature.home
 
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -50,6 +49,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -572,13 +572,13 @@ private fun AppChannelCard(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            AnimatedVisibility(visible = item.expanded) {
+            if (item.expanded) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item.channels.forEach { channel ->
-                        ChannelRow(channel = channel, action = plan[channel] ?: RuleAction.KEEP)
+                        ChannelRow(channel = channel, plannedAction = plan[channel] ?: RuleAction.KEEP)
                     }
                 }
             }
@@ -587,7 +587,26 @@ private fun AppChannelCard(
 }
 
 @Composable
-private fun ChannelRow(channel: Channel, action: RuleAction) {
+private fun ChannelRow(channel: Channel, plannedAction: RuleAction) {
+    // Live state comes from system importance; rule plan is secondary context only.
+    val status = remember(channel.importance) { ChannelLiveStatus.from(channel.importance) }
+    val secondary = remember(status, plannedAction) {
+        buildString {
+            append(channel.id)
+            append(" · ")
+            append(status.label)
+            if (plannedAction != RuleAction.KEEP) {
+                append(" · 规则 ")
+                append(
+                    when (plannedAction) {
+                        RuleAction.MUTE -> "将静音"
+                        RuleAction.DOWNGRADE -> "将降级"
+                        RuleAction.KEEP -> ""
+                    },
+                )
+            }
+        }
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -596,30 +615,46 @@ private fun ChannelRow(channel: Channel, action: RuleAction) {
         Column(modifier = Modifier.weight(1f)) {
             Text(channel.name, style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = channel.id + " · 当前 " + channel.importance.name,
+                text = secondary,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
-        ActionChip(action)
+        LiveStatusChip(status)
+    }
+}
+
+private enum class ChannelLiveStatus(val label: String) {
+    MUTED("静音"),
+    DOWNGRADED("降级"),
+    NORMAL("正常"),
+    ;
+
+    companion object {
+        fun from(importance: app.quieta.core.model.ChannelImportance): ChannelLiveStatus = when (importance) {
+            app.quieta.core.model.ChannelImportance.NONE -> MUTED
+            app.quieta.core.model.ChannelImportance.MIN,
+            app.quieta.core.model.ChannelImportance.LOW,
+            -> DOWNGRADED
+            app.quieta.core.model.ChannelImportance.DEFAULT,
+            app.quieta.core.model.ChannelImportance.HIGH,
+            -> NORMAL
+        }
     }
 }
 
 @Composable
-private fun ActionChip(action: RuleAction) {
-    val label = when (action) {
-        RuleAction.KEEP -> "保留"
-        RuleAction.MUTE -> "将静音"
-        RuleAction.DOWNGRADE -> "将降级"
-    }
-    val container = when (action) {
-        RuleAction.KEEP -> MaterialTheme.colorScheme.surfaceVariant
-        RuleAction.MUTE -> Color(0xFFFFE5E1)
-        RuleAction.DOWNGRADE -> Color(0xFFFFF1CC)
+private fun LiveStatusChip(status: ChannelLiveStatus) {
+    val container = when (status) {
+        ChannelLiveStatus.MUTED -> Color(0xFFFFE5E1)
+        ChannelLiveStatus.DOWNGRADED -> Color(0xFFFFF1CC)
+        ChannelLiveStatus.NORMAL -> MaterialTheme.colorScheme.surfaceVariant
     }
     Surface(shape = RoundedCornerShape(50), color = container) {
         Text(
-            text = label,
+            text = status.label,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
         )
