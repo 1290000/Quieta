@@ -54,6 +54,35 @@
 
 **二期：** 营销 vs 重要启发式归类、通知摘要、更多 ROM quirk、宽屏布局。
 
+### 配套测试工程：Notiflab（强制知晓）
+
+真机验收（盘点 / 静音 / 降级 / 新建拦截）依赖可控噪音源，由独立工程 **Notiflab（息匣通知实验室）** 提供，**不得**把测试噪音逻辑塞进本仓库。
+
+| 项 | 约定 |
+|----|------|
+| 仓库 | `https://github.com/1290000/NotifLab` |
+| 本地路径 | 与本仓库同级：`C:\Users\i1290\Documents\ChatGPT\Notiflab`（机器相关，可覆盖） |
+| 包名 | 正式 `app.quieta.notiflab`；**联调默认 debug** `app.quieta.notiflab.debug` |
+| 产物 | `Notiflab/app/build/outputs/apk/debug/app-debug.apk` |
+
+**Notiflab 为息匣测试提供：**
+
+| 能力 | 用途 |
+|------|------|
+| 固定 8 个 `lab.*` 渠道（HIGH/DEFAULT/LOW/MIN） | 盘点数量、名称、importance 分布对照 |
+| 单渠道「发送」/「连发全部」 | 验证静音后是否投递、降级后是否仍进通知栏 |
+| 「重置渠道」 | 删光 `lab.*` 后按目录重建，用于「新建渠道自动静音」回归 |
+| 「清空通知」 | 清场，避免旧通知干扰观察 |
+
+**息匣在测试中的职能：** 治理端——盘点、按规则静音/降级、可选自动拦截、回读校验 importance。
+
+**代理测试义务（本仓库任何真机验收）：**
+
+1. **会自行调用 Notiflab**：安装/更新其 debug APK，授予 `POST_NOTIFICATIONS`，用 UI 或 `am start -n app.quieta.notiflab.debug/app.quieta.notiflab.MainActivity` 拉起，再点发送/重置；不要假设用户手工操作噪音源。  
+2. **会自行调用息匣**：安装/更新本仓库 debug APK，拉起 `app.quieta.debug/app.quieta.MainActivity`，执行刷新 / 按规则静音 / 查看 importance。  
+3. 验收以 **系统侧 dumpsys / 回读 importance** 为准，不以 UI 文案「成功」为唯一证据。  
+4. Notiflab **禁止**在发送路径重建已存在渠道（会冲掉静音）；详见 Notiflab 仓库 `AGENTS.md` §5。  
+
 ---
 
 ## 2. 技术栈与 SDK
