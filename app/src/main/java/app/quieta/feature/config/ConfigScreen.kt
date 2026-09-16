@@ -284,19 +284,32 @@ private fun RuleEditorScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onClose) {
-                    Icon(Icons.Outlined.Close, contentDescription = "关闭", tint = MaterialTheme.colorScheme.onSurface)
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "关闭",
+                        modifier = Modifier.size(28.dp),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = onSave, enabled = canSave) {
+                IconButton(
+                    onClick = onSave,
+                    enabled = canSave,
+                    modifier = Modifier.size(48.dp),
+                ) {
                     Icon(
                         Icons.Outlined.Check,
                         contentDescription = "保存",
+                        modifier = Modifier.size(28.dp),
                         tint = if (canSave) MiuixTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
                     )
                 }
             }
@@ -304,13 +317,14 @@ private fun RuleEditorScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(bottom = 4.dp),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
                 FieldCard(value = packageInput, onValueChange = onPackageInput, placeholder = "包名（精确）")
                 FieldCard(value = packagePrefixInput, onValueChange = onPackagePrefixInput, placeholder = "包名前缀")
@@ -319,7 +333,7 @@ private fun RuleEditorScreen(
                 FieldCard(value = nameInput, onValueChange = onNameInput, placeholder = "关键词包含…")
 
                 SectionLabel("匹配")
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
                     Column {
                         SwitchRow("匹配名称", "关键词作用于渠道显示名", matchName, onMatchName)
                         HorizontalDivider(
@@ -332,7 +346,7 @@ private fun RuleEditorScreen(
                 }
 
                 SectionLabel("动作")
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
                     Column {
                         RuleAction.entries.forEachIndexed { index, item ->
                             if (index > 0) {
@@ -382,22 +396,26 @@ private fun SectionLabel(text: String) {
         text = text,
         style = MaterialTheme.typography.titleSmall,
         color = Color(0xFF8E8E93),
-        modifier = Modifier.padding(top = 4.dp, bottom = 0.dp),
+        modifier = Modifier.padding(top = 8.dp),
     )
 }
 
 @Composable
 private fun FieldCard(value: String, onValueChange: (String) -> Unit, placeholder: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 20.dp,
+    ) {
         TextField(
             value = value,
             onValueChange = onValueChange,
             label = placeholder,
             useLabelAsPlaceholder = true,
             singleLine = true,
+            textStyle = MiuixTheme.textStyles.body1,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp),
+                .padding(horizontal = 8.dp),
         )
     }
 }

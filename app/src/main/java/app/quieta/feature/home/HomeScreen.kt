@@ -76,6 +76,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
 import app.quieta.core.model.Channel
 import app.quieta.core.model.RuleAction
+import app.quieta.ui.component.HyperOsPopup
+import app.quieta.ui.component.HyperOsPopupDivider
+import app.quieta.ui.component.HyperOsPopupRow
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.PressableCard
 import rikka.shizuku.Shizuku
@@ -594,98 +597,31 @@ private fun FilterSortSheet(
     onSortChange: (ChannelSort) -> Unit,
     onResetFilters: () -> Unit,
 ) {
-    // HyperOS file-explorer style: compact popup, list rows, checkmark on selection.
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        MiuixCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                PopupCheckRow(
-                    title = "含 HIGH",
-                    selected = filters.hasHigh,
-                    onClick = onToggleHasHigh,
-                )
-                PopupCheckRow(
-                    title = "含 NONE",
-                    selected = filters.hasNone,
-                    onClick = onToggleHasNone,
-                )
-                PopupCheckRow(
-                    title = "将静音",
-                    selected = filters.willMute,
-                    onClick = onToggleWillMute,
-                )
-                PopupCheckRow(
-                    title = "重置筛选",
-                    selected = false,
-                    onClick = {
-                        onResetFilters()
-                    },
-                    showCheck = false,
-                )
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                    thickness = 0.5.dp,
-                    color = MiuixTheme.colorScheme.dividerLine,
-                )
-                val sortOptions = listOf(
-                    ChannelSort.CHANNEL_COUNT to "渠道数",
-                    ChannelSort.NAME to "名称",
-                    ChannelSort.PACKAGE to "包名",
-                    ChannelSort.MAX_IMPORTANCE to "最高级",
-                )
-                sortOptions.forEach { (value, name) ->
-                    PopupCheckRow(
-                        title = name,
-                        selected = sort == value,
-                        onClick = {
-                            onSortChange(value)
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PopupCheckRow(
-    title: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    showCheck: Boolean = true,
-    subtitle: String? = null,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = if (selected) MiuixTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+    HyperOsPopup(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HyperOsPopupRow("含 HIGH", selected = filters.hasHigh, onClick = onToggleHasHigh)
+            HyperOsPopupRow("含 NONE", selected = filters.hasNone, onClick = onToggleHasNone)
+            HyperOsPopupRow("将静音", selected = filters.willMute, onClick = onToggleWillMute)
+            HyperOsPopupRow(
+                title = "重置筛选",
+                selected = false,
+                showCheck = false,
+                onClick = onResetFilters,
             )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            HyperOsPopupDivider()
+            val sortOptions = listOf(
+                ChannelSort.CHANNEL_COUNT to "渠道数",
+                ChannelSort.NAME to "名称",
+                ChannelSort.PACKAGE to "包名",
+                ChannelSort.MAX_IMPORTANCE to "最高级",
+            )
+            sortOptions.forEach { (value, name) ->
+                HyperOsPopupRow(
+                    title = name,
+                    selected = sort == value,
+                    onClick = { onSortChange(value) },
                 )
             }
-        }
-        if (showCheck && selected) {
-            Icon(
-                imageVector = Icons.Outlined.Check,
-                contentDescription = null,
-                tint = MiuixTheme.colorScheme.primary,
-            )
         }
     }
 }
@@ -806,29 +742,22 @@ private fun AppActionSheet(
     onMuteApp: () -> Unit,
     onRestoreApp: () -> Unit,
 ) {
-    // HyperOS popup list (same shell as filter/sort).
-    Dialog(onDismissRequest = onDismiss) {
-        MiuixCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                PopupCheckRow(
-                    title = "整应用静音",
-                    selected = false,
-                    showCheck = false,
-                    subtitle = "全部渠道 importance → NONE",
-                    onClick = onMuteApp,
-                )
-                PopupCheckRow(
-                    title = "整应用恢复",
-                    selected = false,
-                    showCheck = false,
-                    subtitle = "全部渠道 importance → DEFAULT",
-                    onClick = onRestoreApp,
-                )
-            }
+    HyperOsPopup(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HyperOsPopupRow(
+                title = "整应用静音",
+                selected = false,
+                showCheck = false,
+                subtitle = "全部渠道 importance → NONE",
+                onClick = onMuteApp,
+            )
+            HyperOsPopupRow(
+                title = "整应用恢复",
+                selected = false,
+                showCheck = false,
+                subtitle = "全部渠道 importance → DEFAULT",
+                onClick = onRestoreApp,
+            )
         }
     }
 }
@@ -839,35 +768,29 @@ private fun ChannelActionSheet(
     onDismiss: () -> Unit,
     onAction: (RuleAction) -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        MiuixCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                PopupCheckRow(
-                    title = "静音",
-                    selected = false,
-                    showCheck = false,
-                    subtitle = "importance → NONE",
-                    onClick = { onAction(RuleAction.MUTE) },
-                )
-                PopupCheckRow(
-                    title = "降级",
-                    selected = false,
-                    showCheck = false,
-                    subtitle = "importance → LOW",
-                    onClick = { onAction(RuleAction.DOWNGRADE) },
-                )
-                PopupCheckRow(
-                    title = "恢复",
-                    selected = false,
-                    showCheck = false,
-                    subtitle = "importance → DEFAULT",
-                    onClick = { onAction(RuleAction.KEEP) },
-                )
-            }
+    HyperOsPopup(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HyperOsPopupRow(
+                title = "静音",
+                selected = false,
+                showCheck = false,
+                subtitle = "importance → NONE",
+                onClick = { onAction(RuleAction.MUTE) },
+            )
+            HyperOsPopupRow(
+                title = "降级",
+                selected = false,
+                showCheck = false,
+                subtitle = "importance → LOW",
+                onClick = { onAction(RuleAction.DOWNGRADE) },
+            )
+            HyperOsPopupRow(
+                title = "恢复",
+                selected = false,
+                showCheck = false,
+                subtitle = "importance → DEFAULT",
+                onClick = { onAction(RuleAction.KEEP) },
+            )
         }
     }
 }

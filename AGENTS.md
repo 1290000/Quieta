@@ -260,8 +260,8 @@ core/rom/
 
 | 场景 | 约定 |
 |------|------|
-| 轻量选择（筛选/排序/整应用/渠道动作） | **HyperOS 弹出列表**：居中 `Card` + `padding(24.dp)`，行高约 16dp 垂直内边距；选中项 **主色文字 + 右侧 `Check`**；组间 `HorizontalDivider`；点外关闭，**无** 完成/取消钮 |
-| 全屏/长表单（规则新增·编辑） | **InstallerX 页**：顶栏左 `Close` 右 `Check`；大标题 `headlineSmall`；输入用白 `FieldCard`；分区灰 `SectionLabel`；开关/单选进 `Card` + `BasicComponent` |
+| 轻量选择（筛选/排序/整应用/渠道动作） | `ui/component/HyperOsPopup`：**TopEnd 锚点**（top≈72dp / end≈16dp），宽约 **78% ≤320dp**，圆角 **24dp**，行字 **titleLarge 17sp** + 垂直 18dp；选中主色 + `Check`；组间 divider；点外关闭 |
+| 全屏/长表单（规则新增·编辑） | **InstallerX 页**：顶栏 48dp 触控 **28dp** 的 `Close`/`Check`；大标题 **displaySmall 32sp**；`FieldCard` 圆角 **20dp**；分区灰 `SectionLabel`；开关/单选 `Card` + `BasicComponent` |
 | 勾选行 | 多选可保持勾选态；单选排序/动作用 Check，不用 Switch |
 
 禁止：HyperOS 弹出列表里放 Switch 或底部主按钮；表单用底部「取消/确定」文字钮。
