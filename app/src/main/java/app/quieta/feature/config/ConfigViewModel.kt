@@ -32,6 +32,16 @@ data class RuleDraft(
     val action: RuleAction = RuleAction.MUTE,
 )
 
+data class PackImportPreview(
+    val packId: String,
+    val packTitle: String,
+    val addCount: Int,
+    val skipCount: Int,
+    val keepCount: Int,
+    /** Pack rules that will be appended on merge. */
+    val pendingRules: List<Rule>,
+)
+
 data class ConfigUiState(
     val rules: List<Rule> = emptyList(),
     val hitStats: Map<String, RuleHitStat> = emptyMap(),
@@ -40,6 +50,7 @@ data class ConfigUiState(
     val editorOpen: Boolean = false,
     val editingRuleId: String? = null,
     val draft: RuleDraft = RuleDraft(),
+    val packPreview: PackImportPreview? = null,
 )
 
 class ConfigViewModel(application: Application) : AndroidViewModel(application) {
@@ -144,15 +155,70 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun importPresetPack(packId: String) {
+    fun previewPresetPack(packId: String) {
         viewModelScope.launch {
             runCatching {
                 val pack = app.quieta.core.repo.RulePresetPacks.requirePack(packId)
+                val packRules = app.quieta.core.repo.RulePresetPacks.decodeRules(pack)
+                val existingIds = _state.value.rules.map { it.id }.toSet()
+                val pending = packRules.filterNot { it.id in existingIds }
+                val skip = packRules.size - pending.size
+                _state.update {
+                    it.copy(
+                        packPreview = PackImportPreview(
+                            packId = pack.id,
+                            packTitle = pack.title,
+                            addCount = pending.size,
+                            skipCount = skip,
+                            keepCount = _state.value.rules.size,
+                            pendingRules = pending,
+                        ),
+                    )
+                }
+            }.onFailure { e ->
+                _state.update { it.copy(message = "读取规则包失败：${e.message}") }
+            }
+        }
+    }
+
+    fun dismissPackPreview() {
+        _state.update { it.copy(packPreview = null) }
+    }
+
+    /** Default: merge — keep all current rules, append only new pack ids. */
+    fun confirmMergePresetPack() {
+        val preview = _state.value.packPreview ?: return
+        viewModelScope.launch {
+            runCatching {
+                repo.update { current -> current + preview.pendingRules }
+                _state.update {
+                    it.copy(
+                        packPreview = null,
+                        message = "已合并导入「${preview.packTitle}」：新增 ${preview.addCount}，跳过 ${preview.skipCount}",
+                    )
+                }
+            }.onFailure { e ->
+                _state.update { it.copy(message = "合并导入失败：${e.message}") }
+            }
+        }
+    }
+
+    /** Dangerous: wipe user rules and load pack only. UI must confirm twice. */
+    fun confirmReplacePresetPack() {
+        val preview = _state.value.packPreview ?: return
+        viewModelScope.launch {
+            runCatching {
+                val pack = app.quieta.core.repo.RulePresetPacks.requirePack(preview.packId)
                 val rules = app.quieta.core.repo.RulePresetPacks.decodeRules(pack)
                 repo.replaceAll(rules)
-                _state.update { it.copy(message = "已导入规则包「${pack.title}」（${rules.size} 条）") }
+                _state.update {
+                    it.copy(
+                        packPreview = null,
+                        message = "已替换为规则包「${preview.packTitle}」（${rules.size} 条）",
+                    )
+                }
             }.onFailure { e ->
-                _state.update { it.copy(message = "导入规则包失败：${e.message}") }
+                _state.update { it.copy(message = "替换失败：${e.message}") }
             }
         }
     }

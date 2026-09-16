@@ -32,7 +32,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,6 +55,7 @@ import app.quieta.core.model.RuleAction
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.QuietaSwitch
 import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
@@ -171,7 +175,7 @@ fun ConfigScreen(
 
             item(key = "packs-title") {
                 SmallTitle(
-                    text = "规则包（导入后覆盖当前规则）",
+                    text = "规则包（默认合并，不删现有规则）",
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 )
             }
@@ -189,7 +193,7 @@ fun ConfigScreen(
                         top.yukonga.miuix.kmp.basic.BasicComponent(
                             title = pack.title,
                             summary = pack.description,
-                            onClick = { viewModel.importPresetPack(pack.id) },
+                            onClick = { viewModel.previewPresetPack(pack.id) },
                         )
                     }
                 }
@@ -210,8 +214,75 @@ fun ConfigScreen(
         }
     }
 
+    state.packPreview?.let { preview ->
+        PackImportDialog(
+            preview = preview,
+            onDismiss = viewModel::dismissPackPreview,
+            onMerge = viewModel::confirmMergePresetPack,
+            onReplace = viewModel::confirmReplacePresetPack,
+        )
+    }
 }
 
+@Composable
+private fun PackImportDialog(
+    preview: PackImportPreview,
+    onDismiss: () -> Unit,
+    onMerge: () -> Unit,
+    onReplace: () -> Unit,
+) {
+    var confirmReplace by remember { mutableStateOf(false) }
+    Dialog(onDismissRequest = onDismiss) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 4.dp, top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 8.dp),
+                    ) {
+                        Text(preview.packTitle, style = MiuixTheme.textStyles.title4)
+                        Text(
+                            text = "新增 ${preview.addCount} · 跳过 ${preview.skipCount} · 保留现有 ${preview.keepCount}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Outlined.Close, contentDescription = "关闭")
+                    }
+                }
+                Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    Column {
+                        BasicComponent(
+                            title = "合并导入",
+                            summary = "只追加新规则，不删除现有规则（推荐）",
+                            onClick = onMerge,
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = 0.5.dp,
+                            color = MiuixTheme.colorScheme.dividerLine,
+                        )
+                        BasicComponent(
+                            title = if (confirmReplace) "再次点击确认替换" else "替换全部（危险）",
+                            summary = "删除全部现有规则，仅保留本规则包",
+                            onClick = {
+                                if (confirmReplace) onReplace() else confirmReplace = true
+                            },
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+}
 
 /** Secondary host: reads draft from ConfigViewModel (status bar handled by QuietaPage). */
 @Composable
