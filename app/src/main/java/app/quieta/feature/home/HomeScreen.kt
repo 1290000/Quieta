@@ -134,6 +134,9 @@ fun HomeScreen(
                 onOpenPrivilege = onOpenPrivilege,
                 onRefresh = viewModel::refresh,
                 onApplyMute = viewModel::requestBatchMutePreview,
+                onUndo = viewModel::undoLastBatch,
+                undoLabel = state.undoLabel,
+                canUndo = state.canUndoLastBatch,
             )
         }
 
@@ -234,6 +237,8 @@ fun HomeScreen(
                         plan = state.plan,
                         onToggleExpand = { viewModel.toggleExpanded(item.app.packageName) },
                         onChannelAction = viewModel::applyChannelAction,
+                        onMuteApp = { viewModel.muteApp(item.app.packageName) },
+                        onRestoreApp = { viewModel.restoreApp(item.app.packageName) },
                     )
                 }
             }
@@ -416,6 +421,9 @@ private fun GateActions(
     onOpenPrivilege: () -> Unit,
     onRefresh: () -> Unit,
     onApplyMute: () -> Unit,
+    onUndo: () -> Unit = {},
+    undoLabel: String? = null,
+    canUndo: Boolean = false,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -444,6 +452,11 @@ private fun GateActions(
                         Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.size(4.dp))
                         Text("刷新")
+                    }
+                    if (canUndo) {
+                        OutlinedButton(onClick = onUndo, enabled = !state.checkingPrivilege) {
+                            Text("撤销")
+                        }
                     }
                     Button(
                         onClick = onApplyMute,
@@ -556,6 +569,8 @@ private fun AppChannelCard(
     plan: Map<Channel, RuleAction>,
     onToggleExpand: () -> Unit,
     onChannelAction: (Channel, RuleAction) -> Unit,
+    onMuteApp: () -> Unit,
+    onRestoreApp: () -> Unit,
 ) {
     MiuixCard(
         modifier = Modifier
@@ -591,6 +606,10 @@ private fun AppChannelCard(
                 )
             }
             if (item.expanded) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    top.yukonga.miuix.kmp.basic.TextButton(text = "整应用静音", onClick = onMuteApp)
+                    top.yukonga.miuix.kmp.basic.TextButton(text = "整应用恢复", onClick = onRestoreApp)
+                }
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),

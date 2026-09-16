@@ -117,17 +117,49 @@ fun ConfigScreen(
                 }
             }
 
-            items(state.rules, key = { it.id }) { rule ->
-                RuleCard(
-                    rule = rule,
-                    hitStat = state.hitStats[rule.id],
-                    onToggle = { viewModel.toggle(rule.id) },
-                    onRemove = { viewModel.remove(rule.id) },
-                    onEdit = {
-                        loadDraft(viewModel.draftOf(rule), rule.id)
-                        showAdd = true
-                    },
-                )
+            val whitelistRules = state.rules.filter { it.action == RuleAction.KEEP }
+            val actionRules = state.rules.filterNot { it.action == RuleAction.KEEP }
+
+            if (whitelistRules.isNotEmpty()) {
+                item(key = "wl-title") {
+                    SmallTitle(
+                        text = "永不静音（白名单）",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
+                }
+                items(whitelistRules, key = { "wl-" + it.id }) { rule ->
+                    RuleCard(
+                        rule = rule,
+                        hitStat = state.hitStats[rule.id],
+                        onToggle = { viewModel.toggle(rule.id) },
+                        onRemove = { viewModel.remove(rule.id) },
+                        onEdit = {
+                            loadDraft(viewModel.draftOf(rule), rule.id)
+                            showAdd = true
+                        },
+                    )
+                }
+            }
+
+            if (actionRules.isNotEmpty()) {
+                item(key = "ac-title") {
+                    SmallTitle(
+                        text = "静音 / 降级",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
+                }
+                items(actionRules, key = { "ac-" + it.id }) { rule ->
+                    RuleCard(
+                        rule = rule,
+                        hitStat = state.hitStats[rule.id],
+                        onToggle = { viewModel.toggle(rule.id) },
+                        onRemove = { viewModel.remove(rule.id) },
+                        onEdit = {
+                            loadDraft(viewModel.draftOf(rule), rule.id)
+                            showAdd = true
+                        },
+                    )
+                }
             }
 
             state.message?.let { msg ->

@@ -7,6 +7,9 @@ import androidx.lifecycle.viewModelScope
 import app.quieta.core.engine.BatchMuteUseCase
 import app.quieta.core.engine.ChannelActionUseCase
 import app.quieta.core.engine.MuteResult
+import app.quieta.core.engine.MuteSnapshot
+import app.quieta.core.engine.MuteSnapshotEntry
+import app.quieta.core.engine.MuteUndoStore
 import app.quieta.core.engine.RulesEngine
 import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
@@ -83,6 +86,8 @@ data class HomeUiState(
     val listSummary: String = "",
     val mutePreview: MutePreview? = null,
     val muteScope: MuteScope = MuteScope.ALL,
+    val canUndoLastBatch: Boolean = false,
+    val undoLabel: String? = null,
 )
 
 enum class MuteScope {
@@ -121,6 +126,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val inventoryStore = ChannelInventoryStore.getInstance(application)
     private val appSettings = AppSettings(application)
     private val muteLog = app.quieta.core.engine.MuteLogStore.getInstance(application)
+    private val muteUndo = MuteUndoStore.getInstance(application)
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -225,6 +231,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update { state ->
                     if (state.baseListItems !== items) state
                     else state.copy(listItems = projected, listSummary = summary)
+                }
+            }
+        }
+        viewModelScope.launch {
+            muteUndo.snapshots.collect { snaps ->
+                val latest = snaps.firstOrNull()
+                _state.update {
+                    it.copy(
+                        canUndoLastBatch = latest != null && latest.entries.isNotEmpty(),
+                        undoLabel = latest?.let { s -> "撤销 ${s.label}（${s.size}）" },
+                    )
                 }
             }
         }
@@ -533,10 +550,106 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 MuteScope.ALL -> "全部命中"
                 MuteScope.FILTERED -> "当前筛选"
             }
+            val channelByKey = _state.value.apps
+                .flatMap { app -> app.channels }
+                .associateBy { ch -> ch.packageName + "|" + ch.id }
+            val snapshotEntries = preview.items.mapNotNull { item ->
+                val ch = channelByKey[item.packageName + "|" + item.channelId] ?: return@mapNotNull null
+                MuteSnapshotEntry(
+                    packageName = item.packageName,
+                    channelId = item.channelId,
+                    channelName = item.channelName,
+                    previousImportance = MuteUndoStore.importanceToInt(ch.importance),
+                    newImportance = if (item.action == RuleAction.MUTE) 0 else 2,
+                )
+            }
+            if (snapshotEntries.isNotEmpty()) {
+                muteUndo.push(
+                    MuteSnapshot(
+                        label = "按规则静音（$scopeLabel）",
+                        time = MuteUndoStore.now(),
+                        entries = snapshotEntries,
+                    ),
+                )
+            }
             muteLog.append(
                 app.quieta.core.engine.MuteLogEntry(
                     label = "按规则静音（$scopeLabel）",
                     detail = "成功 ${result.success} / ${result.total}，失败 ${result.failed}",
+                    time = app.quieta.core.engine.MuteLogStore.now(),
+                    tag = if (result.failed == 0) "成功" else "部分失败",
+                ),
+            )
+            _state.update { it.copy(progress = null, muteResult = result) }
+            startInventoryRefresh()
+        }
+    }
+
+    fun undoLastBatch() {
+        viewModelScope.launch {
+            if (_state.value.checkingPrivilege || _state.value.gate != PrivilegeGate.READY) return@launch
+            val snap = muteUndo.latest() ?: return@launch
+            if (snap.entries.isEmpty()) return@launch
+            val activeBackend = backend
+            _state.update { it.copy(progress = "正在撤销…", muteResult = null) }
+            val result = withContext(Dispatchers.Default) {
+                ChannelActionUseCase(activeBackend).restoreEntries(snap.entries)
+            }
+            muteUndo.drop(snap.id)
+            muteLog.append(
+                app.quieta.core.engine.MuteLogEntry(
+                    label = "撤销批次",
+                    detail = snap.label + " · 成功 ${result.success} / ${result.total}",
+                    time = app.quieta.core.engine.MuteLogStore.now(),
+                    tag = if (result.failed == 0) "成功" else "部分失败",
+                ),
+            )
+            _state.update { it.copy(progress = null, muteResult = result) }
+            startInventoryRefresh()
+        }
+    }
+
+    fun muteApp(packageName: String) {
+        applyAppAction(packageName, RuleAction.MUTE, label = "整应用静音")
+    }
+
+    fun restoreApp(packageName: String) {
+        applyAppAction(packageName, RuleAction.KEEP, label = "整应用恢复")
+    }
+
+    private fun applyAppAction(packageName: String, action: RuleAction, label: String) {
+        viewModelScope.launch {
+            if (_state.value.checkingPrivilege || _state.value.gate != PrivilegeGate.READY) return@launch
+            val targetApp = _state.value.apps.firstOrNull { it.packageName == packageName } ?: return@launch
+            val activeBackend = backend
+            _state.update { it.copy(progress = "正在处理 $label…", muteResult = null) }
+            if (action == RuleAction.MUTE) {
+                val entries = targetApp.channels.map { ch ->
+                    MuteSnapshotEntry(
+                        packageName = ch.packageName,
+                        channelId = ch.id,
+                        channelName = ch.name,
+                        previousImportance = MuteUndoStore.importanceToInt(ch.importance),
+                        newImportance = 0,
+                    )
+                }
+                if (entries.isNotEmpty()) {
+                    muteUndo.push(
+                        MuteSnapshot(
+                            label = label + " · " + targetApp.appLabel,
+                            time = MuteUndoStore.now(),
+                            entries = entries,
+                        ),
+                    )
+                }
+            }
+            val result = withContext(Dispatchers.Default) {
+                ChannelActionUseCase(activeBackend).applyToApp(targetApp.channels, action)
+            }
+            muteLog.append(
+                app.quieta.core.engine.MuteLogEntry(
+                    label = label,
+                    detail = targetApp.packageName + " · 成功 ${result.success} / ${result.total}",
                     time = app.quieta.core.engine.MuteLogStore.now(),
                     tag = if (result.failed == 0) "成功" else "部分失败",
                 ),
