@@ -74,6 +74,7 @@ import app.quieta.core.model.RuleAction
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.PressableCard
 import rikka.shizuku.Shizuku
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 
@@ -538,35 +539,33 @@ private fun FilterSortEntry(
             },
         )
     }
-    val label = if (filters.isActive) {
-        parts.joinToString(" · ")
-    } else {
-        "筛选 / 排序"
-    }
-    MiuixCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp),
+    val title = if (filters.isActive) "筛选与排序" else "筛选与排序"
+    val summary = if (filters.isActive) parts.joinToString(" · ") else "含条件或排序时可在此调整"
+    PressableCard(
+        onClick = onClick,
+        cornerRadius = 16.dp,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = label,
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Icon(
                 imageVector = Icons.Outlined.ExpandMore,
                 contentDescription = "打开筛选",
-                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -642,57 +641,58 @@ private fun AppChannelCard(
     onMuteApp: () -> Unit,
     onRestoreApp: () -> Unit,
 ) {
-    MiuixCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+    // InstallerX home-card: one squircle surface, 20dp radius, 16dp inner padding.
+    PressableCard(
+        onClick = onToggleExpand,
+        cornerRadius = 20.dp,
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onToggleExpand),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Box(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(MiuixTheme.colorScheme.primary),
+                        .background(MaterialTheme.colorScheme.primary),
                 )
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(item.app.appLabel, style = MiuixTheme.textStyles.title4)
+                    Text(item.app.appLabel, style = MaterialTheme.typography.titleLarge)
                     Text(
                         text = item.app.packageName + " · " + item.app.channels.size + " 个渠道",
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Icon(
                     imageVector = if (item.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
                     contentDescription = if (item.expanded) "收起" else "展开",
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (item.expanded) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     top.yukonga.miuix.kmp.basic.TextButton(text = "整应用静音", onClick = onMuteApp)
                     top.yukonga.miuix.kmp.basic.TextButton(text = "整应用恢复", onClick = onRestoreApp)
                 }
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    item.channels.forEach { channel ->
-                        ChannelRow(
-                            channel = channel,
-                            plannedAction = plan[channel] ?: RuleAction.KEEP,
-                            onMute = { onChannelAction(channel, RuleAction.MUTE) },
-                            onDowngrade = { onChannelAction(channel, RuleAction.DOWNGRADE) },
-                            onRestore = { onChannelAction(channel, RuleAction.KEEP) },
+                Spacer(modifier = Modifier.height(4.dp))
+                item.channels.forEachIndexed { index, channel ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                         )
                     }
+                    ChannelRow(
+                        channel = channel,
+                        plannedAction = plan[channel] ?: RuleAction.KEEP,
+                        onMute = { onChannelAction(channel, RuleAction.MUTE) },
+                        onDowngrade = { onChannelAction(channel, RuleAction.DOWNGRADE) },
+                        onRestore = { onChannelAction(channel, RuleAction.KEEP) },
+                    )
                 }
             }
         }
@@ -732,18 +732,18 @@ private fun ChannelRow(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(channel.name, style = MiuixTheme.textStyles.body1)
+                Text(channel.name, style = MaterialTheme.typography.bodyLarge)
                 Text(
                     text = secondary,
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             LiveStatusChip(status)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             top.yukonga.miuix.kmp.basic.TextButton(text = "静音", onClick = onMute)
             top.yukonga.miuix.kmp.basic.TextButton(text = "降级", onClick = onDowngrade)
             top.yukonga.miuix.kmp.basic.TextButton(text = "恢复", onClick = onRestore)
@@ -782,7 +782,7 @@ private fun LiveStatusChip(status: ChannelLiveStatus) {
             .background(container, CircleShape)
             .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
-        Text(status.label, style = MiuixTheme.textStyles.footnote1)
+        Text(status.label, style = MaterialTheme.typography.labelMedium)
     }
 }
 

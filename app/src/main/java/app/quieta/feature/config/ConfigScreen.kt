@@ -121,44 +121,63 @@ fun ConfigScreen(
             val actionRules = state.rules.filterNot { it.action == RuleAction.KEEP }
 
             if (whitelistRules.isNotEmpty()) {
-                item(key = "wl-title") {
+                item(key = "wl-group") {
                     SmallTitle(
                         text = "永不静音（白名单）",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                     )
-                }
-                items(whitelistRules, key = { "wl-" + it.id }) { rule ->
-                    RuleCard(
-                        rule = rule,
-                        hitStat = state.hitStats[rule.id],
-                        onToggle = { viewModel.toggle(rule.id) },
-                        onRemove = { viewModel.remove(rule.id) },
-                        onEdit = {
-                            loadDraft(viewModel.draftOf(rule), rule.id)
-                            showAdd = true
-                        },
-                    )
+                    // InstallerX MiuixPrivPage: one Card hosts all option rows.
+                    Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                        whitelistRules.forEachIndexed { index, rule ->
+                            if (index > 0) {
+                                top.yukonga.miuix.kmp.basic.HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    thickness = 0.5.dp,
+                                    color = MiuixTheme.colorScheme.dividerLine,
+                                )
+                            }
+                            RuleRow(
+                                rule = rule,
+                                hitStat = state.hitStats[rule.id],
+                                onToggle = { viewModel.toggle(rule.id) },
+                                onRemove = { viewModel.remove(rule.id) },
+                                onEdit = {
+                                    loadDraft(viewModel.draftOf(rule), rule.id)
+                                    showAdd = true
+                                },
+                            )
+                        }
+                    }
                 }
             }
 
             if (actionRules.isNotEmpty()) {
-                item(key = "ac-title") {
+                item(key = "ac-group") {
                     SmallTitle(
                         text = "静音 / 降级",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                     )
-                }
-                items(actionRules, key = { "ac-" + it.id }) { rule ->
-                    RuleCard(
-                        rule = rule,
-                        hitStat = state.hitStats[rule.id],
-                        onToggle = { viewModel.toggle(rule.id) },
-                        onRemove = { viewModel.remove(rule.id) },
-                        onEdit = {
-                            loadDraft(viewModel.draftOf(rule), rule.id)
-                            showAdd = true
-                        },
-                    )
+                    Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                        actionRules.forEachIndexed { index, rule ->
+                            if (index > 0) {
+                                top.yukonga.miuix.kmp.basic.HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    thickness = 0.5.dp,
+                                    color = MiuixTheme.colorScheme.dividerLine,
+                                )
+                            }
+                            RuleRow(
+                                rule = rule,
+                                hitStat = state.hitStats[rule.id],
+                                onToggle = { viewModel.toggle(rule.id) },
+                                onRemove = { viewModel.remove(rule.id) },
+                                onEdit = {
+                                    loadDraft(viewModel.draftOf(rule), rule.id)
+                                    showAdd = true
+                                },
+                            )
+                        }
+                    }
                 }
             }
 
@@ -310,19 +329,20 @@ private fun TipCard(text: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp),
-        colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.primary.copy(alpha = 0.16f)),
+        colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.primary.copy(alpha = 0.2f)),
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.primary,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
         )
     }
 }
 
 @Composable
-private fun RuleCard(
+private fun RuleRow(
     rule: Rule,
     hitStat: app.quieta.core.engine.RuleHitStat?,
     onToggle: () -> Unit,
@@ -330,12 +350,8 @@ private fun RuleCard(
     onEdit: () -> Unit,
 ) {
     var showSamples by rememberSaveable(rule.id) { mutableStateOf(false) }
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = ruleSummary(rule),
