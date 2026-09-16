@@ -3,16 +3,23 @@ package app.quieta.feature.config
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.quieta.core.engine.RuleHitStat
+import app.quieta.core.engine.RuleHitAnalyzer
+import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Rule
 import app.quieta.core.model.RuleAction
+import app.quieta.core.repo.ChannelInventoryStore
 import app.quieta.core.repo.RuleRepository
 import app.quieta.core.repo.editRule
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class RuleDraft(
     val nameContains: String = "",
@@ -27,12 +34,15 @@ data class RuleDraft(
 
 data class ConfigUiState(
     val rules: List<Rule> = emptyList(),
+    val hitStats: Map<String, RuleHitStat> = emptyMap(),
+    val inventoryReady: Boolean = false,
     val message: String? = null,
 )
 
 class ConfigViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repo = RuleRepository.getInstance(application)
+    private val inventory = ChannelInventoryStore.getInstance(application)
 
     private val _state = MutableStateFlow(ConfigUiState())
     val state: StateFlow<ConfigUiState> = _state.asStateFlow()
@@ -40,8 +50,19 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
     init {
         viewModelScope.launch {
             repo.current()
-            repo.rules.collect { rules ->
-                _state.update { it.copy(rules = rules) }
+            combine(repo.rules, inventory.snapshot) { rules, apps ->
+                rules to apps
+            }.collect { (rules, apps) ->
+                val stats = withContext(Dispatchers.Default) {
+                    RuleHitAnalyzer.analyze(rules, apps)
+                }
+                _state.update {
+                    it.copy(
+                        rules = rules,
+                        hitStats = stats,
+                        inventoryReady = apps.isNotEmpty(),
+                    )
+                }
             }
         }
     }

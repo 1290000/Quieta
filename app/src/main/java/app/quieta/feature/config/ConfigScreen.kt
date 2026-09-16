@@ -122,6 +122,7 @@ fun ConfigScreen(
             items(state.rules, key = { it.id }) { rule ->
                 RuleCard(
                     rule = rule,
+                    hitStat = state.hitStats[rule.id],
                     onToggle = { viewModel.toggle(rule.id) },
                     onRemove = { viewModel.remove(rule.id) },
                     onEdit = {
@@ -245,6 +246,16 @@ fun ConfigScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                val draftBroad = app.quieta.core.engine.BroadKeywords.isBroad(draft.nameContains) ||
+                    app.quieta.core.engine.BroadKeywords.isBroad(draft.channelIdPrefix) ||
+                    app.quieta.core.engine.BroadKeywords.isBroad(draft.packagePrefix)
+                if (draftBroad) {
+                    Text(
+                        text = "⚠ 关键词可能过宽，容易误伤物流/客服/系统渠道。建议改为包前缀或渠道 ID 前缀。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFB45309),
+                    )
+                }
                 state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = { showAdd = false }) { Text("取消") }
@@ -285,13 +296,19 @@ private fun InfoBanner(text: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun RuleCard(rule: Rule, onToggle: () -> Unit, onRemove: () -> Unit, onEdit: () -> Unit) {
+private fun RuleCard(
+    rule: Rule,
+    hitStat: app.quieta.core.engine.RuleHitStat?,
+    onToggle: () -> Unit,
+    onRemove: () -> Unit,
+    onEdit: () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = ruleSummary(rule),
@@ -305,6 +322,36 @@ private fun RuleCard(rule: Rule, onToggle: () -> Unit, onRemove: () -> Unit, onE
                         RuleAction.KEEP -> "保留"
                     },
                 )
+            }
+            if (hitStat != null) {
+                Text(
+                    text = if (hitStat.effectiveCount == hitStat.matchCount) {
+                        "当前盘点命中 ${hitStat.matchCount} 个渠道"
+                    } else {
+                        "匹配 ${hitStat.matchCount} 个 · 最终生效 ${hitStat.effectiveCount} 个"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (hitStat.matchCount == 0) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                )
+                hitStat.samples.forEach { sample ->
+                    Text(
+                        text = "· ${sample.appLabel} / ${sample.channelName} (${sample.channelId})",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+                if (hitStat.broadKeyword && rule.action != RuleAction.KEEP) {
+                    Text(
+                        text = "⚠ 关键词过宽，可能误伤",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFFB45309),
+                    )
+                }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(

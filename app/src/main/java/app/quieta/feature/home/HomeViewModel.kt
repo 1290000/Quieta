@@ -10,6 +10,7 @@ import app.quieta.core.engine.MuteResult
 import app.quieta.core.engine.RulesEngine
 import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
+import app.quieta.core.model.ChannelImportance
 import app.quieta.core.model.PrivilegeId
 import app.quieta.core.model.PrivilegeStatus
 import app.quieta.core.model.RuleAction
@@ -81,7 +82,13 @@ data class HomeUiState(
     val listItems: List<ChannelListAppItem> = emptyList(),
     val listSummary: String = "",
     val mutePreview: MutePreview? = null,
+    val muteScope: MuteScope = MuteScope.ALL,
 )
+
+enum class MuteScope {
+    ALL,
+    FILTERED,
+}
 
 data class MutePreviewItem(
     val packageName: String,
@@ -96,6 +103,8 @@ data class MutePreview(
     val items: List<MutePreviewItem>,
     val muteCount: Int,
     val downgradeCount: Int,
+    val scope: MuteScope = MuteScope.ALL,
+    val filterActive: Boolean = false,
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -431,7 +440,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             if (_state.value.checkingPrivilege || _state.value.gate != PrivilegeGate.READY) return@launch
             val rules = ruleRepository.current()
-            val apps = _state.value.apps
+            val scope = _state.value.muteScope
+            val apps = resolveScopeApps(scope)
             val engine = RulesEngine(rules)
             val targets = withContext(Dispatchers.Default) {
                 apps.flatMap { app ->
@@ -456,10 +466,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         items = targets,
                         muteCount = targets.count { p -> p.action == RuleAction.MUTE },
                         downgradeCount = targets.count { p -> p.action == RuleAction.DOWNGRADE },
+                        scope = scope,
+                        filterActive = it.searchQuery.isNotBlank() || it.filters.isActive,
                     ),
                     muteResult = null,
                 )
             }
+        }
+    }
+
+    fun setMuteScope(scope: MuteScope) {
+        _state.update { it.copy(muteScope = scope) }
+        // Rebuild preview if open so the list matches the new scope.
+        if (_state.value.mutePreview != null) {
+            requestBatchMutePreview()
         }
     }
 
@@ -469,15 +489,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun confirmBatchMute() {
         viewModelScope.launch {
-            if (_state.value.checkingPrivilege || _state.value.gate != PrivilegeGate.READY) {
+            val preview = _state.value.mutePreview
+            if (_state.value.checkingPrivilege || _state.value.gate != PrivilegeGate.READY || preview == null) {
                 _state.update { it.copy(mutePreview = null) }
                 return@launch
             }
             val activeBackend = backend
-            val rules = ruleRepository.current()
-            val apps = _state.value.apps
-            val plan = withContext(Dispatchers.Default) { RulesEngine(rules).plan(apps.flatMap { it.channels }) }
-            _state.update { it.copy(plan = plan, mutePreview = null) }
+            val plan = preview.items.associate { item ->
+                Channel(
+                    packageName = item.packageName,
+                    id = item.channelId,
+                    name = item.channelName,
+                    importance = ChannelImportance.DEFAULT,
+                ) to item.action
+            }
+            val fullPlan = withContext(Dispatchers.Default) {
+                RulesEngine(ruleRepository.current()).plan(_state.value.apps.flatMap { it.channels })
+            }
+            _state.update { it.copy(plan = fullPlan, mutePreview = null) }
             if (plan.isEmpty()) {
                 _state.update { it.copy(muteResult = MuteResult(0, 0, 0, listOf("没有可执行的规则"))) }
                 return@launch
@@ -500,9 +529,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
             }
+            val scopeLabel = when (preview.scope) {
+                MuteScope.ALL -> "全部命中"
+                MuteScope.FILTERED -> "当前筛选"
+            }
             muteLog.append(
                 app.quieta.core.engine.MuteLogEntry(
-                    label = "按规则静音",
+                    label = "按规则静音（$scopeLabel）",
                     detail = "成功 ${result.success} / ${result.total}，失败 ${result.failed}",
                     time = app.quieta.core.engine.MuteLogStore.now(),
                     tag = if (result.failed == 0) "成功" else "部分失败",
@@ -510,6 +543,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             )
             _state.update { it.copy(progress = null, muteResult = result) }
             startInventoryRefresh()
+        }
+    }
+
+    private fun resolveScopeApps(scope: MuteScope): List<AppChannels> {
+        return when (scope) {
+            MuteScope.ALL -> _state.value.apps
+            MuteScope.FILTERED -> _state.value.baseListItems.map { it.app }
         }
     }
 

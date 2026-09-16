@@ -45,6 +45,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -250,6 +253,7 @@ fun HomeScreen(
             preview = preview,
             onConfirm = viewModel::confirmBatchMute,
             onDismiss = viewModel::dismissMutePreview,
+            onScopeChange = viewModel::setMuteScope,
         )
     }
 }
@@ -696,6 +700,7 @@ private fun MutePreviewDialog(
     preview: MutePreview,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    onScopeChange: (MuteScope) -> Unit,
 ) {
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
@@ -704,12 +709,31 @@ private fun MutePreviewDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 360.dp)
+                    .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                if (preview.filterActive) {
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        MuteScope.entries.forEachIndexed { index, scope ->
+                            SegmentedButton(
+                                selected = preview.scope == scope,
+                                onClick = { onScopeChange(scope) },
+                                shape = SegmentedButtonDefaults.itemShape(index, MuteScope.entries.size),
+                            ) {
+                                Text(
+                                    when (scope) {
+                                        MuteScope.ALL -> "全部命中"
+                                        MuteScope.FILTERED -> "仅当前筛选"
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
                 Text(
-                    text = "将静音 ${preview.muteCount} 个渠道，降级 ${preview.downgradeCount} 个渠道。",
+                    text = "将静音 ${preview.muteCount} 个渠道，降级 ${preview.downgradeCount} 个渠道。" +
+                        if (preview.scope == MuteScope.FILTERED) "（范围：当前搜索/筛选结果）" else "",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (preview.items.isEmpty()) {
