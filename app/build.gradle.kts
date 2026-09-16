@@ -3,10 +3,8 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.aboutlibraries)
 }
-
-// AboutLibraries must see the Android extension.
-apply(plugin = "com.mikepenz.aboutlibraries.plugin")
 
 android {
     namespace = "app.quieta"

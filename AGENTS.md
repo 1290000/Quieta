@@ -43,10 +43,10 @@
 
 1. ~~**液态玻璃观感验收**~~ — 已验收（K90 HyperOS）。  
 2. ~~**批量静音真机验收**~~ — K40s / MIUI 14：25/25 成功；其它 ROM（ColorOS / OriginOS / MagicOS / One UI）仍待矩阵覆盖。  
-3. **Root / Dhizuku 后端** — `DhizukuBackend` 使用 Binder；`RootBackend` 使用 libsu RootService 独立读写并回读校验，不依赖 Shizuku/Dhizuku。自动选择 Root → Shizuku → Dhizuku；不同管理器与 ROM 的真机覆盖仍需扩展。
+3. ~~**Root / Dhizuku 后端**~~ — 已完成：`DhizukuBackend` 使用 Binder；`RootBackend` 使用 libsu RootService 独立读写并回读校验，不依赖 Shizuku/Dhizuku。自动选择 Root → Shizuku → Dhizuku；不同管理器与 ROM 的真机覆盖仍需扩展。
 4. ~~**通知时间线页**~~ — 已实现弱采集时间线与本地记录 UI；默认仅保存包名、渠道、时间、数量，支持 7 天 / 200 条滚动保留及设置页关闭。
-5. ~~**二级页 Navigation**~~ — 已增加独立二级路由栈；主题设置、开放源代码许可、可用特权页均支持页面返回和系统返回，主栏状态保持不变。
-6. **AboutLibraries 自动收集**：现为手写许可列表；插件生成 aboutlibraries.json 未接通。  
+5. ~~**二级页 Navigation**~~ — 已完成：已增加独立二级路由栈；主题设置、开放源代码许可、可用特权页均支持页面返回和系统返回，主栏状态保持不变。
+6. ~~**AboutLibraries 自动收集**~~ — 已完成：Gradle 插件生成 `aboutlibraries.json`，许可页读取自动依赖元数据；移植代码与架构参考使用补充条目披露。  
 7. **release 签名与首个 Release**：`signing.properties` 流程已约定，未生成正式包、未发 GitHub Release。  
 8. **记录页筛选**；**导出规则**仅配置页分享 JSON。
 

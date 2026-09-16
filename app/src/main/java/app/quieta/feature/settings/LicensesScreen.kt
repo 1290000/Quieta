@@ -15,6 +15,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -22,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import app.quieta.R
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.PressableCard
+import com.mikepenz.aboutlibraries.entity.Library
+import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
 
 private data class OssLib(
     val name: String,
@@ -31,22 +35,13 @@ private data class OssLib(
     val version: String? = null,
 )
 
-/**
- * Static OSS list — reliable on HyperOS; AboutLibraries plugin output not always present.
- */
-private val ossLibs = listOf(
-    OssLib("libsu (core / RootService)", "John Wu (topjohnwu)", "Apache-2.0", "https://github.com/topjohnwu/libsu", "6.0.0"),
+/** Source ports and architecture references that cannot be discovered from Gradle metadata. */
+private val supplementalOssLibs = listOf(
     OssLib("miuix (Tilt / squircle path / TopAppBar / overscroll / controls)", "compose-miuix-ui", "Apache-2.0", "https://github.com/compose-miuix-ui/miuix", "includeBuild"),
     OssLib("InstallerX Revived (cards / typography / page chrome / privilege layout / glass)", "wxxsfxyzm and contributors", "GPL-3.0-only", "https://github.com/wxxsfxyzm/InstallerX-Revived", "f6ffcd8"),
-    // Code we ported from InstallerX also contains third-party lineage — list separately:
     OssLib("KernelSU (via InstallerX DampedDrag / pager)", "tiann", "GPL-3.0", "https://github.com/tiann/KernelSU"),
     OssLib("LibChecker (scan/cache architecture reference)", "LibChecker", "Apache-2.0", "https://github.com/LibChecker/LibChecker"),
-    OssLib("Shizuku API", "RikkaApps", "Apache-2.0", "https://github.com/RikkaApps/Shizuku-API", "13.1.5"),
-    OssLib("Dhizuku-API", "iamr0s", "Apache-2.0", "https://github.com/iamr0s/Dhizuku-API", "2.6.0"),
-    OssLib("HiddenApiBypass", "LSPosed", "GPL-3.0", "https://github.com/LSPosed/AndroidHiddenApiBypass", "6.1"),
     OssLib("AndroidLiquidGlass", "Kyant0", "Apache-2.0", "https://github.com/Kyant0/AndroidLiquidGlass"),
-    OssLib("Jetpack Compose", "Android Open Source Project", "Apache-2.0", "https://developer.android.com/jetpack/compose"),
-    OssLib("AndroidX", "Android Open Source Project", "Apache-2.0", "https://github.com/androidx/androidx"),
 )
 
 @Composable
@@ -56,6 +51,13 @@ fun LicensesScreen(
     blurEnabled: Boolean = true,
 ) {
     val context = LocalContext.current
+    val generatedLibraries by produceLibraries(R.raw.aboutlibraries)
+    val ossLibs = remember(generatedLibraries) {
+        val autoLibs = generatedLibraries?.libraries.orEmpty().map(::toOssLib)
+        (autoLibs + supplementalOssLibs)
+            .distinctBy { it.url }
+            .sortedBy { it.name.lowercase() }
+    }
     QuietaPage(
         title = stringResource(R.string.about_licenses),
         modifier = modifier,
@@ -95,4 +97,37 @@ fun LicensesScreen(
             }
         }
     }
+}
+
+private fun toOssLib(library: Library): OssLib {
+    val artifactCoordinates = library.uniqueId.split(':')
+    val artifactPage = artifactCoordinates.takeIf { it.size >= 2 }?.let {
+        "https://central.sonatype.com/artifact/${it[0]}/${it[1]}"
+    }
+    val url = listOfNotNull(
+        library.website,
+        library.scm?.url,
+        library.organization?.url,
+        library.developers.firstNotNullOfOrNull { it.organisationUrl },
+        library.licenses.firstNotNullOfOrNull { it.url },
+        artifactPage,
+    ).firstOrNull { candidate -> candidate.startsWith("https://") || candidate.startsWith("http://") }
+        ?: "https://central.sonatype.com/search?q=${library.artifactId}"
+    val author = library.organization?.name
+        ?: library.developers.mapNotNull { developer -> developer.name }
+            .filter { name -> name.isNotBlank() }
+            .joinToString()
+            .ifBlank { "Open-source contributors" }
+    val license = library.licenses
+        .mapNotNull { entry -> entry.spdxId ?: entry.name }
+        .filter { name -> name.isNotBlank() }
+        .joinToString()
+        .ifBlank { "License metadata unavailable" }
+    return OssLib(
+        name = library.name.ifBlank { library.artifactId },
+        author = author,
+        license = license,
+        url = url,
+        version = library.artifactVersion,
+    )
 }

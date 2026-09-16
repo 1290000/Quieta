@@ -9,7 +9,7 @@ miuix = "0.9.4-local"
 datastore = "1.2.1"
 shizuku = "13.1.5"
 dhizuku = "2.6.0"
-aboutLibraries = "12.2.4"
+aboutLibraries = "15.2.0"
 hiddenApiBypass = "6.1"
 libsu = "6.0.0"
 
