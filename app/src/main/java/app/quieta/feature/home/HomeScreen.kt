@@ -648,37 +648,43 @@ private fun AppChannelCard(
     onRestoreApp: () -> Unit,
 ) {
     var actionTarget by remember { mutableStateOf<Channel?>(null) }
-    // InstallerX home-card: one squircle surface, 20dp radius, 16dp inner padding.
-    PressableCard(
-        onClick = onToggleExpand,
-        cornerRadius = 20.dp,
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(item.app.appLabel, style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        text = item.app.packageName + " · " + item.app.channels.size + " 个渠道",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Icon(
-                    imageVector = if (item.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                    contentDescription = if (item.expanded) "收起" else "展开",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    val header: @Composable () -> Unit = {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(item.app.appLabel, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    text = item.app.packageName + " · " + item.app.channels.size + " 个渠道",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (item.expanded) {
+            Icon(
+                imageVector = if (item.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                contentDescription = if (item.expanded) "收起" else "展开",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    if (item.expanded) {
+        // Expanded: static surface — no whole-card tilt while reading/acting on channels.
+        MiuixCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onToggleExpand),
+                ) {
+                    header()
+                }
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -710,6 +716,16 @@ private fun AppChannelCard(
                         onClick = { actionTarget = channel },
                     )
                 }
+            }
+        }
+    } else {
+        // Collapsed: keep InstallerX press feedback on the compact app header only.
+        PressableCard(
+            onClick = onToggleExpand,
+            cornerRadius = 20.dp,
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                header()
             }
         }
     }
