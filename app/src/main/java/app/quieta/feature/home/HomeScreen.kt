@@ -73,6 +73,8 @@ import app.quieta.core.model.RuleAction
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.PressableCard
 import rikka.shizuku.Shizuku
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 
 private const val REQ_SHIZUKU = 1001
 
@@ -555,12 +557,12 @@ private fun AppChannelCard(
     onToggleExpand: () -> Unit,
     onChannelAction: (Channel, RuleAction) -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    MiuixCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -572,20 +574,20 @@ private fun AppChannelCard(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(MiuixTheme.colorScheme.primary),
                 )
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(item.app.appLabel, style = MaterialTheme.typography.titleMedium)
+                    Text(item.app.appLabel, style = MiuixTheme.textStyles.title4)
                     Text(
                         text = item.app.packageName + " · " + item.app.channels.size + " 个渠道",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
                 Icon(
                     imageVector = if (item.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
                     contentDescription = if (item.expanded) "收起" else "展开",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
             }
             if (item.expanded) {
@@ -641,11 +643,11 @@ private fun ChannelRow(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(channel.name, style = MaterialTheme.typography.bodyLarge)
+                Text(channel.name, style = MiuixTheme.textStyles.body1)
                 Text(
                     text = secondary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -653,9 +655,9 @@ private fun ChannelRow(
             LiveStatusChip(status)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            TextButton(onClick = onMute) { Text("静音") }
-            TextButton(onClick = onDowngrade) { Text("降级") }
-            TextButton(onClick = onRestore) { Text("恢复") }
+            top.yukonga.miuix.kmp.basic.TextButton(text = "静音", onClick = onMute)
+            top.yukonga.miuix.kmp.basic.TextButton(text = "降级", onClick = onDowngrade)
+            top.yukonga.miuix.kmp.basic.TextButton(text = "恢复", onClick = onRestore)
         }
     }
 }
@@ -684,14 +686,14 @@ private fun LiveStatusChip(status: ChannelLiveStatus) {
     val container = when (status) {
         ChannelLiveStatus.MUTED -> Color(0xFFFFE5E1)
         ChannelLiveStatus.DOWNGRADED -> Color(0xFFFFF1CC)
-        ChannelLiveStatus.NORMAL -> MaterialTheme.colorScheme.surfaceVariant
+        ChannelLiveStatus.NORMAL -> MiuixTheme.colorScheme.secondaryVariant
     }
-    Surface(shape = RoundedCornerShape(50), color = container) {
-        Text(
-            text = status.label,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelMedium,
-        )
+    Box(
+        modifier = Modifier
+            .background(container, CircleShape)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(status.label, style = MiuixTheme.textStyles.footnote1)
     }
 }
 

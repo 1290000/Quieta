@@ -10,39 +10,22 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,14 +37,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
 import app.quieta.core.model.Rule
 import app.quieta.core.model.RuleAction
 import app.quieta.ui.component.QuietaPage
+import app.quieta.ui.component.QuietaSwitch
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfigScreen(
     modifier: Modifier = Modifier,
@@ -107,9 +101,8 @@ fun ConfigScreen(
             blurEnabled = blurEnabled,
         ) {
             item {
-                InfoBanner(
+                TipCard(
                     text = "白名单（保留）优先于静音/降级；其余按更精确的规则优先。可匹配包名/包前缀/渠道id/名称。主页可先预览再静音。",
-                    onDismiss = { /* hint only */ },
                 )
             }
 
@@ -117,8 +110,9 @@ fun ConfigScreen(
                 item {
                     Text(
                         text = "还没有规则。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
             }
@@ -138,7 +132,12 @@ fun ConfigScreen(
 
             state.message?.let { msg ->
                 item {
-                    Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        text = msg,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
                 }
             }
         }
@@ -148,130 +147,125 @@ fun ConfigScreen(
                 loadDraft(RuleDraft(), null)
                 showAdd = true
             },
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = Color.White,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 20.dp, bottom = 108.dp)
                 .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
         ) {
-            Icon(Icons.Outlined.Add, contentDescription = "添加规则")
+            Icon(Icons.Outlined.Add, contentDescription = "添加规则", tint = Color.White)
         }
     }
 
     if (showAdd) {
-        ModalBottomSheet(
-            onDismissRequest = { showAdd = false },
-            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) {
-            Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(
-                    stringResource(if (editingId == null) R.string.rule_add else R.string.rule_edit),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                OutlinedTextField(
-                    value = packageInput,
-                    onValueChange = { packageInput = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("包名（精确）") },
-                    placeholder = { Text("app.quieta.notiflab.debug") },
-                )
-                OutlinedTextField(
-                    value = packagePrefixInput,
-                    onValueChange = { packagePrefixInput = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("包名前缀") },
-                    placeholder = { Text("com.tencent.") },
-                )
-                OutlinedTextField(
-                    value = channelIdExactInput,
-                    onValueChange = { channelIdExactInput = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("渠道 ID（精确）") },
-                )
-                OutlinedTextField(
-                    value = channelIdPrefixInput,
-                    onValueChange = { channelIdPrefixInput = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("渠道 ID 前缀") },
-                    placeholder = { Text("lab.marketing.") },
-                )
-                OutlinedTextField(
-                    value = nameInput,
-                    onValueChange = { nameInput = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("关键词包含…") },
-                    placeholder = { Text("例如：推广") },
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("匹配名称", modifier = Modifier.weight(1f))
-                    Switch(checked = matchName, onCheckedChange = { matchName = it })
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("匹配渠道 ID", modifier = Modifier.weight(1f))
-                    Switch(checked = matchId, onCheckedChange = { matchId = it })
-                }
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    RuleAction.entries.forEachIndexed { index, action ->
-                        SegmentedButton(
-                            colors = SegmentedButtonDefaults.colors(
-                                activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                activeContentColor = MaterialTheme.colorScheme.primary,
-                            ),
-                            selected = draft.action == action,
-                            onClick = { actionInput = action.name },
-                            shape = SegmentedButtonDefaults.itemShape(index, RuleAction.entries.size),
-                        ) {
-                            Text(
-                                stringResource(
-                                    when (action) {
-                                        RuleAction.MUTE -> R.string.rule_mute
-                                        RuleAction.DOWNGRADE -> R.string.rule_downgrade
-                                        RuleAction.KEEP -> R.string.rule_keep
-                                    },
-                                ),
-                            )
+        Dialog(onDismissRequest = { showAdd = false }) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = stringResource(if (editingId == null) R.string.rule_add else R.string.rule_edit),
+                        style = MiuixTheme.textStyles.title4,
+                    )
+                    TextField(
+                        value = packageInput,
+                        onValueChange = { packageInput = it },
+                        label = "包名（精确）",
+                        useLabelAsPlaceholder = true,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextField(
+                        value = packagePrefixInput,
+                        onValueChange = { packagePrefixInput = it },
+                        label = "包名前缀",
+                        useLabelAsPlaceholder = true,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextField(
+                        value = channelIdExactInput,
+                        onValueChange = { channelIdExactInput = it },
+                        label = "渠道 ID（精确）",
+                        useLabelAsPlaceholder = true,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextField(
+                        value = channelIdPrefixInput,
+                        onValueChange = { channelIdPrefixInput = it },
+                        label = "渠道 ID 前缀",
+                        useLabelAsPlaceholder = true,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextField(
+                        value = nameInput,
+                        onValueChange = { nameInput = it },
+                        label = "关键词包含…",
+                        useLabelAsPlaceholder = true,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("匹配名称", modifier = Modifier.weight(1f), style = MiuixTheme.textStyles.body2)
+                        QuietaSwitch(checked = matchName, onCheckedChange = { matchName = it })
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("匹配渠道 ID", modifier = Modifier.weight(1f), style = MiuixTheme.textStyles.body2)
+                        QuietaSwitch(checked = matchId, onCheckedChange = { matchId = it })
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RuleAction.entries.forEach { action ->
+                            val selected = draft.action == action
+                            Button(
+                                onClick = { actionInput = action.name },
+                                colors = if (selected) {
+                                    top.yukonga.miuix.kmp.basic.ButtonDefaults.buttonColors(
+                                        color = MiuixTheme.colorScheme.primary,
+                                        contentColor = Color.White,
+                                    )
+                                } else {
+                                    top.yukonga.miuix.kmp.basic.ButtonDefaults.buttonColors()
+                                },
+                            ) {
+                                Text(
+                                    stringResource(
+                                        when (action) {
+                                            RuleAction.MUTE -> R.string.rule_mute
+                                            RuleAction.DOWNGRADE -> R.string.rule_downgrade
+                                            RuleAction.KEEP -> R.string.rule_keep
+                                        },
+                                    ),
+                                )
+                            }
                         }
                     }
-                }
-                Text(
-                    "说明：条件为「与」关系；保留=白名单，命中后不再静音。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                val draftBroad = app.quieta.core.engine.BroadKeywords.isBroad(draft.nameContains) ||
-                    app.quieta.core.engine.BroadKeywords.isBroad(draft.channelIdPrefix) ||
-                    app.quieta.core.engine.BroadKeywords.isBroad(draft.packagePrefix)
-                if (draftBroad) {
-                    Text(
-                        text = "⚠ 关键词可能过宽，容易误伤物流/客服/系统渠道。建议改为包前缀或渠道 ID 前缀。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFB45309),
-                    )
-                }
-                state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { showAdd = false }) { Text("取消") }
-                    TextButton(
-                        onClick = { viewModel.saveRule(editingId, draft) { showAdd = false } },
-                        enabled = draft.packageName.isNotBlank() ||
-                            draft.packagePrefix.isNotBlank() ||
-                            draft.channelIdExact.isNotBlank() ||
-                            draft.channelIdPrefix.isNotBlank() ||
-                            draft.nameContains.isNotBlank() ||
-                            editingId != null,
-                    ) { Text("确定") }
+                    val draftBroad = app.quieta.core.engine.BroadKeywords.isBroad(draft.nameContains) ||
+                        app.quieta.core.engine.BroadKeywords.isBroad(draft.channelIdPrefix) ||
+                        app.quieta.core.engine.BroadKeywords.isBroad(draft.packagePrefix)
+                    if (draftBroad) {
+                        Text(
+                            text = "关键词可能过宽，容易误伤。建议改为包前缀或渠道 ID 前缀。",
+                            style = MiuixTheme.textStyles.body2,
+                            color = Color(0xFFB45309),
+                        )
+                    }
+                    state.message?.let {
+                        Text(it, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.primary)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(text = "取消", onClick = { showAdd = false })
+                        TextButton(text = "确定", onClick = { viewModel.saveRule(editingId, draft) { showAdd = false } }, enabled = draft.packageName.isNotBlank() ||
+                                draft.packagePrefix.isNotBlank() ||
+                                draft.channelIdExact.isNotBlank() ||
+                                draft.channelIdPrefix.isNotBlank() ||
+                                draft.nameContains.isNotBlank() ||
+                                editingId != null)
+                    }
                 }
             }
         }
@@ -279,27 +273,22 @@ fun ConfigScreen(
 }
 
 @Composable
-private fun InfoBanner(text: String, onDismiss: () -> Unit) {
+private fun TipCard(text: String) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.primary.copy(alpha = 0.16f)),
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                Icon(Icons.Outlined.Close, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            }
-        }
+        Text(
+            text = text,
+            modifier = Modifier.padding(14.dp),
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.primary,
+        )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RuleCard(
     rule: Rule,
@@ -310,15 +299,15 @@ private fun RuleCard(
 ) {
     var showSamples by rememberSaveable(rule.id) { mutableStateOf(false) }
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = ruleSummary(rule),
-                    style = app.quieta.ui.theme.QuietaTextStyles.ruleTitle,
+                    style = MiuixTheme.textStyles.title4,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -335,24 +324,14 @@ private fun RuleCard(
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Switch(
-                    checked = rule.enabled,
-                    onCheckedChange = { onToggle() },
-                    colors = app.quieta.ui.component.installerLikeSwitchColors(),
-                )
+                QuietaSwitch(checked = rule.enabled, onCheckedChange = { onToggle() })
                 if (hitStat != null) {
                     val hitLabel = if (hitStat.effectiveCount == hitStat.matchCount) {
                         "命中 ${hitStat.matchCount}"
                     } else {
                         "匹配 ${hitStat.matchCount} · 生效 ${hitStat.effectiveCount}"
                     }
-                    TextButton(
-                        onClick = { if (hitStat.samples.isNotEmpty()) showSamples = true },
-                        enabled = hitStat.samples.isNotEmpty(),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                    ) {
-                        Text(hitLabel, style = MaterialTheme.typography.labelMedium)
-                    }
+                    TextButton(text = hitLabel, onClick = { if (hitStat.samples.isNotEmpty()) showSamples = true }, enabled = hitStat.samples.isNotEmpty())
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = onEdit) {
@@ -366,48 +345,37 @@ private fun RuleCard(
     }
 
     if (showSamples && hitStat != null) {
-        ModalBottomSheet(
-            onDismissRequest = { showSamples = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
-                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = "命中样本 ${hitStat.samples.size} 条",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                if (hitStat.broadKeyword && rule.action != RuleAction.KEEP) {
-                    Text(
-                        text = "⚠ 关键词过宽，可能误伤物流/客服/系统渠道。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFB45309),
-                    )
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 420.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    hitStat.samples.forEach { sample ->
-                        Column {
-                            Text(sample.appLabel, style = MaterialTheme.typography.bodySmall)
-                            Text(
-                                text = sample.channelName + " (" + sample.channelId + ")",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+        Dialog(onDismissRequest = { showSamples = false }) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("命中样本 ${hitStat.samples.size} 条", style = MiuixTheme.textStyles.title4)
+                    if (hitStat.broadKeyword && rule.action != RuleAction.KEEP) {
+                        Text(
+                            text = "关键词过宽，可能误伤物流/客服/系统渠道。",
+                            style = MiuixTheme.textStyles.body2,
+                            color = Color(0xFFB45309),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 360.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        hitStat.samples.forEach { sample ->
+                            Column {
+                                Text(sample.appLabel, style = MiuixTheme.textStyles.body2)
+                                Text(
+                                    text = sample.channelName + " (" + sample.channelId + ")",
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                )
+                            }
                         }
                     }
+                    TextButton(text = "关闭", onClick = { showSamples = false })
                 }
-                TextButton(onClick = { showSamples = false }) { Text("关闭") }
             }
         }
     }
@@ -434,13 +402,13 @@ private fun ruleSummary(rule: Rule): String {
 
 @Composable
 private fun SurfacePill(text: String, warning: Boolean = false) {
-    val bg = if (warning) Color(0xFFFFF1CC) else MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-    val fg = if (warning) Color(0xFFB45309) else MaterialTheme.colorScheme.primary
+    val bg = if (warning) Color(0xFFFFF1CC) else MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)
+    val fg = if (warning) Color(0xFFB45309) else MiuixTheme.colorScheme.primary
     Box(
         modifier = Modifier
             .background(bg, CircleShape)
             .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
-        Text(text, style = MaterialTheme.typography.labelSmall, color = fg)
+        Text(text, style = MiuixTheme.textStyles.footnote2, color = fg)
     }
 }

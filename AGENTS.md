@@ -216,6 +216,7 @@ core/rom/
 
 - 主色为系统蓝；绿色仅状态卡。  
 - 主题默认**跟随系统**；深浅色均须可读。  
+- **控件优先 miuix**（`top.yukonga.miuix.kmp.basic.*`：Card / Switch / Text / TextField / Button / SearchBar / BasicComponent / FAB 等）；**禁止**在业务页混用 Material3 同类控件。仅当 miuix 无对应物（如系统分享、部分 Dialog）时才允许 M3，并在 PR/改动说明原因。字色可继续桥接 `MaterialTheme.colorScheme` / `MiuixTheme.colorScheme`。
 - 字体沿用系统默认及 miuix 文字样式：普通条目标题 17sp Medium、摘要 14sp Normal，状态标题 20sp SemiBold；规则标题 18sp Medium，记录摘要 16sp Normal。不得给所有标题统一加粗或添加负字距。
 - 配置页规则卡提供编辑入口；修改保留规则 ID、顺序、启用状态及未编辑字段，通过共享仓库实时通知主页。
 - 液态玻璃实现放在 `ui/glass`，不散落在业务页。  
