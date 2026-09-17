@@ -5,6 +5,7 @@ package app.quieta.feature.settings
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +32,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +83,21 @@ private val AboutTitleLight = Color(0xFF7A4A6E)
 private val AboutTitleDark = Color(0xFFE8C4DC)
 private val AboutVersionLight = Color(0xFF6B5A72)
 private val AboutVersionDark = Color(0xADA8A8B0)
+
+// InstallerX MiuixAboutPage logoBlend (aurora fill through glyph alpha).
+private fun aboutLogoBlend(isDark: Boolean): List<BlendColorEntry> = if (isDark) {
+    listOf(
+        BlendColorEntry(Color(0xe6a1a1a1), BlurBlendMode.ColorDodge),
+        BlendColorEntry(Color(0x4de6e6e6), BlurBlendMode.LinearLight),
+        BlendColorEntry(Color(0xff1af500), BlurBlendMode.Lab),
+    )
+} else {
+    listOf(
+        BlendColorEntry(Color(0xcc4a4a4a), BlurBlendMode.ColorBurn),
+        BlendColorEntry(Color(0xff4f4f4f), BlurBlendMode.LinearLight),
+        BlendColorEntry(Color(0xff1af200), BlurBlendMode.Lab),
+    )
+}
 
 // InstallerX ColorBlendToken.Pured_Regular_Light / Overlay_Extra_Thin_Dark
 private fun aboutCardBlend(isDark: Boolean): List<BlendColorEntry> = if (isDark) {
@@ -135,6 +153,8 @@ fun AboutScreen(
     } else {
         null
     }
+    // Tap hero mark to flip InstallerX aurora fill ↔ original brand colors.
+    var auroraTintLogo by rememberSaveable { mutableStateOf(true) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -187,55 +207,6 @@ fun AboutScreen(
                     .then(cardBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
                 alpha = { 1f - scrollProgress },
             ) {
-                // Sticky hero (InstallerX AboutContentBody header column).
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = logoTop + 52.dp)
-                        .onSizeChanged { size -> heroHeightPx = size.height },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    AboutHeroIcon(
-                        scrollProgress = scrollProgress,
-                        backdrop = cardBackdrop,
-                        isDark = isDark,
-                        blurOk = blurOk,
-                    )
-                    Text(
-                        modifier = Modifier
-                            .padding(top = 12.dp, bottom = 5.dp)
-                            .graphicsLayer {
-                                val p = ((scrollProgress - 0.20f) / 0.15f).coerceIn(0f, 1f)
-                                alpha = 1f - p
-                                scaleX = 1f - (p * 0.05f)
-                                scaleY = 1f - (p * 0.05f)
-                            },
-                        text = stringResource(R.string.app_name) + " " + stringResource(R.string.app_name_en),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 35.sp,
-                        color = if (isDark) AboutTitleDark else AboutTitleLight,
-                        textAlign = TextAlign.Center,
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer {
-                                val p = ((scrollProgress - 0.05f) / 0.15f).coerceIn(0f, 1f)
-                                alpha = 1f - p
-                                scaleX = 1f - (p * 0.05f)
-                                scaleY = 1f - (p * 0.05f)
-                            },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = versionInfoText(),
-                            fontSize = 14.sp,
-                            color = if (isDark) AboutVersionDark else AboutVersionLight,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                }
-
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier
@@ -245,15 +216,56 @@ fun AboutScreen(
                     contentPadding = listContentPadding,
                     verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(0.dp),
                 ) {
-                    // Transparent spacer matching hero (InstallerX logoSpacer + extra).
-                    item(key = "logo-spacer") {
-                        Box(
-                            Modifier
+                    item(key = "hero") {
+                        Column(
+                            modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(
-                                    top = with(density) { heroHeightPx.toDp() } + 52.dp + logoTop + 126.dp,
-                                ),
-                        )
+                                .padding(top = 52.dp, bottom = 56.dp)
+                                .onSizeChanged { size -> heroHeightPx = size.height },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            AboutHeroIcon(
+                                scrollProgress = scrollProgress,
+                                backdrop = cardBackdrop,
+                                isDark = isDark,
+                                blurOk = blurOk,
+                                auroraTint = auroraTintLogo,
+                                onToggle = { auroraTintLogo = !auroraTintLogo },
+                            )
+                            Text(
+                                modifier = Modifier
+                                    .padding(top = 12.dp, bottom = 5.dp)
+                                    .graphicsLayer {
+                                        val p = ((scrollProgress - 0.20f) / 0.15f).coerceIn(0f, 1f)
+                                        alpha = 1f - p
+                                        scaleX = 1f - (p * 0.05f)
+                                        scaleY = 1f - (p * 0.05f)
+                                    },
+                                text = stringResource(R.string.app_name) + " " + stringResource(R.string.app_name_en),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 35.sp,
+                                color = if (isDark) AboutTitleDark else AboutTitleLight,
+                                textAlign = TextAlign.Center,
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer {
+                                        val p = ((scrollProgress - 0.05f) / 0.15f).coerceIn(0f, 1f)
+                                        alpha = 1f - p
+                                        scaleX = 1f - (p * 0.05f)
+                                        scaleY = 1f - (p * 0.05f)
+                                    },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    text = versionInfoText(),
+                                    fontSize = 14.sp,
+                                    color = if (isDark) AboutVersionDark else AboutVersionLight,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
                     }
                     item(key = "about-content") {
                         SmallTitle(stringResource(R.string.about))
@@ -322,11 +334,22 @@ private fun AboutHeroIcon(
     backdrop: LayerBackdrop?,
     isDark: Boolean,
     blurOk: Boolean,
+    auroraTint: Boolean,
+    onToggle: () -> Unit,
 ) {
+    val logoBlend = remember(isDark) { aboutLogoBlend(isDark) }
+    val useAurora = auroraTint && backdrop != null && blurOk
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
+            .padding(8.dp)
             .size(88.dp)
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null,
+                onClickLabel = "切换图标样式",
+                onClick = onToggle,
+            )
             .graphicsLayer {
                 val iconProgress = ((scrollProgress - 0.35f) / 0.15f).coerceIn(0f, 1f)
                 alpha = 1f - iconProgress
@@ -334,13 +357,33 @@ private fun AboutHeroIcon(
                 scaleY = 1f - (iconProgress * 0.05f)
             },
     ) {
-        // Transparent-background brand mark (no adaptive-icon white plate).
-        Image(
-            painter = painterResource(R.drawable.ic_about_logo),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.height(88.dp),
-        )
+        // Default: InstallerX aurora fill through glyph alpha (DstIn).
+        // Tap again: original green/teal brand colors.
+        if (useAurora) {
+            Image(
+                painter = painterResource(R.drawable.ic_about_logo),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .height(88.dp)
+                    .textureBlur(
+                        backdrop = backdrop!!,
+                        shape = RoundedCornerShape(12.dp),
+                        blurRadius = 200f,
+                        noiseCoefficient = 0.02f,
+                        colors = BlurColors(blendColors = logoBlend),
+                        contentBlendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                        enabled = true,
+                    ),
+            )
+        } else {
+            Image(
+                painter = painterResource(R.drawable.ic_about_logo),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.height(88.dp),
+            )
+        }
     }
 }
 
