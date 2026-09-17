@@ -315,9 +315,10 @@ private fun StatusGrid(
     onOpenPrivilege: () -> Unit,
     onOpenConfig: () -> Unit,
 ) {
-    // Neutral while probing so the card does not flash red before Shizuku is known.
+    // InstallerX: known-available stays green even while a background re-probe runs.
+    // Gray is only for a true first-run CHECKING frame with no cached privilege.
     val checking = gate == PrivilegeGate.CHECKING
-    val active = privilege.available && !checking
+    val active = privilege.available
     val containerColor = if (isSystemInDarkTheme()) {
         when {
             active -> app.quieta.ui.theme.QuietaColors.StatusGreenDark

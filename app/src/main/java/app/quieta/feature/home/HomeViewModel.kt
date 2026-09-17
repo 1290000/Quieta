@@ -128,11 +128,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val muteLog = app.quieta.core.engine.MuteLogStore.getInstance(application)
     private val muteUndo = MuteUndoStore.getInstance(application)
 
-    private val _state = MutableStateFlow(HomeUiState())
+    private val _state = MutableStateFlow(seedHomeState(appSettings))
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     private var inventoryJob: Job? = null
     private var refreshJob: Job? = null
+    private var authorizerBootstrapped = false
     private val cacheJob: Job
 
     init {
@@ -148,6 +149,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         it.copy(
                             gate = PrivilegeGate.READY,
                             privilege = cached,
+                            checkingPrivilege = false,
                         )
                     }
                 }
@@ -156,7 +158,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         cacheJob = viewModelScope.launch {
             val cached = inventoryStore.current()
             if (cached.isNotEmpty()) {
-                _state.update { it.copy(apps = cached) }
+                _state.update {
+                    it.copy(
+                        apps = cached,
+                        // Cache-first paint: keep the list usable instead of a full-page spinner.
+                        loading = false,
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -245,13 +253,48 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        // Real-time status when user changes authorizer on Privilege page.
+        // First emission: cache-first bootstrap (InstallerX/LibChecker). Later changes re-probe.
         viewModelScope.launch {
             appSettings.preferredAuthorizer.collect { pref ->
+                val previous = _state.value.preferredAuthorizer
                 _state.update { it.copy(preferredAuthorizer = pref) }
-                refresh()
+                if (!authorizerBootstrapped) {
+                    authorizerBootstrapped = true
+                    bootstrapFromCache()
+                } else if (previous != pref) {
+                    refresh(forceInventory = true)
+                }
             }
         }
+    }
+
+    private companion object {
+        /**
+         * Cold start paints the status card from the last successful privilege (SharedPreferences).
+         * Avoids the gray CHECKING frame while DataStore + Root/Shizuku probes are still running.
+         */
+        fun seedHomeState(appSettings: AppSettings): HomeUiState {
+            val seed = appSettings.lastKnownPrivilegeSync() ?: return HomeUiState()
+            return HomeUiState(
+                gate = PrivilegeGate.READY,
+                checkingPrivilege = false,
+                privilege = seed,
+            )
+        }
+
+        /**
+         * Skip a full Binder channel rescan when disk inventory is still fresh.
+         * Package add/remove remains incremental; user refresh always forces a full scan.
+         */
+        fun isInventoryFresh(scannedAt: Long, now: Long = System.currentTimeMillis()): Boolean {
+            if (scannedAt <= 0L) return false
+            return now - scannedAt < INVENTORY_FRESH_MS
+        }
+
+        const val INVENTORY_FRESH_MS = 6 * 60 * 60 * 1000L
+        const val SCAN_CONCURRENCY = 6
+        const val PUBLISH_BATCH = 20
+        const val PUBLISH_INTERVAL_MS = 200L
     }
 
     private data class ProjectionCore(
@@ -301,11 +344,45 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun refresh() {
+    fun refresh() = refresh(forceInventory = true)
+
+    /**
+     * Cache-first bootstrap: paint green + list immediately, probe privilege in the background,
+     * and skip a full Binder channel scan when disk inventory is still fresh.
+     */
+    private fun bootstrapFromCache() {
+        viewModelScope.launch {
+            cacheJob.join()
+            val hasCache = _state.value.apps.isNotEmpty()
+            val fresh = isInventoryFresh(appSettings.inventoryScannedAt())
+            if (hasCache && fresh) {
+                // InstallerX-style: keep last green status; only background-probe, no full rescan.
+                refresh(forceInventory = false)
+            } else {
+                refresh(forceInventory = true)
+            }
+        }
+    }
+
+    private fun refresh(forceInventory: Boolean) {
         refreshJob?.cancel()
-        inventoryJob?.cancel()
+        if (forceInventory) {
+            inventoryJob?.cancel()
+        }
+        // Preserve InstallerX green card: never regress a known-good READY status to gray/red
+        // just because a background probe is still running.
+        val keepGreen = _state.value.gate == PrivilegeGate.READY && _state.value.privilege.available
+        val hasApps = _state.value.apps.isNotEmpty()
         refreshJob = viewModelScope.launch {
-            _state.update { it.copy(checkingPrivilege = true, loading = true, error = null) }
+            _state.update {
+                it.copy(
+                    checkingPrivilege = true,
+                    // Only show a page spinner when there is nothing cached to display.
+                    loading = forceInventory && !hasApps,
+                    error = null,
+                    gate = if (keepGreen) PrivilegeGate.READY else it.gate,
+                )
+            }
             val shizukuProbe = async(Dispatchers.IO) { CapabilityProbe.probeShizuku() }
             val dhizukuProbe = async(Dispatchers.IO) { dhizukuBackend.isAvailable() }
             val rootProbe = async(Dispatchers.IO) { rootBackend.probeCapabilities() }
@@ -372,7 +449,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 appSettings.setLastKnownPrivilege(
                     PrivilegeStatus(chosen.id, available = true, label = label),
                 )
-                startInventoryRefresh()
+                if (forceInventory || _state.value.apps.isEmpty()) {
+                    startInventoryRefresh(showLoading = true)
+                } else {
+                    // Fresh cache path: list already on screen; no Binder full scan.
+                    _state.update { it.copy(loading = false, progress = null) }
+                }
             } else if (pref == app.quieta.core.settings.PreferredAuthorizer.NONE) {
                 _state.update {
                     capabilityUpdate(it).copy(
@@ -713,14 +795,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
      * Show disk cache first, then scan with limited concurrency and publish in batches
      * so the UI stays scrollable (LibChecker InitializeAppListUseCase pattern).
      */
-    private fun startInventoryRefresh() {
+    private fun startInventoryRefresh(showLoading: Boolean = true) {
         inventoryJob?.cancel()
         val activeBackend = backend
         inventoryJob = viewModelScope.launch {
             cacheJob.join()
             val cached = withContext(Dispatchers.IO) { inventoryStore.current() }
             if (cached.isNotEmpty()) {
-                publishApps(cached, loading = true, progress = "刷新通知渠道…")
+                publishApps(
+                    cached,
+                    loading = showLoading,
+                    progress = if (showLoading) "刷新通知渠道…" else null,
+                )
             } else {
                 _state.update { it.copy(loading = true, progress = "读取应用列表…") }
             }
@@ -791,6 +877,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 // Do not clobber a good cache with an empty failed scan.
                 if (finalApps.isNotEmpty()) {
                     withContext(Dispatchers.IO) { inventoryStore.replaceAll(finalApps) }
+                    appSettings.markInventoryScanned()
                     app.quieta.core.auto.AutoMuteCoordinator.seedKnown(finalApps.flatMap { it.channels })
                 }
                 publishApps(
@@ -825,11 +912,5 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 autoMuteOn = autoMuteOn ?: it.autoMuteOn,
             )
         }
-    }
-
-    private companion object {
-        const val SCAN_CONCURRENCY = 6
-        const val PUBLISH_BATCH = 20
-        const val PUBLISH_INTERVAL_MS = 200L
     }
 }

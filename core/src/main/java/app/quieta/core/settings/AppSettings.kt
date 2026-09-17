@@ -31,6 +31,8 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 class AppSettings(private val context: Context) {
 
+    private val bootPrefs = context.getSharedPreferences("quieta_boot", Context.MODE_PRIVATE)
+
     val themeMode: Flow<ThemeMode> = context.settingsStore.data.map { prefs ->
         prefs[KEY_THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM
     }
@@ -81,7 +83,29 @@ class AppSettings(private val context: Context) {
         )
     }
 
+    /**
+     * Synchronous boot seed (SharedPreferences). DataStore first emission is too late for
+     * the first Compose frame — InstallerX paints the status card from a sync/local value.
+     */
+    fun lastKnownPrivilegeSync(): PrivilegeStatus? {
+        val raw = bootPrefs.getString(BOOT_PRIVILEGE_ID, null) ?: return null
+        val id = runCatching { PrivilegeId.valueOf(raw) }.getOrNull() ?: return null
+        val label = bootPrefs.getString(BOOT_PRIVILEGE_LABEL, null).orEmpty().ifEmpty { id.name }
+        return PrivilegeStatus(id = id, available = true, label = label)
+    }
+
+    /** Wall-clock of the last completed full inventory scan; 0 when never scanned. */
+    fun inventoryScannedAt(): Long = bootPrefs.getLong(BOOT_INVENTORY_AT, 0L)
+
+    fun markInventoryScanned() {
+        bootPrefs.edit().putLong(BOOT_INVENTORY_AT, System.currentTimeMillis()).apply()
+    }
+
     suspend fun setLastKnownPrivilege(status: PrivilegeStatus) {
+        bootPrefs.edit()
+            .putString(BOOT_PRIVILEGE_ID, status.id.name)
+            .putString(BOOT_PRIVILEGE_LABEL, status.label)
+            .apply()
         context.settingsStore.edit { prefs ->
             prefs[KEY_LAST_PRIVILEGE_ID] = status.id.name
             prefs[KEY_LAST_PRIVILEGE_LABEL] = status.label
@@ -95,5 +119,8 @@ class AppSettings(private val context: Context) {
         private val KEY_AUTHORIZER = stringPreferencesKey("preferred_authorizer")
         private val KEY_LAST_PRIVILEGE_ID = stringPreferencesKey("last_known_privilege_id")
         private val KEY_LAST_PRIVILEGE_LABEL = stringPreferencesKey("last_known_privilege_label")
+        private const val BOOT_PRIVILEGE_ID = "last_known_privilege_id"
+        private const val BOOT_PRIVILEGE_LABEL = "last_known_privilege_label"
+        private const val BOOT_INVENTORY_AT = "inventory_scanned_at"
     }
 }

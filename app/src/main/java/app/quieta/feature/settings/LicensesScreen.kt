@@ -52,8 +52,11 @@ fun LicensesScreen(
 ) {
     val context = LocalContext.current
     val generatedLibraries by produceLibraries(R.raw.aboutlibraries)
+    // InstallerX pattern: do not paint a partial list. Wait until AboutLibraries is ready,
+    // then insert the full sorted set once — avoids the "few cards then a flash of many" jump.
     val ossLibs = remember(generatedLibraries) {
-        val autoLibs = generatedLibraries?.libraries.orEmpty().map(::toOssLib)
+        val libraries = generatedLibraries ?: return@remember emptyList()
+        val autoLibs = libraries.libraries.map(::toOssLib)
         (autoLibs + supplementalOssLibs)
             .distinctBy { it.url }
             .sortedBy { it.name.lowercase() }
@@ -69,29 +72,42 @@ fun LicensesScreen(
             }
         },
     ) {
-        items(ossLibs, key = { it.url }) { lib ->
-            PressableCard(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(lib.url)))
-                    }
-                },
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(lib.name, style = MaterialTheme.typography.titleMedium)
-                    Text(lib.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.padding(top = 8.dp),
-                    ) {
-                        Text(
-                            text = lib.license + (lib.version?.let { " · $it" } ?: ""),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
+        if (generatedLibraries == null) {
+            item(key = "licenses-loading") {
+                Text(
+                    text = "正在加载开源许可…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                )
+            }
+        } else {
+            items(ossLibs, key = { it.url }) { lib ->
+                PressableCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(lib.url)))
+                        }
+                    },
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(lib.name, style = MaterialTheme.typography.titleMedium)
+                        Text(lib.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) {
+                            Text(
+                                text = lib.license + (lib.version?.let { " · $it" } ?: ""),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
                     }
                 }
             }
