@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import app.quieta.core.settings.PredictiveBackAnimation
 import app.quieta.core.settings.PredictiveBackExitDirection
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -53,7 +54,34 @@ internal val FastOutExtraSlowIn: Easing = run {
 /** InstallerX / AOSP pre-commit gesture interpolator. */
 internal val BackGestureEasing: Easing = CubicBezierEasing(0.1f, 0.1f, 0f, 1f)
 
-/** miuix programmatic easing approximation used for None predictive settle. */
+/**
+ * miuix `NavProgrammaticEasing` — baked underdamped spring step response
+ * (response=0.8, damping=0.95). Used for MiuixDefault push/pop pacing.
+ */
+internal val NavProgrammaticEasing: Easing = object : Easing {
+    private val r: Float
+    private val w: Float
+    private val c2: Float
+
+    init {
+        val response = 0.8f
+        val damping = 0.95f
+        val omega = 2.0 * Math.PI / response
+        val k = omega * omega
+        val c = damping * 4.0 * Math.PI / response
+        w = (sqrt(4.0 * k - c * c) / 2.0).toFloat()
+        r = (-c / 2.0).toFloat()
+        c2 = r / w
+    }
+
+    override fun transform(fraction: Float): Float {
+        val t = fraction.toDouble()
+        val decay = exp(r * t)
+        return (decay * (-cos(w * t) + c2 * sin(w * t)) + 1.0).toFloat()
+    }
+}
+
+/** Legacy cubic used by Classic/Scale programmatic pop (InstallerX tween 200ms). */
 private val ProgrammaticEase = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 internal const val SCALE_MIN = 0.85f
@@ -515,8 +543,10 @@ fun predictiveOutgoingTransform(
                     PredictiveNavPhase.Pop -> {
                         // ClassicActivityClose: 96dp drift + wall-clock fade, no card scale.
                         val tx = (1f - p) * driftPx
+                        // elapsed = settleRaw * 450; close fade [35ms, 118ms].
+                        val elapsed = settleRaw * 450f
                         val alpha = if (settleRaw > 0f) {
-                            (1f - (settleRaw * 450f - 35f) / 83f).coerceIn(0f, 1f)
+                            (1f - (elapsed - 35f) / 83f).coerceIn(0f, 1f)
                         } else {
                             ((p - 0.21f) / 0.74f).coerceIn(0f, 1f)
                         }
@@ -526,11 +556,16 @@ fun predictiveOutgoingTransform(
                         )
                     }
                     PredictiveNavPhase.Push -> {
-                        // ClassicActivityOpen: incoming drifts from +96dp with fade-in.
-                        // leaveProgress 1→0 as the page arrives; alpha ramps on arrival.
+                        // ClassicActivityOpen: incoming drifts from +96dp with wall-clock fade-in.
+                        // leaveProgress 1→0 as the page arrives; elapsed = settleRaw * 450.
                         val tx = p * driftPx
-                        val arrive = 1f - p
-                        val alpha = ((arrive - 0.12f) / 0.71f).coerceIn(0f, 1f)
+                        val elapsed = settleRaw * 450f
+                        val alpha = if (settleRaw > 0f) {
+                            ((elapsed - 50f) / 83f).coerceIn(0f, 1f)
+                        } else {
+                            val arrive = 1f - p
+                            ((arrive - 0.12f) / 0.71f).coerceIn(0f, 1f)
+                        }
                         LayerTransform(
                             translationX = snapTranslation(tx, 1f, widthPx),
                             alpha = alpha,
@@ -671,6 +706,7 @@ fun predictiveScrimAlpha(
         PredictiveBackAnimation.AOSP -> when (phase) {
             PredictiveNavPhase.Gesture -> 1f
             PredictiveNavPhase.Commit -> (1f - settleRaw).coerceIn(0f, 1f)
+            // ClassicActivityOpen/Close: scrim = 0f.
             PredictiveNavPhase.Pop, PredictiveNavPhase.Push -> 0f
             else -> cover
         }
@@ -683,7 +719,13 @@ fun predictiveCardStyle(animation: PredictiveBackAnimation): Boolean =
         animation == PredictiveBackAnimation.AOSP ||
         animation == PredictiveBackAnimation.CLASSIC
 
-/** Commit / cancel / programmatic animation specs matching InstallerX NavMotion. */
+/**
+ * Commit / cancel / programmatic animation specs matching InstallerX NavMotion.
+ *
+ * MiuixDefault push/pop (None / MIUIX / Scale push / Classic push): Tween(500, NavProgrammaticEasing).
+ * AOSP programmatic open/close: Tween(450, FastOutExtraSlowIn).
+ * Scale/Classic programmatic pop: Tween(200, CubicBezier(0.2,0,0,1)).
+ */
 fun predictiveSettleSpec(animation: PredictiveBackAnimation, phase: PredictiveNavPhase): AnimationSpec<Float> =
     when (phase) {
         PredictiveNavPhase.Commit -> when (animation) {
@@ -691,7 +733,7 @@ fun predictiveSettleSpec(animation: PredictiveBackAnimation, phase: PredictiveNa
             PredictiveBackAnimation.AOSP,
             -> tween(durationMillis = 450, easing = FastOutExtraSlowIn)
             PredictiveBackAnimation.CLASSIC -> tween(durationMillis = 200, easing = ProgrammaticEase)
-            PredictiveBackAnimation.NONE -> tween(durationMillis = 450, easing = ProgrammaticEase)
+            PredictiveBackAnimation.NONE -> tween(durationMillis = 450, easing = NavProgrammaticEasing)
             PredictiveBackAnimation.MIUIX -> spring(
                 dampingRatio = 1f,
                 stiffness = 146f,
@@ -702,16 +744,20 @@ fun predictiveSettleSpec(animation: PredictiveBackAnimation, phase: PredictiveNa
             else -> spring(dampingRatio = 1f, stiffness = 1500f)
         }
         PredictiveNavPhase.Pop -> when (animation) {
+            // Scale/Classic pop use their own card transforms with 200ms programmatic tween.
             PredictiveBackAnimation.SCALE,
             PredictiveBackAnimation.CLASSIC,
             -> tween(durationMillis = 200, easing = ProgrammaticEase)
             PredictiveBackAnimation.AOSP -> tween(durationMillis = 450, easing = FastOutExtraSlowIn)
-            PredictiveBackAnimation.NONE -> tween(durationMillis = 450, easing = ProgrammaticEase)
-            PredictiveBackAnimation.MIUIX -> tween(durationMillis = 500, easing = ProgrammaticEase)
+            // MiuixDefault-style pop (None + MIUIX).
+            PredictiveBackAnimation.NONE,
+            PredictiveBackAnimation.MIUIX,
+            -> tween(durationMillis = 500, easing = NavProgrammaticEasing)
         }
         PredictiveNavPhase.Push -> when (animation) {
             PredictiveBackAnimation.AOSP -> tween(durationMillis = 450, easing = FastOutExtraSlowIn)
-            else -> tween(durationMillis = 500, easing = ProgrammaticEase)
+            // None / MIUIX / Scale / Classic push all use MiuixDefault programmatic motion.
+            else -> tween(durationMillis = 500, easing = NavProgrammaticEasing)
         }
         else -> tween(durationMillis = 200)
     }
@@ -761,10 +807,8 @@ private fun settleDurationMillis(animation: PredictiveBackAnimation, phase: Pred
         PredictiveNavPhase.Cancel -> 320f
         PredictiveNavPhase.Pop -> when (animation) {
             PredictiveBackAnimation.SCALE, PredictiveBackAnimation.CLASSIC -> 200f
-            PredictiveBackAnimation.AOSP,
-            PredictiveBackAnimation.NONE,
-            PredictiveBackAnimation.MIUIX,
-            -> 450f
+            PredictiveBackAnimation.AOSP -> 450f
+            PredictiveBackAnimation.NONE, PredictiveBackAnimation.MIUIX -> 500f
         }
         PredictiveNavPhase.Push -> when (animation) {
             PredictiveBackAnimation.AOSP -> 450f

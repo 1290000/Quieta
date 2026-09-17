@@ -151,37 +151,20 @@ fun QuietaRoot() {
         driver.exitDirection = pbExit
     }
 
-    // Programmatic push when a secondary route appears.
-    var lastSecondary by remember { mutableStateOf(secondary) }
-    LaunchedEffect(secondary) {
-        if (secondary != null && lastSecondary == null) {
-            driver.animation = pbAnimation
-            driver.exitDirection = pbExit
-            driver.beginPush()
-            animatePredictiveSettle(driver, pbAnimation, PredictiveNavPhase.Push)
-            driver.reset()
-        }
-        lastSecondary = secondary
-    }
-
-    PredictiveBackHandler(enabled = secondary != null) { progress ->
+    /**
+     * InstallerX-aligned push: arm the enter pose BEFORE the route is composed so the first
+     * frame is already off-screen/translated, then play MiuixDefault (or AOSP open) motion.
+     */
+    val openSecondary: (String) -> Unit = route@{
+        if (driver.phase != PredictiveNavPhase.Idle) return@route
+        if (secondaryStack.lastOrNull() == it) return@route
         driver.animation = pbAnimation
         driver.exitDirection = pbExit
-        try {
-            progress.collect { event: BackEventCompat ->
-                driver.onGestureEvent(event)
-            }
-            driver.beginCommit()
-            animatePredictiveSettle(driver, driver.animation, PredictiveNavPhase.Commit)
-            secondaryStack = secondaryStack.dropLast(1)
+        driver.beginPush()
+        secondaryStack = secondaryStack + it
+        coroutineScope.launch {
+            animatePredictiveSettle(driver, driver.animation, PredictiveNavPhase.Push)
             driver.reset()
-        } catch (e: CancellationException) {
-            withContext(NonCancellable) {
-                driver.beginCancel()
-                animatePredictiveSettle(driver, driver.animation, PredictiveNavPhase.Cancel)
-                driver.reset()
-            }
-            throw e
         }
     }
 
@@ -206,11 +189,34 @@ fun QuietaRoot() {
         }
     }
 
+    PredictiveBackHandler(enabled = secondary != null) { progress ->
+        driver.animation = pbAnimation
+        driver.exitDirection = pbExit
+        try {
+            progress.collect { event: BackEventCompat ->
+                driver.onGestureEvent(event)
+            }
+            driver.beginCommit()
+            animatePredictiveSettle(driver, driver.animation, PredictiveNavPhase.Commit)
+            secondaryStack = secondaryStack.dropLast(1)
+            driver.reset()
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) {
+                driver.beginCancel()
+                animatePredictiveSettle(driver, driver.animation, PredictiveNavPhase.Cancel)
+                driver.reset()
+            }
+            throw e
+        }
+    }
+
     // Subscribe only to discrete phase changes in composition; continuous progress is
     // read inside graphicsLayer so gesture frames invalidate draw, not full recomposition.
     val phase = driver.phase
     val secondaryOpen = secondary != null
     val showUnderlay = !secondaryOpen || phase != PredictiveNavPhase.Idle
+    // Previous destination: nested secondary under top, else main pager.
+    val underlayRoute = secondaryStack.getOrNull(secondaryStack.lastIndex - 1)
     val widthPx = layoutSize.width.toFloat()
     val heightPx = layoutSize.height.toFloat()
     val roundAll = predictiveRoundAllCorners(pbAnimation)
@@ -266,21 +272,34 @@ fun QuietaRoot() {
                         }
                     },
             ) {
-                MainPagerLayer(
-                    pageStateHolder = pageStateHolder,
-                    selectedRoute = selectedRoute,
-                    onSelectedRouteChange = { selectedRoute = it },
-                    homeViewModel = homeViewModel,
-                    recordViewModel = recordViewModel,
-                    settingsViewModel = settingsViewModel,
-                    homeState = homeState,
-                    recordSelection = recordSelection,
-                    blurEnabled = blurEnabled,
-                    quietMode = quietMode,
-                    onQuietModeChange = { quietMode = it },
-                    secondaryStack = secondaryStack,
-                    onSecondaryStackChange = { secondaryStack = it },
-                )
+                if (underlayRoute == null) {
+                    MainPagerLayer(
+                        pageStateHolder = pageStateHolder,
+                        selectedRoute = selectedRoute,
+                        onSelectedRouteChange = { selectedRoute = it },
+                        homeViewModel = homeViewModel,
+                        recordViewModel = recordViewModel,
+                        settingsViewModel = settingsViewModel,
+                        homeState = homeState,
+                        recordSelection = recordSelection,
+                        blurEnabled = blurEnabled,
+                        quietMode = quietMode,
+                        onQuietModeChange = { quietMode = it },
+                        onOpenSecondary = openSecondary,
+                    )
+                } else {
+                    // Nested secondary is the covered layer during push/pop/predictive back.
+                    SecondaryPageLayer(
+                        route = underlayRoute,
+                        onBack = { },
+                        onOpenSecondary = { },
+                        homeViewModel = homeViewModel,
+                        settingsViewModel = settingsViewModel,
+                        homeState = homeState,
+                        blurEnabled = blurEnabled,
+                        quietMode = quietMode,
+                    )
+                }
             }
         }
 
@@ -353,12 +372,10 @@ fun QuietaRoot() {
             ) {
                 SecondaryPageLayer(
                     route = secondary,
-                    secondaryStack = secondaryStack,
                     onBack = popSecondary,
-                    onSecondaryStackChange = { secondaryStack = it },
+                    onOpenSecondary = openSecondary,
                     homeViewModel = homeViewModel,
                     settingsViewModel = settingsViewModel,
-                    recordViewModel = recordViewModel,
                     homeState = homeState,
                     blurEnabled = blurEnabled,
                     quietMode = quietMode,
@@ -381,8 +398,7 @@ private fun MainPagerLayer(
     blurEnabled: Boolean,
     quietMode: String,
     onQuietModeChange: (String) -> Unit,
-    secondaryStack: List<String>,
-    onSecondaryStackChange: (List<String>) -> Unit,
+    onOpenSecondary: (String) -> Unit,
 ) {
     pageStateHolder.SaveableStateProvider("main_pages") {
         val tabs = listOf(
@@ -437,12 +453,12 @@ private fun MainPagerLayer(
                         QuietaRoutes.HOME -> HomeScreen(
                             modifier = Modifier.fillMaxSize(),
                             viewModel = homeViewModel,
-                            onOpenPrivilege = { onSecondaryStackChange(secondaryStack + "privilege") },
+                            onOpenPrivilege = { onOpenSecondary("privilege") },
                             onOpenConfig = { onSelectedRouteChange(QuietaRoutes.CONFIG) },
-                            onOpenMutePreview = { onSecondaryStackChange(secondaryStack + "mute_preview") },
+                            onOpenMutePreview = { onOpenSecondary("mute_preview") },
                             onOpenQuietChannels = { m ->
                                 onQuietModeChange(m.name)
-                                onSecondaryStackChange(secondaryStack + "silent_channels")
+                                onOpenSecondary("silent_channels")
                             },
                             blurEnabled = blurEnabled,
                         )
@@ -452,7 +468,7 @@ private fun MainPagerLayer(
                                 modifier = Modifier.fillMaxSize(),
                                 blurEnabled = blurEnabled,
                                 viewModel = configViewModel,
-                                onOpenEditor = { onSecondaryStackChange(secondaryStack + "rule_editor") },
+                                onOpenEditor = { onOpenSecondary("rule_editor") },
                             )
                         }
                         QuietaRoutes.RECORD -> RecordScreen(
@@ -464,9 +480,9 @@ private fun MainPagerLayer(
                             blurEnabled = blurEnabled,
                             onBlurEnabledChange = { settingsViewModel.setBlurEnabled(it) },
                             bottomBarMode = mode,
-                            onOpenLicenses = { onSecondaryStackChange(secondaryStack + "licenses") },
-                            onOpenTheme = { onSecondaryStackChange(secondaryStack + "theme") },
-                            onOpenAbout = { onSecondaryStackChange(secondaryStack + "about") },
+                            onOpenLicenses = { onOpenSecondary("licenses") },
+                            onOpenTheme = { onOpenSecondary("theme") },
+                            onOpenAbout = { onOpenSecondary("about") },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -577,12 +593,10 @@ private fun MainPagerLayer(
 @Composable
 private fun SecondaryPageLayer(
     route: String,
-    secondaryStack: List<String>,
     onBack: () -> Unit,
-    onSecondaryStackChange: (List<String>) -> Unit,
+    onOpenSecondary: (String) -> Unit,
     homeViewModel: HomeViewModel,
     settingsViewModel: SettingsViewModel,
-    recordViewModel: RecordViewModel,
     homeState: app.quieta.feature.home.HomeUiState,
     blurEnabled: Boolean,
     quietMode: String,
@@ -594,7 +608,7 @@ private fun SecondaryPageLayer(
         )
         "about" -> AboutScreen(
             onBack = onBack,
-            onOpenLicenses = { onSecondaryStackChange(secondaryStack + "licenses") },
+            onOpenLicenses = { onOpenSecondary("licenses") },
             blurEnabled = blurEnabled,
         )
         "privilege" -> PrivilegeScreen(
