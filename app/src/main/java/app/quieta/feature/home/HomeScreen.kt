@@ -320,13 +320,8 @@ fun HomeScreen(
                         display = display,
                         selectionMode = selectionMode,
                         selectedKeys = state.selectedChannelKeys,
-                        onToggleExpand = {
-                            if (selectionMode) {
-                                viewModel.toggleAppSelection(item.app.packageName)
-                            } else {
-                                viewModel.toggleExpanded(item.app.packageName)
-                            }
-                        },
+                        onToggleExpand = { viewModel.toggleExpanded(item.app.packageName) },
+                        onToggleAppSelection = { viewModel.toggleAppSelection(item.app.packageName) },
                         onLongPressApp = { viewModel.enterSelection(item.app.packageName) },
                         onToggleChannelSelection = viewModel::toggleChannelSelection,
                         onChannelAction = viewModel::applyChannelAction,
@@ -906,6 +901,7 @@ private fun AppChannelCard(
     selectionMode: Boolean = false,
     selectedKeys: Set<String> = emptySet(),
     onToggleExpand: () -> Unit,
+    onToggleAppSelection: () -> Unit = {},
     onLongPressApp: () -> Unit = {},
     onToggleChannelSelection: (packageName: String, channelId: String) -> Unit = { _, _ -> },
     onChannelAction: (Channel, RuleAction) -> Unit,
@@ -917,6 +913,9 @@ private fun AppChannelCard(
     val appSelectedCount = item.app.channels.count { ch ->
         (item.app.packageName + "|" + ch.id) in selectedKeys
     }
+    // Multi-select: header body selects the app; chevron always expands/collapses.
+    val headerClick: () -> Unit =
+        if (selectionMode) onToggleAppSelection else onToggleExpand
     val header: @Composable () -> Unit = {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -958,11 +957,13 @@ private fun AppChannelCard(
                     Icon(Icons.Outlined.MoreVert, contentDescription = "应用操作")
                 }
             }
-            Icon(
-                imageVector = if (item.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                contentDescription = if (item.expanded) "收起" else "展开",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            IconButton(onClick = onToggleExpand) {
+                Icon(
+                    imageVector = if (item.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = if (item.expanded) "收起" else "展开",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
     if (item.expanded) {
@@ -972,7 +973,7 @@ private fun AppChannelCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(onClick = onToggleExpand),
+                        .clickable(onClick = headerClick),
                 ) {
                     header()
                 }
@@ -1006,7 +1007,7 @@ private fun AppChannelCard(
     } else {
         // Collapsed: keep InstallerX press feedback on the compact app header only.
         PressableCard(
-            onClick = onToggleExpand,
+            onClick = headerClick,
             onLongClick = onLongPressApp,
             cornerRadius = 20.dp,
         ) {

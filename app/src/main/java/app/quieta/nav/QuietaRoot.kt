@@ -257,21 +257,25 @@ fun QuietaRoot() {
                 }
             }
 
-            FloatingBottomBar(
-                tabs = tabs,
-                selectedRoute = tabRoutes[mainPagerState.selectedPage.coerceIn(0, tabRoutes.lastIndex)],
-                onTabSelected = { route ->
-                    selectedRoute = route
-                    mainPagerState.animateToPage(tabRoutes.indexOf(route).coerceAtLeast(0))
-                },
-                mode = mode,
-                backdrop = pageBackdrop,
-                colors = FloatingBottomBarDefaults.colors(),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 14.dp)
-                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
-            )
+            // Multi-select action bar owns the bottom edge — hide the tab bar so it is not covered.
+            val homeState by homeViewModel.state.collectAsStateWithLifecycle()
+            if (!homeState.selectionMode) {
+                FloatingBottomBar(
+                    tabs = tabs,
+                    selectedRoute = tabRoutes[mainPagerState.selectedPage.coerceIn(0, tabRoutes.lastIndex)],
+                    onTabSelected = { route ->
+                        selectedRoute = route
+                        mainPagerState.animateToPage(tabRoutes.indexOf(route).coerceAtLeast(0))
+                    },
+                    mode = mode,
+                    backdrop = pageBackdrop,
+                    colors = FloatingBottomBarDefaults.colors(),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 14.dp)
+                        .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
+                )
+            }
         }
     }
 }

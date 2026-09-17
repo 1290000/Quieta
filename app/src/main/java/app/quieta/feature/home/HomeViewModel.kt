@@ -468,6 +468,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     ?.toSet()
                     .orEmpty()
             } else {
+                // Do not auto-expand; user opens chevron to pick individual channels.
                 emptySet()
             }
             state.copy(selectionMode = true, selectedChannelKeys = seed, mutePreview = null)
