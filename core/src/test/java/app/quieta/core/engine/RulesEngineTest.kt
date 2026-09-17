@@ -110,6 +110,32 @@ class RulesEngineTest {
     }
 
     @Test
+    fun `multi package names comma separated`() {
+        val engine = RulesEngine(
+            listOf(
+                Rule(id = "1", packageName = "com.a, com.b，com.c", nameContains = "promo", action = RuleAction.MUTE),
+            ),
+        )
+        assertEquals(RuleAction.MUTE, engine.actionFor(channel(pkg = "com.a", id = "promo")))
+        assertEquals(RuleAction.MUTE, engine.actionFor(channel(pkg = "com.B", id = "promo")))
+        assertEquals(RuleAction.MUTE, engine.actionFor(channel(pkg = "com.c", id = "promo")))
+        assertEquals(RuleAction.KEEP, engine.actionFor(channel(pkg = "com.d", id = "promo")))
+    }
+
+    @Test
+    fun `multi channel ids newline separated`() {
+        val engine = RulesEngine(
+            listOf(
+                Rule(id = "1", channelIdExact = "id1\nid2,id3", action = RuleAction.MUTE),
+            ),
+        )
+        assertEquals(RuleAction.MUTE, engine.actionFor(channel(id = "id1")))
+        assertEquals(RuleAction.MUTE, engine.actionFor(channel(id = "id2")))
+        assertEquals(RuleAction.MUTE, engine.actionFor(channel(id = "id3")))
+        assertEquals(RuleAction.KEEP, engine.actionFor(channel(id = "id4")))
+    }
+
+    @Test
     fun `plan maps each channel`() {
         val engine = RulesEngine(
             listOf(Rule(id = "1", nameContains = "推广", action = RuleAction.MUTE)),

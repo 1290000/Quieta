@@ -378,9 +378,9 @@ private fun RuleEditorScreen(
             }
         },
     ) {
-        item { FieldCard(value = packageInput, onValueChange = onPackageInput, placeholder = "包名（精确）") }
+        item { FieldCard(value = packageInput, onValueChange = onPackageInput, placeholder = "包名（精确，可多个，逗号分隔）") }
         item { FieldCard(value = packagePrefixInput, onValueChange = onPackagePrefixInput, placeholder = "包名前缀") }
-        item { FieldCard(value = channelIdExactInput, onValueChange = onChannelIdExactInput, placeholder = "渠道 ID（精确）") }
+        item { FieldCard(value = channelIdExactInput, onValueChange = onChannelIdExactInput, placeholder = "渠道 ID（精确，可多个，逗号分隔）") }
         item { FieldCard(value = channelIdPrefixInput, onValueChange = onChannelIdPrefixInput, placeholder = "渠道 ID 前缀") }
         item { FieldCard(value = nameInput, onValueChange = onNameInput, placeholder = "关键词包含…") }
 
@@ -634,9 +634,15 @@ private fun RuleRow(
 
 private fun ruleSummary(rule: Rule): String {
     val parts = buildList {
-        rule.channelIdExact?.let { add("id=$it") }
+        rule.channelIdExact?.let {
+            val list = app.quieta.core.engine.normalizeIdList(it)
+            if (list.isNotEmpty()) add("id=" + list.joinToString("/"))
+        }
         rule.channelIdPrefix?.let { add("id前缀=$it") }
-        rule.packageName?.let { add("包名=$it") }
+        rule.packageName?.let {
+            val list = app.quieta.core.engine.normalizeIdList(it)
+            if (list.isNotEmpty()) add("包名=" + list.joinToString("/"))
+        }
         rule.packagePrefix?.let { add("包前缀=$it") }
         rule.nameContains?.let {
             val scope = when {

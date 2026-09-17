@@ -41,9 +41,9 @@ class RulesEngine(private val rules: List<Rule>) {
         channels.associateWith { decisionFor(it) }
 
     private fun describe(rule: Rule): String = buildString {
-        rule.channelIdExact?.let { append("id=$it ") }
+        rule.channelIdExact?.let { append("id=${normalizeIdList(it).joinToString("/")} ") }
         rule.channelIdPrefix?.let { append("id前缀=$it ") }
-        rule.packageName?.let { append("包名=$it ") }
+        rule.packageName?.let { append("包名=${normalizeIdList(it).joinToString("/")} ") }
         rule.packagePrefix?.let { append("包前缀=$it ") }
         rule.nameContains?.let {
             val scope = when {
@@ -57,18 +57,33 @@ class RulesEngine(private val rules: List<Rule>) {
     }.trim().ifEmpty { rule.id }
 }
 
+/** Split multi-value exact fields: `,` `，` newline. */
+fun normalizeIdList(raw: String?): List<String> =
+    raw?.split(',', '，', '\n', '\r')
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        .orEmpty()
+
 fun Rule.matches(channel: Channel): Boolean {
     if (!enabled) return false
     if (!hasAnyFilter) return false
 
-    val pkgExact = packageName
-    if (pkgExact != null && !pkgExact.equals(channel.packageName, ignoreCase = true)) return false
+    val pkgExactList = normalizeIdList(packageName)
+    if (pkgExactList.isNotEmpty() &&
+        pkgExactList.none { it.equals(channel.packageName, ignoreCase = true) }
+    ) {
+        return false
+    }
 
     val pkgPrefix = packagePrefix?.trim().orEmpty()
     if (pkgPrefix.isNotEmpty() && !channel.packageName.startsWith(pkgPrefix, ignoreCase = true)) return false
 
-    val idExact = channelIdExact?.trim().orEmpty()
-    if (idExact.isNotEmpty() && !idExact.equals(channel.id, ignoreCase = true)) return false
+    val idExactList = normalizeIdList(channelIdExact)
+    if (idExactList.isNotEmpty() &&
+        idExactList.none { it.equals(channel.id, ignoreCase = true) }
+    ) {
+        return false
+    }
 
     val idPrefix = channelIdPrefix?.trim().orEmpty()
     if (idPrefix.isNotEmpty() && !channel.id.startsWith(idPrefix, ignoreCase = true)) return false
