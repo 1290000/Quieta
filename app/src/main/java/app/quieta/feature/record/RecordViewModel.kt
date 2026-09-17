@@ -1,6 +1,7 @@
 package app.quieta.feature.record
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.quieta.core.engine.ChannelActionUseCase
@@ -29,6 +30,48 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+enum class RecordSource { ALL, TIMELINE, MUTE_LOG }
+enum class RecordTimeRange { ALL, TODAY, LAST_7_DAYS }
+enum class RecordSort { TIME_DESC, COUNT_DESC, APP_NAME }
+
+/** LibChecker-style density knobs for the record list. */
+data class RecordDisplayPrefs(
+    val showAppIcon: Boolean = true,
+    val showAppName: Boolean = true,
+    val showPackageName: Boolean = true,
+    val showChannelName: Boolean = true,
+    val showChannelId: Boolean = false,
+    val showImportance: Boolean = true,
+    val showSoundDot: Boolean = true,
+    val showVibration: Boolean = false,
+    val showTimeRange: Boolean = true,
+    val showCount: Boolean = true,
+    val showPrivacyNote: Boolean = true,
+)
+
+data class RecordFilters(
+    val source: RecordSource = RecordSource.ALL,
+    val timeRange: RecordTimeRange = RecordTimeRange.ALL,
+    val sort: RecordSort = RecordSort.TIME_DESC,
+    val query: String = "",
+    /** Empty = all apps. */
+    val packageFilter: String? = null,
+    /** -1 = all. */
+    val minImportance: Int = -1,
+    val soundOnOnly: Boolean = false,
+    val soundOffOnly: Boolean = false,
+) {
+    val isActive: Boolean
+        get() = source != RecordSource.ALL ||
+            timeRange != RecordTimeRange.ALL ||
+            sort != RecordSort.TIME_DESC ||
+            query.isNotBlank() ||
+            packageFilter != null ||
+            minImportance >= 0 ||
+            soundOnOnly ||
+            soundOffOnly
+}
+
 data class TimelineDayGroup(
     val dayLabel: String,
     val apps: List<TimelineAppGroup>,
@@ -39,7 +82,7 @@ data class TimelineAppGroup(
     val packageName: String,
     val appLabel: String,
     val channels: List<TimelineItem>,
-    val expanded: Boolean = true,
+    val expanded: Boolean = false,
 )
 
 data class TimelineItem(
@@ -49,9 +92,12 @@ data class TimelineItem(
     val channelId: String,
     val channelName: String,
     val timeRange: String,
+    val timestamp: Long,
     val count: Int,
     val importanceLabel: String,
     val importance: Int,
+    val soundEnabled: Boolean? = null,
+    val vibrationEnabled: Boolean? = null,
 )
 
 data class TimelineSummary(
@@ -66,49 +112,48 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     private val store = MuteLogStore.getInstance(application)
     private val timelineStore = NotificationTimelineStore.getInstance(application)
     private val inventoryStore = ChannelInventoryStore.getInstance(application)
-    private val collapsedApps = MutableStateFlow<Set<String>>(emptySet())
+    private val prefs = context.getSharedPreferences("record_display", Context.MODE_PRIVATE)
 
-    val items: StateFlow<List<RecordItem>> = store.entries
-        .map { list ->
-            list.map {
-                RecordItem(
-                    id = it.id,
-                    title = it.label,
-                    subtitle = it.detail,
-                    time = it.time,
-                    tag = it.tag,
-                )
-            }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val collapsedApps = MutableStateFlow<Set<String>>(emptySet())
+    private val filtersFlow = MutableStateFlow(RecordFilters())
+    private val displayFlow = MutableStateFlow(loadDisplayPrefs())
+
+    val filters: StateFlow<RecordFilters> = filtersFlow
+    val displayPrefs: StateFlow<RecordDisplayPrefs> = displayFlow
+
+    val items: StateFlow<List<RecordItem>> = combine(store.entries, filtersFlow) { list, filters ->
+        if (filters.source == RecordSource.TIMELINE) return@combine emptyList()
+        val q = filters.query.trim()
+        list.filter { log ->
+            if (q.isEmpty()) true
+            else log.label.contains(q, true) || log.detail.contains(q, true) || log.tag.contains(q, true)
+        }.map { RecordItem(it.id, it.label, it.detail, it.time, it.tag) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val dayGroupsFlow = combine(
         timelineStore.entries,
         inventoryStore.snapshot,
         collapsedApps,
-    ) { entries, inventory, collapsed ->
-        // Backfill label/importance from inventory for entries captured before the fix.
-        val byKey = inventory
-            .flatMap { app ->
-                app.channels.map { ch -> (app.packageName to ch.id) to ch }
-            }
-            .toMap()
-        val enriched = entries.map { e ->
-            val ch = byKey[e.packageName to e.channelId] ?: return@map e
-            e.copy(
-                appLabel = e.appLabel.ifBlank { appLabelOf(e.packageName, inventory) },
-                channelName = e.channelName.ifBlank { ch.name },
-                importance = if (e.importance < 0) ch.importance.toInt() else e.importance,
-            )
-        }
-        buildDayGroups(enriched, collapsed)
+        filtersFlow,
+    ) { args: Array<*> ->
+        @Suppress("UNCHECKED_CAST")
+        val entries = args[0] as List<NotificationTimelineEntry>
+        @Suppress("UNCHECKED_CAST")
+        val inventory = args[1] as List<AppChannels>
+        @Suppress("UNCHECKED_CAST")
+        val collapsed = args[2] as Set<String>
+        @Suppress("UNCHECKED_CAST")
+        val filters = args[3] as RecordFilters
+        buildDayGroups(enrich(entries, inventory), collapsed, filters)
     }
 
     val dayGroups: StateFlow<List<TimelineDayGroup>> = dayGroupsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val summary: StateFlow<TimelineSummary> = timelineStore.entries
-        .map { buildSummary(it) }
+    val summary: StateFlow<TimelineSummary> = combine(
+        timelineStore.entries,
+        inventoryStore.snapshot,
+    ) { entries, inventory -> buildSummary(enrich(entries, inventory)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimelineSummary())
 
     var actionMessage: String? = null
@@ -120,11 +165,80 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun expandAll() {
+        viewModelScope.launch {
+            val pkgs = dayGroups.value.flatMap { g -> g.apps.map { it.packageName } }.toSet()
+            collapsedApps.update { pkgs } // all in collapsed → invert below
+            // collapsedApps means collapsed; empty = all expanded. Clear = expand all.
+            collapsedApps.update { emptySet() }
+        }
+    }
+
+    fun collapseAll() {
+        viewModelScope.launch {
+            val pkgs = dayGroups.value.flatMap { g -> g.apps.map { it.packageName } }.toSet()
+            collapsedApps.update { pkgs }
+        }
+    }
+
     fun clearAll() {
         viewModelScope.launch {
             store.clear()
             timelineStore.clear()
         }
+    }
+
+    fun clearTimelineOnly() {
+        viewModelScope.launch { timelineStore.clear() }
+    }
+
+    fun clearMuteLogOnly() {
+        viewModelScope.launch { store.clear() }
+    }
+
+    fun setSource(source: RecordSource) = filtersFlow.update { it.copy(source = source) }
+
+    fun setTimeRange(range: RecordTimeRange) = filtersFlow.update { it.copy(timeRange = range) }
+
+    fun setSort(sort: RecordSort) = filtersFlow.update { it.copy(sort = sort) }
+
+    fun setQuery(query: String) = filtersFlow.update { it.copy(query = query) }
+
+    fun setPackageFilter(packageName: String?) = filtersFlow.update { it.copy(packageFilter = packageName) }
+
+    fun setMinImportance(value: Int) = filtersFlow.update { it.copy(minImportance = value) }
+
+    fun setSoundFilter(onOnly: Boolean, offOnly: Boolean) = filtersFlow.update {
+        it.copy(soundOnOnly = onOnly, soundOffOnly = offOnly)
+    }
+
+    fun resetFilters() = filtersFlow.update { RecordFilters() }
+
+    fun toggleDisplay(pref: String) {
+        displayFlow.update { prefs ->
+            val next = when (pref) {
+                "appIcon" -> prefs.copy(showAppIcon = !prefs.showAppIcon)
+                "appName" -> prefs.copy(showAppName = !prefs.showAppName)
+                "packageName" -> prefs.copy(showPackageName = !prefs.showPackageName)
+                "channelName" -> prefs.copy(showChannelName = !prefs.showChannelName)
+                "channelId" -> prefs.copy(showChannelId = !prefs.showChannelId)
+                "importance" -> prefs.copy(showImportance = !prefs.showImportance)
+                "soundDot" -> prefs.copy(showSoundDot = !prefs.showSoundDot)
+                "vibration" -> prefs.copy(showVibration = !prefs.showVibration)
+                "timeRange" -> prefs.copy(showTimeRange = !prefs.showTimeRange)
+                "count" -> prefs.copy(showCount = !prefs.showCount)
+                "privacyNote" -> prefs.copy(showPrivacyNote = !prefs.showPrivacyNote)
+                else -> prefs
+            }
+            saveDisplayPrefs(next)
+            next
+        }
+    }
+
+    fun resetDisplayPrefs() {
+        val defaults = RecordDisplayPrefs()
+        saveDisplayPrefs(defaults)
+        displayFlow.value = defaults
     }
 
     fun applyChannelAction(item: TimelineItem, action: RuleAction) {
@@ -172,6 +286,56 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun loadDisplayPrefs(): RecordDisplayPrefs {
+        fun b(key: String, default: Boolean) = prefs.getBoolean(key, default)
+        return RecordDisplayPrefs(
+            showAppIcon = b("appIcon", true),
+            showAppName = b("appName", true),
+            showPackageName = b("packageName", true),
+            showChannelName = b("channelName", true),
+            showChannelId = b("channelId", false),
+            showImportance = b("importance", true),
+            showSoundDot = b("soundDot", true),
+            showVibration = b("vibration", false),
+            showTimeRange = b("timeRange", true),
+            showCount = b("count", true),
+            showPrivacyNote = b("privacyNote", true),
+        )
+    }
+
+    private fun saveDisplayPrefs(p: RecordDisplayPrefs) {
+        prefs.edit()
+            .putBoolean("appIcon", p.showAppIcon)
+            .putBoolean("appName", p.showAppName)
+            .putBoolean("packageName", p.showPackageName)
+            .putBoolean("channelName", p.showChannelName)
+            .putBoolean("channelId", p.showChannelId)
+            .putBoolean("importance", p.showImportance)
+            .putBoolean("soundDot", p.showSoundDot)
+            .putBoolean("vibration", p.showVibration)
+            .putBoolean("timeRange", p.showTimeRange)
+            .putBoolean("count", p.showCount)
+            .putBoolean("privacyNote", p.showPrivacyNote)
+            .apply()
+    }
+
+    private fun enrich(
+        entries: List<NotificationTimelineEntry>,
+        inventory: List<AppChannels>,
+    ): List<NotificationTimelineEntry> {
+        val byKey = inventory.flatMap { app -> app.channels.map { ch -> (app.packageName to ch.id) to ch } }.toMap()
+        return entries.map { e ->
+            val ch = byKey[e.packageName to e.channelId] ?: return@map e
+            e.copy(
+                appLabel = e.appLabel.ifBlank { appLabelOf(e.packageName, inventory) },
+                channelName = e.channelName.ifBlank { ch.name },
+                importance = if (e.importance < 0) ch.importance.toInt() else e.importance,
+                soundEnabled = e.soundEnabled ?: ch.soundEnabled,
+                vibrationEnabled = e.vibrationEnabled ?: ch.vibrationEnabled,
+            )
+        }
+    }
+
     private fun appLabelOf(packageName: String, inventory: List<AppChannels>): String =
         inventory.firstOrNull { it.packageName == packageName }?.appLabel ?: packageName
 
@@ -186,10 +350,45 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     private fun buildDayGroups(
         entries: List<NotificationTimelineEntry>,
         collapsed: Set<String>,
+        filters: RecordFilters,
     ): List<TimelineDayGroup> {
+        val filtered = entries.filter { e ->
+            if (filters.source == RecordSource.MUTE_LOG) return@filter false
+            if (filters.timeRange != RecordTimeRange.ALL) {
+                val start = when (filters.timeRange) {
+                    RecordTimeRange.TODAY -> startOfToday()
+                    RecordTimeRange.LAST_7_DAYS -> System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+                    RecordTimeRange.ALL -> 0L
+                }
+                if (e.lastAt < start) return@filter false
+            }
+            val pkg = filters.packageFilter
+            if (pkg != null && e.packageName != pkg) return@filter false
+            if (filters.minImportance >= 0 && e.importance != filters.minImportance) return@filter false
+            if (filters.soundOnOnly || filters.soundOffOnly) {
+                val sound = e.soundEnabled
+                if (filters.soundOnOnly && sound == false) return@filter false
+                if (filters.soundOffOnly && sound == true) return@filter false
+            }
+            val q = filters.query.trim()
+            if (q.isNotEmpty()) {
+                val hit = e.appLabel.contains(q, true) ||
+                    e.packageName.contains(q, true) ||
+                    e.channelName.contains(q, true) ||
+                    e.channelId.contains(q, true)
+                if (!hit) return@filter false
+            }
+            true
+        }
+
         val dayFmt = SimpleDateFormat("M月d日", Locale.getDefault())
         val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val byDay = entries.groupBy { dayLabel(it.lastAt, dayFmt) }
+        val sorted = when (filters.sort) {
+            RecordSort.TIME_DESC -> filtered.sortedByDescending { it.lastAt }
+            RecordSort.COUNT_DESC -> filtered.sortedByDescending { it.count }
+            RecordSort.APP_NAME -> filtered.sortedWith(compareBy({ it.appLabel.lowercase() }, { -it.lastAt }))
+        }
+        val byDay = sorted.groupBy { dayLabel(it.lastAt, dayFmt) }
         return byDay.map { (day, dayEntries) ->
             val apps = dayEntries
                 .groupBy { it.packageName }
@@ -198,28 +397,37 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
                         packageName = pkg,
                         appLabel = list.first().appLabel.ifBlank { pkg },
                         expanded = pkg !in collapsed,
-                        channels = list.map { e ->
-                            TimelineItem(
-                                id = e.id,
-                                packageName = e.packageName,
-                                appLabel = e.appLabel.ifBlank { e.packageName },
-                                channelId = e.channelId,
-                                channelName = e.channelName.ifBlank { e.channelId },
-                                timeRange = formatRange(e, timeFmt),
-                                count = e.count,
-                                importanceLabel = importanceLabel(e.importance),
-                                importance = e.importance,
-                            )
-                        },
+                        channels = list.map { e -> toItem(e, timeFmt) },
                     )
                 }
-                .sortedByDescending { group -> group.channels.sumOf { it.count } }
-            TimelineDayGroup(
-                dayLabel = day,
-                apps = apps,
-                total = apps.sumOf { app -> app.channels.sumOf { it.count } },
-            )
+                .let { groups ->
+                    when (filters.sort) {
+                        RecordSort.COUNT_DESC ->
+                            groups.sortedByDescending { g -> g.channels.sumOf { it.count } }
+                        RecordSort.APP_NAME ->
+                            groups.sortedBy { it.appLabel.lowercase() }
+                        RecordSort.TIME_DESC -> groups
+                    }
+                }
+            TimelineDayGroup(day, apps, apps.sumOf { g -> g.channels.sumOf { it.count } })
         }
+    }
+
+    private fun toItem(e: NotificationTimelineEntry, timeFmt: SimpleDateFormat): TimelineItem {
+        return TimelineItem(
+            id = e.id,
+            packageName = e.packageName,
+            appLabel = e.appLabel.ifBlank { e.packageName },
+            channelId = e.channelId,
+            channelName = e.channelName.ifBlank { e.channelId },
+            timeRange = formatRange(e, timeFmt),
+            timestamp = e.lastAt,
+            count = e.count,
+            importanceLabel = importanceLabel(e.importance),
+            importance = e.importance,
+            soundEnabled = e.soundEnabled,
+            vibrationEnabled = e.vibrationEnabled,
+        )
     }
 
     private fun formatRange(e: NotificationTimelineEntry, fmt: SimpleDateFormat): String {
@@ -245,16 +453,16 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         return if (sameDay) "今天" else fmt.format(Date(timestamp))
     }
 
+    private fun startOfToday(): Long = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
     private fun buildSummary(entries: List<NotificationTimelineEntry>): TimelineSummary {
         if (entries.isEmpty()) return TimelineSummary()
-        val todayStart = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-        val today = entries.filter { it.lastAt >= todayStart }
-        val todayCount = today.sumOf { it.count }
+        val today = entries.filter { it.lastAt >= startOfToday() }
         val topApps = today
             .groupBy { it.packageName to it.appLabel.ifBlank { it.packageName } }
             .map { (key, list) -> key.second to list.sumOf { it.count } }
@@ -269,10 +477,6 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
             }
             .sortedByDescending { it.second }
             .take(3)
-        return TimelineSummary(
-            todayCount = todayCount,
-            topApps = topApps,
-            topChannels = topChannels,
-        )
+        return TimelineSummary(today.sumOf { it.count }, topApps, topChannels)
     }
 }

@@ -56,6 +56,7 @@ class QuietaNotificationListener : NotificationListenerService() {
         val appLabel = resolveAppLabel(pkg)
         scope.launch {
             val (channelName, channelImportance) = resolveChannel(pkg, channelId)
+            val (soundOn, vibeOn) = resolveSoundVibration(pkg, channelId)
             if (timelineEnabled.value) {
                 timeline.append(
                     packageName = pkg,
@@ -63,6 +64,8 @@ class QuietaNotificationListener : NotificationListenerService() {
                     channelId = channelId,
                     channelName = channelName,
                     importance = channelImportance,
+                    soundEnabled = soundOn,
+                    vibrationEnabled = vibeOn,
                 )
             }
             AutoMuteCoordinator.onChannelSeen(
@@ -108,6 +111,18 @@ class QuietaNotificationListener : NotificationListenerService() {
             }
         }.getOrNull()
         return self ?: (channelId to -1)
+    }
+
+    private suspend fun resolveSoundVibration(packageName: String, channelId: String): Pair<Boolean?, Boolean?> {
+        val ch = withContext(Dispatchers.IO) {
+            runCatching {
+                inventory.current()
+                    .firstOrNull { it.packageName == packageName }
+                    ?.channels
+                    ?.firstOrNull { it.id == channelId }
+            }.getOrNull()
+        } ?: return null to null
+        return ch.soundEnabled to ch.vibrationEnabled
     }
 
     private fun ChannelImportance.toInt(): Int = when (this) {

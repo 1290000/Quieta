@@ -20,6 +20,8 @@ class NotificationTimelineStore private constructor(context: Context) {
         channelId: String,
         channelName: String,
         importance: Int,
+        soundEnabled: Boolean? = null,
+        vibrationEnabled: Boolean? = null,
         timestamp: Long = System.currentTimeMillis(),
     ) {
         if (packageName.isBlank() || channelId.isBlank()) return
@@ -32,6 +34,8 @@ class NotificationTimelineStore private constructor(context: Context) {
                 channelName = channelName,
                 timestamp = timestamp,
                 importance = importance,
+                soundEnabled = soundEnabled,
+                vibrationEnabled = vibrationEnabled,
             )
         }
     }
@@ -51,7 +55,9 @@ class NotificationTimelineStore private constructor(context: Context) {
                     .put("firstAt", entry.firstAt)
                     .put("lastAt", entry.lastAt)
                     .put("count", entry.count)
-                    .put("importance", entry.importance),
+                    .put("importance", entry.importance)
+                    .putOpt("soundEnabled", entry.soundEnabled)
+                    .putOpt("vibrationEnabled", entry.vibrationEnabled),
             )
         }
         file.writeText(array.toString())
@@ -88,6 +94,8 @@ class NotificationTimelineStore private constructor(context: Context) {
                             lastAt = lastAt,
                             count = o.optInt("count", 1).coerceAtLeast(1),
                             importance = o.optInt("importance", -1),
+                            soundEnabled = if (o.has("soundEnabled")) o.optBoolean("soundEnabled") else null,
+                            vibrationEnabled = if (o.has("vibrationEnabled")) o.optBoolean("vibrationEnabled") else null,
                         ),
                     )
                 }

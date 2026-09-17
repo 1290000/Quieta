@@ -7,10 +7,10 @@ import org.junit.Test
 class NotificationTimelineReducerTest {
     @Test fun mergesSameChannelWithinOneMinute() {
         val first = NotificationTimelineReducer.append(
-            emptyList(), "a", "App", "news", "News", 1_000_000L, 3,
+            emptyList(), "a", "App", "news", "News", 1_000_000L, 3, soundEnabled = true, vibrationEnabled = false,
         )
         val second = NotificationTimelineReducer.append(
-            first, "a", "App", "news", "News", 1_030_000L, 3,
+            first, "a", "App", "news", "News", 1_030_000L, 3, soundEnabled = true, vibrationEnabled = false,
         )
 
         assertEquals(1, second.size)
@@ -23,15 +23,15 @@ class NotificationTimelineReducerTest {
 
     @Test fun separatesChannelsAndEventsOutsideWindow() {
         val first = NotificationTimelineReducer.append(
-            emptyList(), "a", "App", "news", "News", 1_000_000L, 3,
+            emptyList(), "a", "App", "news", "News", 1_000_000L, 3, soundEnabled = true, vibrationEnabled = false,
         )
         val second = NotificationTimelineReducer.append(
-            first, "a", "App", "chat", "Chat", 1_030_000L, 4,
+            first, "a", "App", "chat", "Chat", 1_030_000L, 4, soundEnabled = true, vibrationEnabled = false,
         )
         val third = NotificationTimelineReducer.append(
             second, "a", "App", "news", "News",
             1_000_000L + NotificationTimelineReducer.MERGE_WINDOW_MILLIS + 1,
-            3,
+            3, soundEnabled = true, vibrationEnabled = false,
         )
 
         assertEquals(3, third.size)
@@ -47,7 +47,7 @@ class NotificationTimelineReducerTest {
             lastAt = now - NotificationTimelineReducer.RETENTION_MILLIS - 1,
         )
         val retained = NotificationTimelineReducer.append(
-            listOf(old), "new", "New", "x", "X", now, 1,
+            listOf(old), "new", "New", "x", "X", now, 1, soundEnabled = true, vibrationEnabled = false,
         )
         assertTrue(retained.none { it.packageName == "old" })
 
@@ -60,7 +60,7 @@ class NotificationTimelineReducerTest {
             )
         }
         val capped = NotificationTimelineReducer.append(
-            many, "last", "Last", "c", "C", now, 2,
+            many, "last", "Last", "c", "C", now, 2, soundEnabled = true, vibrationEnabled = false,
         )
         assertEquals(NotificationTimelineReducer.MAX_ENTRIES, capped.size)
         assertEquals("last", capped.first().packageName)

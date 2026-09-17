@@ -19,6 +19,10 @@ data class NotificationTimelineEntry(
     val count: Int = 1,
     /** Android channel importance at capture (0..5). */
     val importance: Int = -1,
+    /** Snapshot of channel sound flag; null = unknown / legacy. */
+    val soundEnabled: Boolean? = null,
+    /** Snapshot of channel vibration flag; null = unknown / legacy. */
+    val vibrationEnabled: Boolean? = null,
 ) {
     val timestamp: Long get() = lastAt
 }
@@ -37,6 +41,8 @@ internal object NotificationTimelineReducer {
         channelName: String,
         timestamp: Long,
         importance: Int,
+        soundEnabled: Boolean?,
+        vibrationEnabled: Boolean?,
     ): List<NotificationTimelineEntry> {
         val cutoff = timestamp - RETENTION_MILLIS
         val retained = previous.filter { it.lastAt >= cutoff }
@@ -55,6 +61,8 @@ internal object NotificationTimelineReducer {
                     firstAt = minOf(old.firstAt, timestamp),
                     count = old.count + 1,
                     importance = if (importance >= 0) importance else old.importance,
+                    soundEnabled = soundEnabled ?: old.soundEnabled,
+                    vibrationEnabled = vibrationEnabled ?: old.vibrationEnabled,
                 )
             }
         } else {
@@ -67,6 +75,8 @@ internal object NotificationTimelineReducer {
                     firstAt = timestamp,
                     lastAt = timestamp,
                     importance = importance,
+                    soundEnabled = soundEnabled,
+                    vibrationEnabled = vibrationEnabled,
                 ),
             ) + retained
         }

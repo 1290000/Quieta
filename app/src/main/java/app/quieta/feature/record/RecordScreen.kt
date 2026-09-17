@@ -1,20 +1,33 @@
 package app.quieta.feature.record
 
+import android.content.pm.PackageManager
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,15 +36,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
 import app.quieta.core.model.RuleAction
 import app.quieta.ui.component.HyperOsPopup
+import app.quieta.ui.component.HyperOsPopupDivider
 import app.quieta.ui.component.HyperOsPopupRow
 import app.quieta.ui.component.QuietaPage
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -55,26 +74,63 @@ fun RecordScreen(
     val items by viewModel.items.collectAsStateWithLifecycle()
     val dayGroups by viewModel.dayGroups.collectAsStateWithLifecycle()
     val summary by viewModel.summary.collectAsStateWithLifecycle()
+    val filters by viewModel.filters.collectAsStateWithLifecycle()
+    val display by viewModel.displayPrefs.collectAsStateWithLifecycle()
+
     var actionTarget by remember { mutableStateOf<TimelineItem?>(null) }
+    var showFilterSheet by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var showDisplaySheet by remember { mutableStateOf(false) }
 
     QuietaPage(
         title = stringResource(R.string.record_title),
         modifier = modifier,
         blurEnabled = blurEnabled,
         actions = {
-            IconButton(onClick = viewModel::clearAll) {
-                Icon(Icons.Outlined.DeleteSweep, contentDescription = "清空")
+            IconButton(onClick = { showFilterSheet = true }) {
+                Icon(
+                    Icons.Outlined.Tune,
+                    contentDescription = "筛选",
+                    tint = if (filters.isActive) {
+                        MiuixTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
             }
-            IconButton(onClick = { /* filter later */ }) {
-                Icon(Icons.Outlined.Tune, contentDescription = "筛选")
+            IconButton(onClick = { showMoreMenu = true }) {
+                Icon(Icons.Outlined.MoreVert, contentDescription = "更多")
             }
         },
     ) {
-        item(key = "privacy-note") {
-            Text(
-                text = "时间线仅记录应用、渠道、时间与数量，不保存通知标题、正文或附件。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        if (display.showPrivacyNote) {
+            item(key = "privacy-note") {
+                Text(
+                    text = "时间线仅记录应用、渠道、时间与数量，不保存通知标题、正文或附件。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        item(key = "search") {
+            OutlinedTextField(
+                value = filters.query,
+                onValueChange = viewModel::setQuery,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 0.dp, vertical = 4.dp),
+                singleLine = true,
+                placeholder = { Text("搜索应用 / 渠道") },
+                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (filters.query.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.setQuery("") }) {
+                            Icon(Icons.Outlined.Close, contentDescription = "清除")
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(14.dp),
             )
         }
 
@@ -93,43 +149,17 @@ fun RecordScreen(
             }
             day.apps.forEach { appGroup ->
                 item(key = "app-${day.dayLabel}-${appGroup.packageName}") {
-                    Card(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { viewModel.toggleApp(appGroup.packageName) },
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    MiuixText(appGroup.appLabel, style = MaterialTheme.typography.titleLarge)
-                                    MiuixText(
-                                        text = appGroup.packageName + " · " +
-                                            appGroup.channels.sumOf { it.count } + " 条",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                            if (appGroup.expanded) {
-                                appGroup.channels.forEach { row ->
-                                    TimelineRow(
-                                        item = row,
-                                        onClick = { actionTarget = row },
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    RecordAppCard(
+                        group = appGroup,
+                        display = display,
+                        onToggle = { viewModel.toggleApp(appGroup.packageName) },
+                        onChannelClick = { actionTarget = it },
+                    )
                 }
             }
         }
 
-        if (items.isNotEmpty()) {
+        if (items.isNotEmpty() && filters.source != RecordSource.TIMELINE) {
             item(key = "mute-title") {
                 SmallTitle(
                     text = "静音操作",
@@ -152,35 +182,326 @@ fun RecordScreen(
         }
     }
 
+    if (showFilterSheet) {
+        RecordFilterSheet(
+            filters = filters,
+            onDismiss = { showFilterSheet = false },
+            onSource = viewModel::setSource,
+            onTimeRange = viewModel::setTimeRange,
+            onSort = viewModel::setSort,
+            onImportance = viewModel::setMinImportance,
+            onSound = viewModel::setSoundFilter,
+            onReset = viewModel::resetFilters,
+        )
+    }
+
+    if (showMoreMenu) {
+        HyperOsPopup(onDismissRequest = { showMoreMenu = false }) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                HyperOsPopupRow(
+                    title = "显示选项",
+                    selected = false,
+                    showCheck = false,
+                    onClick = {
+                        showMoreMenu = false
+                        showDisplaySheet = true
+                    },
+                )
+                HyperOsPopupRow(
+                    title = "清空全部",
+                    selected = false,
+                    showCheck = false,
+                    onClick = {
+                        showMoreMenu = false
+                        viewModel.clearAll()
+                    },
+                )
+                HyperOsPopupRow(
+                    title = "仅清空时间线",
+                    selected = false,
+                    showCheck = false,
+                    onClick = {
+                        showMoreMenu = false
+                        viewModel.clearTimelineOnly()
+                    },
+                )
+                HyperOsPopupRow(
+                    title = "仅清空静音日志",
+                    selected = false,
+                    showCheck = false,
+                    onClick = {
+                        showMoreMenu = false
+                        viewModel.clearMuteLogOnly()
+                    },
+                )
+            }
+        }
+    }
+
+    if (showDisplaySheet) {
+        RecordDisplaySheet(
+            display = display,
+            onDismiss = { showDisplaySheet = false },
+            onToggle = viewModel::toggleDisplay,
+            onReset = viewModel::resetDisplayPrefs,
+        )
+    }
+
     actionTarget?.let { target ->
         HyperOsPopup(onDismissRequest = { actionTarget = null }) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                HyperOsPopupRow(
-                    title = "静音此渠道",
-                    selected = false,
-                    showCheck = false,
-                    onClick = {
-                        viewModel.applyChannelAction(target, RuleAction.MUTE)
-                        actionTarget = null
+                HyperOsPopupRow("静音此渠道", selected = false, showCheck = false, onClick = {
+                    viewModel.applyChannelAction(target, RuleAction.MUTE)
+                    actionTarget = null
+                })
+                HyperOsPopupRow("降级此渠道", selected = false, showCheck = false, onClick = {
+                    viewModel.applyChannelAction(target, RuleAction.DOWNGRADE)
+                    actionTarget = null
+                })
+                HyperOsPopupRow("恢复默认", selected = false, showCheck = false, onClick = {
+                    viewModel.applyChannelAction(target, RuleAction.KEEP)
+                    actionTarget = null
+                })
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordFilterSheet(
+    filters: RecordFilters,
+    onDismiss: () -> Unit,
+    onSource: (RecordSource) -> Unit,
+    onTimeRange: (RecordTimeRange) -> Unit,
+    onSort: (RecordSort) -> Unit,
+    onImportance: (Int) -> Unit,
+    onSound: (Boolean, Boolean) -> Unit,
+    onReset: () -> Unit,
+) {
+    HyperOsPopup(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HyperOsPopupRow("来源：全部", selected = filters.source == RecordSource.ALL, onClick = { onSource(RecordSource.ALL) })
+            HyperOsPopupRow("来源：通知时间线", selected = filters.source == RecordSource.TIMELINE, onClick = { onSource(RecordSource.TIMELINE) })
+            HyperOsPopupRow("来源：静音操作", selected = filters.source == RecordSource.MUTE_LOG, onClick = { onSource(RecordSource.MUTE_LOG) })
+            HyperOsPopupDivider()
+            HyperOsPopupRow("时间：全部", selected = filters.timeRange == RecordTimeRange.ALL, onClick = { onTimeRange(RecordTimeRange.ALL) })
+            HyperOsPopupRow("时间：今天", selected = filters.timeRange == RecordTimeRange.TODAY, onClick = { onTimeRange(RecordTimeRange.TODAY) })
+            HyperOsPopupRow("时间：近 7 天", selected = filters.timeRange == RecordTimeRange.LAST_7_DAYS, onClick = { onTimeRange(RecordTimeRange.LAST_7_DAYS) })
+            HyperOsPopupDivider()
+            HyperOsPopupRow("排序：时间↓", selected = filters.sort == RecordSort.TIME_DESC, onClick = { onSort(RecordSort.TIME_DESC) })
+            HyperOsPopupRow("排序：次数↓", selected = filters.sort == RecordSort.COUNT_DESC, onClick = { onSort(RecordSort.COUNT_DESC) })
+            HyperOsPopupRow("排序：应用名", selected = filters.sort == RecordSort.APP_NAME, onClick = { onSort(RecordSort.APP_NAME) })
+            HyperOsPopupDivider()
+            HyperOsPopupRow("importance：全部", selected = filters.minImportance < 0, onClick = { onImportance(-1) })
+            HyperOsPopupRow("importance：HIGH", selected = filters.minImportance == 4, onClick = { onImportance(4) })
+            HyperOsPopupRow("importance：DEFAULT", selected = filters.minImportance == 3, onClick = { onImportance(3) })
+            HyperOsPopupRow("importance：LOW", selected = filters.minImportance == 2, onClick = { onImportance(2) })
+            HyperOsPopupDivider()
+            HyperOsPopupRow("声音：全部", selected = !filters.soundOnOnly && !filters.soundOffOnly, onClick = { onSound(false, false) })
+            HyperOsPopupRow("声音：开", selected = filters.soundOnOnly, onClick = { onSound(true, false) })
+            HyperOsPopupRow("声音：关", selected = filters.soundOffOnly, onClick = { onSound(false, true) })
+            HyperOsPopupDivider()
+            HyperOsPopupRow("重置筛选", selected = false, showCheck = false, onClick = onReset)
+        }
+    }
+}
+
+@Composable
+private fun RecordDisplaySheet(
+    display: RecordDisplayPrefs,
+    onDismiss: () -> Unit,
+    onToggle: (String) -> Unit,
+    onReset: () -> Unit,
+) {
+    HyperOsPopup(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HyperOsPopupRow("应用图标", selected = display.showAppIcon, onClick = { onToggle("appIcon") })
+            HyperOsPopupRow("应用名", selected = display.showAppName, onClick = { onToggle("appName") })
+            HyperOsPopupRow("包名", selected = display.showPackageName, onClick = { onToggle("packageName") })
+            HyperOsPopupRow("渠道名", selected = display.showChannelName, onClick = { onToggle("channelName") })
+            HyperOsPopupRow("渠道 ID", selected = display.showChannelId, onClick = { onToggle("channelId") })
+            HyperOsPopupRow("importance", selected = display.showImportance, onClick = { onToggle("importance") })
+            HyperOsPopupRow("声音点", selected = display.showSoundDot, onClick = { onToggle("soundDot") })
+            HyperOsPopupRow("振动", selected = display.showVibration, onClick = { onToggle("vibration") })
+            HyperOsPopupRow("时间范围", selected = display.showTimeRange, onClick = { onToggle("timeRange") })
+            HyperOsPopupRow("次数", selected = display.showCount, onClick = { onToggle("count") })
+            HyperOsPopupRow("隐私说明", selected = display.showPrivacyNote, onClick = { onToggle("privacyNote") })
+            HyperOsPopupDivider()
+            HyperOsPopupRow("恢复默认显示", selected = false, showCheck = false, onClick = onReset)
+        }
+    }
+}
+
+@Composable
+private fun RecordAppCard(
+    group: TimelineAppGroup,
+    display: RecordDisplayPrefs,
+    onToggle: () -> Unit,
+    onChannelClick: (TimelineItem) -> Unit,
+) {
+    Card(
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggle),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (display.showAppIcon) {
+                    AppIcon(packageName = group.packageName)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    if (display.showAppName) {
+                        MiuixText(group.appLabel, style = MaterialTheme.typography.titleLarge)
+                    }
+                    val meta = buildString {
+                        if (display.showPackageName) append(group.packageName)
+                        if (isNotEmpty()) append(" · ")
+                        append(group.channels.sumOf { it.count })
+                        append(" 条")
+                    }
+                    MiuixText(
+                        text = meta,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    imageVector = if (group.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = if (group.expanded) "收起" else "展开",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (group.expanded) {
+                group.channels.forEach { row ->
+                    TimelineRow(
+                        item = row,
+                        display = display,
+                        onClick = { onChannelClick(row) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppIcon(packageName: String) {
+    val context = LocalContext.current
+    val bitmap = remember(packageName) {
+        runCatching {
+            val drawable = context.packageManager.getApplicationIcon(packageName)
+            drawable.toBitmap(96, 96).asImageBitmap()
+        }.getOrNull()
+    }
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = null,
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Crop,
+        )
+    } else {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = packageName.take(1).uppercase(),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TimelineRow(
+    item: TimelineItem,
+    display: RecordDisplayPrefs,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (display.showChannelName) {
+                Text(
+                    text = item.channelName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Text(
+                    text = item.channelId,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (display.showCount) {
+                Text(
+                    text = "${item.count} 次",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MiuixTheme.colorScheme.primary,
+                )
+            }
+        }
+        val parts = buildList {
+            if (display.showChannelId && display.showChannelName) add(item.channelId)
+            if (display.showImportance) add(item.importanceLabel)
+            if (display.showVibration) {
+                add(
+                    when (item.vibrationEnabled) {
+                        true -> "有振动"
+                        false -> "无振动"
+                        null -> ""
                     },
                 )
-                HyperOsPopupRow(
-                    title = "降级此渠道",
-                    selected = false,
-                    showCheck = false,
-                    onClick = {
-                        viewModel.applyChannelAction(target, RuleAction.DOWNGRADE)
-                        actionTarget = null
-                    },
+            }
+            if (display.showTimeRange) add(item.timeRange)
+        }.filter { it.isNotBlank() }
+        if (parts.isNotEmpty()) {
+            Text(
+                text = parts.joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (display.showSoundDot && item.soundEnabled != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(
+                            color = if (item.soundEnabled) Color(0xFF8E8E93) else Color(0xFFFF3B30),
+                            shape = CircleShape,
+                        ),
                 )
-                HyperOsPopupRow(
-                    title = "恢复默认",
-                    selected = false,
-                    showCheck = false,
-                    onClick = {
-                        viewModel.applyChannelAction(target, RuleAction.KEEP)
-                        actionTarget = null
-                    },
+                Text(
+                    text = if (item.soundEnabled) "声音开" else "声音关",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -192,8 +513,8 @@ private fun SummaryCard(summary: TimelineSummary) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            .padding(horizontal = 0.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -223,40 +544,10 @@ private fun SummaryCard(summary: TimelineSummary) {
 }
 
 @Composable
-private fun TimelineRow(item: TimelineItem, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = item.channelName,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "${item.count} 次",
-                style = MaterialTheme.typography.labelMedium,
-                color = MiuixTheme.colorScheme.primary,
-            )
-        }
-        Text(
-            text = item.channelId + " · " + item.importanceLabel + " · " + item.timeRange,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
 private fun RecordCard(item: RecordItem) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
