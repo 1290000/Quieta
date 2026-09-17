@@ -1,8 +1,6 @@
 package app.quieta.feature.settings
 
-import android.content.ComponentName
 import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -30,7 +28,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.BuildConfig
 import app.quieta.R
-import app.quieta.service.QuietaNotificationListener
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.QuietaSwitch
 import app.quieta.ui.glass.FloatingBottomBarMode
@@ -45,12 +42,11 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel(),
     aboutViewModel: AboutViewModel = viewModel(),
     onOpenTheme: () -> Unit = {},
+    onOpenAbout: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val repoUrl = stringResource(R.string.repo_url)
     val autoMute by viewModel.autoMuteNewChannels.collectAsStateWithLifecycle()
     val timelineEnabled by viewModel.notificationTimelineEnabled.collectAsStateWithLifecycle()
-    val updateState by aboutViewModel.state.collectAsStateWithLifecycle()
 
     QuietaPage(
         title = stringResource(R.string.settings_title),
@@ -110,41 +106,14 @@ fun SettingsScreen(
                 )
             }
         }
+        // InstallerX: settings only shows a single About entry; actions live on the secondary page.
         item(key = "about") {
             SectionTitle("其它")
             SettingsGroup {
                 NavRow(
-                    title = stringResource(R.string.about_source),
-                    subtitle = stringResource(R.string.about_source_desc),
-                    onClick = { openUrl(context, repoUrl) },
-                )
-                NavRow(
-                    title = stringResource(R.string.about_licenses),
-                    subtitle = stringResource(R.string.about_licenses_desc),
-                    onClick = onOpenLicenses,
-                )
-                NavRow(
-                    title = stringResource(R.string.about_check_update),
-                    subtitle = updateState.message ?: stringResource(R.string.about_check_update_desc),
-                    onClick = { aboutViewModel.checkUpdate() },
-                )
-                updateState.releaseUrl?.let { url ->
-                    NavRow(
-                        title = "打开 Release 页",
-                        subtitle = url,
-                        onClick = { openUrl(context, url) },
-                    )
-                }
-                NavRow(
                     title = "关于 息匣",
-                    subtitle = BuildConfig.VERSION_NAME + " · " + stringResource(R.string.about_author_name),
-                    onClick = { },
-                )
-                Text(
-                    text = "组件 " + ComponentName(context, QuietaNotificationListener::class.java).flattenToString(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                    subtitle = BuildConfig.VERSION_NAME,
+                    onClick = onOpenAbout,
                 )
             }
         }
@@ -230,10 +199,4 @@ private fun modeLabel(mode: FloatingBottomBarMode): String = when (mode) {
     FloatingBottomBarMode.LiquidGlass -> "液态玻璃"
     FloatingBottomBarMode.Blur -> "毛玻璃"
     FloatingBottomBarMode.None -> "无模糊"
-}
-
-private fun openUrl(context: android.content.Context, url: String) {
-    runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-    }
 }

@@ -43,6 +43,7 @@ fun QuietaPage(
     itemSpacing: Dp = 12.dp,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
+    containerColor: Color = MaterialTheme.colorScheme.background,
     content: LazyListScope.() -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
@@ -50,12 +51,12 @@ fun QuietaPage(
     val layoutDirection = LocalLayoutDirection.current
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = containerColor,
         topBar = {
             TopAppBar(
                 modifier = Modifier.pageTopBarBlur(backdrop),
                 title = title,
-                color = if (backdrop != null) Color.Transparent else MaterialTheme.colorScheme.background,
+                color = if (backdrop != null) Color.Transparent else containerColor,
                 titleColor = MaterialTheme.colorScheme.onBackground,
                 largeTitleColor = MaterialTheme.colorScheme.onBackground,
                 navigationIcon = {

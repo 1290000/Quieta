@@ -50,6 +50,7 @@ import app.quieta.feature.privilege.PrivilegeScreen
 import app.quieta.feature.record.RecordScreen
 import app.quieta.feature.record.RecordViewModel
 import app.quieta.feature.settings.LicensesScreen
+import app.quieta.feature.settings.AboutScreen
 import app.quieta.feature.settings.SettingsScreen
 import app.quieta.feature.settings.ThemeScreen
 import app.quieta.core.settings.ThemeMode
@@ -112,6 +113,11 @@ fun QuietaRoot() {
         BackHandler { secondaryStack = secondaryStack.dropLast(1) }
         when (secondary) {
             "licenses" -> LicensesScreen(onBack = { secondaryStack = secondaryStack.dropLast(1) }, blurEnabled = blurEnabled)
+            "about" -> AboutScreen(
+                onBack = { secondaryStack = secondaryStack.dropLast(1) },
+                onOpenLicenses = { secondaryStack = secondaryStack + "licenses" },
+                blurEnabled = blurEnabled,
+            )
             "privilege" -> {
         val homeState by homeViewModel.state.collectAsStateWithLifecycle()
         PrivilegeScreen(
@@ -262,6 +268,7 @@ fun QuietaRoot() {
                             bottomBarMode = mode,
                             onOpenLicenses = { secondaryStack = secondaryStack + "licenses" },
                             onOpenTheme = { secondaryStack = secondaryStack + "theme" },
+                            onOpenAbout = { secondaryStack = secondaryStack + "about" },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
