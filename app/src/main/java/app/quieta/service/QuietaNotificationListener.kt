@@ -6,6 +6,8 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import app.quieta.core.auto.AutoMuteCoordinator
 import app.quieta.core.engine.NotificationTimelineStore
+import app.quieta.core.model.ChannelImportance
+import app.quieta.core.repo.ChannelInventoryStore
 import app.quieta.core.repo.RuleRepository
 import app.quieta.core.settings.AppSettings
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Lightweight listener: timeline identity fields + auto-mute hook.
@@ -25,6 +28,7 @@ class QuietaNotificationListener : NotificationListenerService() {
     private lateinit var settings: AppSettings
     private lateinit var rules: RuleRepository
     private lateinit var timeline: NotificationTimelineStore
+    private lateinit var inventory: ChannelInventoryStore
     private val timelineEnabled by lazy {
         settings.notificationTimelineEnabled.stateIn(scope, SharingStarted.Eagerly, true)
     }
@@ -37,6 +41,7 @@ class QuietaNotificationListener : NotificationListenerService() {
         settings = AppSettings(this)
         rules = RuleRepository.getInstance(this)
         timeline = NotificationTimelineStore.getInstance(this)
+        inventory = ChannelInventoryStore.getInstance(this)
     }
 
     override fun onListenerConnected() {
@@ -49,25 +54,23 @@ class QuietaNotificationListener : NotificationListenerService() {
         val pkg = sbn.packageName ?: return
         val channelId = notification.channelId ?: return
         val appLabel = resolveAppLabel(pkg)
-        val (channelName, channelImportance) = resolveChannel(pkg, channelId)
-        // Notification.priority is not the same as channel importance; prefer channel.
-        val importance = if (channelImportance >= 0) channelImportance else -1
         scope.launch {
+            val (channelName, channelImportance) = resolveChannel(pkg, channelId)
             if (timelineEnabled.value) {
                 timeline.append(
                     packageName = pkg,
                     appLabel = appLabel,
                     channelId = channelId,
                     channelName = channelName,
-                    importance = importance,
+                    importance = channelImportance,
                 )
             }
             AutoMuteCoordinator.onChannelSeen(
                 context = applicationContext,
                 packageName = pkg,
                 channelId = channelId,
-                channelName = channelName.ifBlank { channelId },
-                importance = if (importance >= 0) importance else notification.priority,
+                channelName = channelName,
+                importance = if (channelImportance >= 0) channelImportance else notification.priority,
                 repository = rules,
                 autoMuteEnabled = autoMuteEnabled.value,
             )
@@ -81,14 +84,38 @@ class QuietaNotificationListener : NotificationListenerService() {
         }.getOrDefault(packageName)
     }
 
-    /** Best-effort channel name/importance; may be unavailable without extra privilege. */
-    private fun resolveChannel(packageName: String, channelId: String): Pair<String, Int> {
-        return runCatching {
-            val nm = getSystemService(NotificationManager::class.java) ?: return@runCatching channelId to -1
-            val channel = nm.getNotificationChannel(channelId) ?: return@runCatching channelId to -1
-            val name = channel.name?.toString().orEmpty().ifBlank { channelId }
-            name to channel.importance
-        }.getOrDefault(channelId to -1)
+    /**
+     * getNotificationChannel() only works for the listener's own package.
+     * Prefer the inventory cache written by Root/Shizuku scans, then fall back to the id.
+     */
+    private suspend fun resolveChannel(packageName: String, channelId: String): Pair<String, Int> {
+        val fromCache = withContext(Dispatchers.IO) {
+            runCatching {
+                inventory.current()
+                    .firstOrNull { it.packageName == packageName }
+                    ?.channels
+                    ?.firstOrNull { it.id == channelId }
+            }.getOrNull()
+        }
+        if (fromCache != null) {
+            return (fromCache.name.ifBlank { channelId }) to fromCache.importance.toInt()
+        }
+        // Last resort: self package (listener is app.quieta*); rarely useful for third-party.
+        val self = runCatching {
+            val nm = getSystemService(NotificationManager::class.java) ?: return@runCatching null
+            nm.getNotificationChannel(channelId)?.let { ch ->
+                (ch.name?.toString().orEmpty().ifBlank { channelId }) to ch.importance
+            }
+        }.getOrNull()
+        return self ?: (channelId to -1)
+    }
+
+    private fun ChannelImportance.toInt(): Int = when (this) {
+        ChannelImportance.NONE -> 0
+        ChannelImportance.MIN -> 1
+        ChannelImportance.LOW -> 2
+        ChannelImportance.DEFAULT -> 3
+        ChannelImportance.HIGH -> 4
     }
 
     companion object {

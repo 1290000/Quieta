@@ -8,10 +8,12 @@ import app.quieta.core.engine.MuteLogEntry
 import app.quieta.core.engine.MuteLogStore
 import app.quieta.core.engine.NotificationTimelineEntry
 import app.quieta.core.engine.NotificationTimelineStore
+import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
 import app.quieta.core.model.ChannelImportance
 import app.quieta.core.model.RuleAction
 import app.quieta.core.privilege.PrivilegeBackends
+import app.quieta.core.repo.ChannelInventoryStore
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -63,6 +65,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     private val context = application
     private val store = MuteLogStore.getInstance(application)
     private val timelineStore = NotificationTimelineStore.getInstance(application)
+    private val inventoryStore = ChannelInventoryStore.getInstance(application)
     private val collapsedApps = MutableStateFlow<Set<String>>(emptySet())
 
     val items: StateFlow<List<RecordItem>> = store.entries
@@ -79,8 +82,26 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val dayGroupsFlow = combine(timelineStore.entries, collapsedApps) { entries, collapsed ->
-        buildDayGroups(entries, collapsed)
+    private val dayGroupsFlow = combine(
+        timelineStore.entries,
+        inventoryStore.snapshot,
+        collapsedApps,
+    ) { entries, inventory, collapsed ->
+        // Backfill label/importance from inventory for entries captured before the fix.
+        val byKey = inventory
+            .flatMap { app ->
+                app.channels.map { ch -> (app.packageName to ch.id) to ch }
+            }
+            .toMap()
+        val enriched = entries.map { e ->
+            val ch = byKey[e.packageName to e.channelId] ?: return@map e
+            e.copy(
+                appLabel = e.appLabel.ifBlank { appLabelOf(e.packageName, inventory) },
+                channelName = e.channelName.ifBlank { ch.name },
+                importance = if (e.importance < 0) ch.importance.toInt() else e.importance,
+            )
+        }
+        buildDayGroups(enriched, collapsed)
     }
 
     val dayGroups: StateFlow<List<TimelineDayGroup>> = dayGroupsFlow
@@ -149,6 +170,17 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
                 ),
             )
         }
+    }
+
+    private fun appLabelOf(packageName: String, inventory: List<AppChannels>): String =
+        inventory.firstOrNull { it.packageName == packageName }?.appLabel ?: packageName
+
+    private fun ChannelImportance.toInt(): Int = when (this) {
+        ChannelImportance.NONE -> 0
+        ChannelImportance.MIN -> 1
+        ChannelImportance.LOW -> 2
+        ChannelImportance.DEFAULT -> 3
+        ChannelImportance.HIGH -> 4
     }
 
     private fun buildDayGroups(
