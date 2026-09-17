@@ -5,17 +5,12 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -24,12 +19,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,17 +30,16 @@ import app.quieta.core.settings.PaletteStyle
 import app.quieta.core.settings.PredictiveBackAnimation
 import app.quieta.core.settings.PredictiveBackExitDirection
 import app.quieta.core.settings.ThemeMode
-import app.quieta.ui.component.HyperOsPopup
-import app.quieta.ui.component.HyperOsPopupRow
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.QuietaSwitch
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 
 /**
  * InstallerX MiuixThemeSettingsPage–aligned theme page (Quieta subset).
- * Includes: theme mode, blur/liquid glass, custom colors, predictive back.
- * Excludes: UI engine, floating bottom bar, system icon preference.
+ * Selectors use miuix WindowSpinnerPreference (same as InstallerX theme pickers).
  */
 @Composable
 fun ThemeScreen(
@@ -66,10 +56,14 @@ fun ThemeScreen(
     val pbAnimation by viewModel.predictiveBackAnimation.collectAsStateWithLifecycle()
     val pbExit by viewModel.predictiveBackExitDirection.collectAsStateWithLifecycle()
 
-    var showThemeMode by remember { mutableStateOf(false) }
-    var showPalette by remember { mutableStateOf(false) }
-    var showPbAnim by remember { mutableStateOf(false) }
-    var showPbExit by remember { mutableStateOf(false) }
+    val themeModes = remember { ThemeMode.entries }
+    val themeItems = themeModes.map { DropdownItem(title = themeModeLabel(it)) }
+    val palettes = remember { PaletteStyle.entries }
+    val paletteItems = palettes.map { DropdownItem(title = paletteLabel(it)) }
+    val pbAnims = remember { PredictiveBackAnimation.entries }
+    val pbAnimItems = pbAnims.map { DropdownItem(title = pbAnimationLabel(it)) }
+    val pbExits = remember { PredictiveBackExitDirection.entries }
+    val pbExitItems = pbExits.map { DropdownItem(title = pbExitLabel(it)) }
 
     QuietaPage(
         title = stringResource(R.string.theme_settings),
@@ -85,12 +79,13 @@ fun ThemeScreen(
         item(key = "display-section") {
             SmallTitle(stringResource(R.string.theme_settings_display))
             SettingsGroupCard {
-                BasicComponent(
+                WindowSpinnerPreference(
+                    items = themeItems,
+                    selectedIndex = themeModes.indexOf(themeMode).coerceAtLeast(0),
                     title = stringResource(R.string.theme_settings_theme_mode),
-                    summary = themeModeLabel(themeMode),
-                    onClick = { showThemeMode = true },
-                    endActions = {
-                        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    onSelectedIndexChange = { index ->
+                        val mode = themeModes[index]
+                        if (mode != themeMode) viewModel.setThemeMode(mode)
                     },
                 )
                 BasicComponent(
@@ -123,12 +118,13 @@ fun ThemeScreen(
                                 QuietaSwitch(checked = dynamicColor, onCheckedChange = viewModel::setDynamicColor)
                             },
                         )
-                        BasicComponent(
+                        WindowSpinnerPreference(
+                            items = paletteItems,
+                            selectedIndex = palettes.indexOf(paletteStyle).coerceAtLeast(0),
                             title = stringResource(R.string.theme_settings_palette),
-                            summary = paletteLabel(paletteStyle),
-                            onClick = { showPalette = true },
-                            endActions = {
-                                Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            onSelectedIndexChange = { index ->
+                                val style = palettes[index]
+                                if (style != paletteStyle) viewModel.setPaletteStyle(style)
                             },
                         )
                     }
@@ -139,12 +135,13 @@ fun ThemeScreen(
         item(key = "predictive-back") {
             SmallTitle(stringResource(R.string.theme_settings_predictive_back))
             SettingsGroupCard {
-                BasicComponent(
+                WindowSpinnerPreference(
+                    items = pbAnimItems,
+                    selectedIndex = pbAnims.indexOf(pbAnimation).coerceAtLeast(0),
                     title = stringResource(R.string.theme_settings_pb_animation),
-                    summary = pbAnimationLabel(pbAnimation),
-                    onClick = { showPbAnim = true },
-                    endActions = {
-                        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    onSelectedIndexChange = { index ->
+                        val anim = pbAnims[index]
+                        if (anim != pbAnimation) viewModel.setPredictiveBackAnimation(anim)
                     },
                 )
                 AnimatedVisibility(
@@ -154,80 +151,13 @@ fun ThemeScreen(
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
-                    BasicComponent(
+                    WindowSpinnerPreference(
+                        items = pbExitItems,
+                        selectedIndex = pbExits.indexOf(pbExit).coerceAtLeast(0),
                         title = stringResource(R.string.theme_settings_pb_exit),
-                        summary = pbExitLabel(pbExit),
-                        onClick = { showPbExit = true },
-                        endActions = {
-                            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        },
-                    )
-                }
-            }
-        }
-    }
-
-    if (showThemeMode) {
-        HyperOsPopup(onDismissRequest = { showThemeMode = false }) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                ThemeMode.entries.forEach { mode ->
-                    HyperOsPopupRow(
-                        title = themeModeLabel(mode),
-                        selected = themeMode == mode,
-                        onClick = {
-                            viewModel.setThemeMode(mode)
-                            showThemeMode = false
-                        },
-                    )
-                }
-            }
-        }
-    }
-
-    if (showPalette) {
-        HyperOsPopup(onDismissRequest = { showPalette = false }) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                PaletteStyle.entries.forEach { style ->
-                    HyperOsPopupRow(
-                        title = paletteLabel(style),
-                        selected = paletteStyle == style,
-                        onClick = {
-                            viewModel.setPaletteStyle(style)
-                            showPalette = false
-                        },
-                    )
-                }
-            }
-        }
-    }
-
-    if (showPbAnim) {
-        HyperOsPopup(onDismissRequest = { showPbAnim = false }) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                PredictiveBackAnimation.entries.forEach { anim ->
-                    HyperOsPopupRow(
-                        title = pbAnimationLabel(anim),
-                        selected = pbAnimation == anim,
-                        onClick = {
-                            viewModel.setPredictiveBackAnimation(anim)
-                            showPbAnim = false
-                        },
-                    )
-                }
-            }
-        }
-    }
-
-    if (showPbExit) {
-        HyperOsPopup(onDismissRequest = { showPbExit = false }) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                PredictiveBackExitDirection.entries.forEach { dir ->
-                    HyperOsPopupRow(
-                        title = pbExitLabel(dir),
-                        selected = pbExit == dir,
-                        onClick = {
-                            viewModel.setPredictiveBackExitDirection(dir)
-                            showPbExit = false
+                        onSelectedIndexChange = { index ->
+                            val dir = pbExits[index]
+                            if (dir != pbExit) viewModel.setPredictiveBackExitDirection(dir)
                         },
                     )
                 }
@@ -282,3 +212,5 @@ private fun pbExitLabel(value: PredictiveBackExitDirection): String = when (valu
     PredictiveBackExitDirection.ALWAYS_RIGHT -> "始终向右"
     PredictiveBackExitDirection.ALWAYS_LEFT -> "始终向左"
 }
+
+

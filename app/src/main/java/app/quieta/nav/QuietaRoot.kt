@@ -117,35 +117,18 @@ fun QuietaRoot() {
     val secondary = secondaryStack.lastOrNull()
     val pbAnimation by settingsViewModelForBlur.predictiveBackAnimation.collectAsStateWithLifecycle()
     val pbExit by settingsViewModelForBlur.predictiveBackExitDirection.collectAsStateWithLifecycle()
+    var lastSecondary by rememberSaveable { mutableStateOf<String?>(null) }
     if (secondary != null) {
         BackHandler { secondaryStack = secondaryStack.dropLast(1) }
-        val pbScale = when (pbAnimation) {
-            app.quieta.core.settings.PredictiveBackAnimation.SCALE,
-            app.quieta.core.settings.PredictiveBackAnimation.CLASSIC,
-            -> 0.92f
-            app.quieta.core.settings.PredictiveBackAnimation.MIUIX -> 0.95f
-            else -> 1f
-        }
-        val pbAlpha = when (pbAnimation) {
-            app.quieta.core.settings.PredictiveBackAnimation.NONE -> 1f
-            else -> 0.96f
-        }
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = pbScale
-                    scaleY = pbScale
-                    alpha = pbAlpha
-                    val dx = when (pbExit) {
-                        app.quieta.core.settings.PredictiveBackExitDirection.ALWAYS_LEFT -> -8f
-                        app.quieta.core.settings.PredictiveBackExitDirection.ALWAYS_RIGHT -> 8f
-                        else -> 0f
-                    }
-                    translationX = if (pbScale < 1f) dx else 0f
-                },
-        ) {
-        when (secondary) {
+        val forward = lastSecondary != secondary
+        androidx.compose.animation.AnimatedContent(
+            targetState = secondary,
+            transitionSpec = {
+                secondaryNavTransform(pbAnimation, pbExit, forward = forward)
+            },
+            label = "secondary-nav",
+        ) { secondaryKey ->
+            when (secondaryKey) {
             "licenses" -> LicensesScreen(onBack = { secondaryStack = secondaryStack.dropLast(1) }, blurEnabled = blurEnabled)
             "about" -> AboutScreen(
                 onBack = { secondaryStack = secondaryStack.dropLast(1) },
@@ -220,7 +203,10 @@ fun QuietaRoot() {
                     }.getOrDefault(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND),
                 )
             }
+            }
         }
+        androidx.compose.runtime.LaunchedEffect(secondary) {
+            lastSecondary = secondary
         }
         return
     }
