@@ -19,7 +19,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.South
+import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -52,6 +55,8 @@ import app.quieta.core.settings.ThemeMode
 import app.quieta.ui.glass.FloatingBottomBar
 import app.quieta.ui.glass.FloatingBottomBarDefaults
 import app.quieta.ui.glass.FloatingBottomBarMode
+import app.quieta.ui.glass.FloatingSelectionAction
+import app.quieta.ui.glass.FloatingSelectionBar
 import app.quieta.ui.glass.QuietaNavTab
 import app.quieta.ui.glass.resolveBottomBarMode
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -259,7 +264,53 @@ fun QuietaRoot() {
 
             // Multi-select action bar owns the bottom edge — hide the tab bar so it is not covered.
             val homeState by homeViewModel.state.collectAsStateWithLifecycle()
-            if (!homeState.selectionMode) {
+            val bottomBarModifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 14.dp)
+                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+
+            if (homeState.selectionMode) {
+                val selectionEnabled = !homeState.checkingPrivilege &&
+                    homeState.selectedChannelKeys.isNotEmpty() &&
+                    homeState.progress == null
+                FloatingSelectionBar(
+                    countLabel = "已选 ${homeState.selectedChannelKeys.size}",
+                    busy = homeState.progress != null,
+                    mode = mode,
+                    backdrop = pageBackdrop,
+                    modifier = bottomBarModifier,
+                    actions = listOf(
+                        FloatingSelectionAction(
+                            id = "mute",
+                            label = "静音",
+                            icon = Icons.Outlined.VolumeOff,
+                            enabled = selectionEnabled,
+                            emphasized = true,
+                            onClick = {
+                                homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.MUTE)
+                            },
+                        ),
+                        FloatingSelectionAction(
+                            id = "downgrade",
+                            label = "降级",
+                            icon = Icons.Outlined.South,
+                            enabled = selectionEnabled,
+                            onClick = {
+                                homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.DOWNGRADE)
+                            },
+                        ),
+                        FloatingSelectionAction(
+                            id = "keep",
+                            label = "保留",
+                            icon = Icons.Outlined.Restore,
+                            enabled = selectionEnabled,
+                            onClick = {
+                                homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.KEEP)
+                            },
+                        ),
+                    ),
+                )
+            } else {
                 FloatingBottomBar(
                     tabs = tabs,
                     selectedRoute = tabRoutes[mainPagerState.selectedPage.coerceIn(0, tabRoutes.lastIndex)],
@@ -270,10 +321,7 @@ fun QuietaRoot() {
                     mode = mode,
                     backdrop = pageBackdrop,
                     colors = FloatingBottomBarDefaults.colors(),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 14.dp)
-                        .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
+                    modifier = bottomBarModifier,
                 )
             }
         }

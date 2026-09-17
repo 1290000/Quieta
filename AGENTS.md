@@ -221,6 +221,7 @@ core/rom/
 - 配置页规则卡提供编辑入口；修改保留规则 ID、顺序、启用状态及未编辑字段，通过共享仓库实时通知主页。
 - 液态玻璃实现放在 `ui/glass`，不散落在业务页。  
 - 底栏默认：支持则 LiquidGlass，否则 Blur；用户可在设置改为 None。  
+- **底部操作浮层（多选等）与主底栏同构**：使用 `ui/glass/FloatingSelectionBar`，共用 `FloatingBottomBarMode` + 页面 `Backdrop`；图标+文字动作，禁止业务页另写普通 Card 操作条。多选时隐藏主 `FloatingBottomBar`。  
 - 一期手机竖屏优先。
 - 顶栏统一使用 miuix `TopAppBar` + `MiuixScrollBehavior`（大标题收拢为居中小标题）；滚动容器使用 `overScrollVertical`，关闭系统 overscroll，触顶/触底按 InstallerX Revived 回弹。状态栏 inset 仅由顶栏处理。
 - 可点击的独立卡片使用 miuix `PressFeedbackType.Tilt` + 按压着色；分组内选项保持整行反馈，不缩放单行文字。miuix 与 Material 共用息匣深浅色主题。

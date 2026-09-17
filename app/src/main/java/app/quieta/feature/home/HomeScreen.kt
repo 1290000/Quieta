@@ -375,75 +375,7 @@ fun HomeScreen(
     }
 
         if (selectionMode) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 28.dp),
-                contentAlignment = Alignment.BottomCenter,
-            ) {
-                SelectionActionBar(
-                    count = selectedCount,
-                    enabled = !state.checkingPrivilege && selectedCount > 0,
-                    busy = state.progress != null,
-                    onMute = { viewModel.applySelectionAction(RuleAction.MUTE) },
-                    onDowngrade = { viewModel.applySelectionAction(RuleAction.DOWNGRADE) },
-                    onKeep = { viewModel.applySelectionAction(RuleAction.KEEP) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SelectionActionBar(
-    count: Int,
-    enabled: Boolean,
-    busy: Boolean,
-    onMute: () -> Unit,
-    onDowngrade: () -> Unit,
-    onKeep: () -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = if (busy) "处理中…" else "已选 $count",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp),
-            )
-            Spacer(modifier = Modifier.weight(0.4f))
-            Button(
-                onClick = onMute,
-                enabled = enabled && !busy,
-                modifier = Modifier.weight(1.2f),
-            ) {
-                Text("静音")
-            }
-            OutlinedButton(
-                onClick = onDowngrade,
-                enabled = enabled && !busy,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("降级")
-            }
-            OutlinedButton(
-                onClick = onKeep,
-                enabled = enabled && !busy,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("保留")
-            }
+            // Selection actions live in QuietaRoot FloatingSelectionBar (same glass chrome as the tab bar).
         }
     }
 }
