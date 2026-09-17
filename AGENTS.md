@@ -222,6 +222,7 @@ core/rom/
 - 液态玻璃实现放在 `ui/glass`，不散落在业务页。  
 - 底栏默认：支持则 LiquidGlass，否则 Blur；用户可在设置改为 None。  
 - **底部操作浮层（多选等）与主底栏同构**：使用 `ui/glass/FloatingSelectionBar`，共用 `FloatingBottomBarMode` + 页面 `Backdrop`；图标+文字动作，禁止业务页另写普通 Card 操作条。多选时隐藏主 `FloatingBottomBar`。  
+- **设置 / 关于等二级页视觉（InstallerX Revived，强制）**：设置分组卡圆角 20dp、`surface`；分区标题灰 `#8E8E93` `titleSmall`；行标题 `titleLarge`、摘要 `bodySmall`、尾部 `ChevronRight`。关于页：`SmallTopAppBar`（首屏仅返回，标题随滚动）；AGSL `ui/effect/bg/BgEffectBackground` + 卡片 `textureBlur`（16dp 圆角、水平 12dp）；hero 应用名 35sp Bold、版本 14sp；调试区 `SmallTitle` + 同构玻璃卡 + miuix Switch/`ArrowPreference`；**许可页等列表二级页不用 aurora**，仅标准 `QuietaPage` 表面。图标须透明底品牌标（`ic_about_logo`），禁止 adaptive 白底方块。  
 - 一期手机竖屏优先。
 - 顶栏统一使用 miuix `TopAppBar` + `MiuixScrollBehavior`（大标题收拢为居中小标题）；滚动容器使用 `overScrollVertical`，关闭系统 overscroll，触顶/触底按 InstallerX Revived 回弹。状态栏 inset 仅由顶栏处理。
 - 可点击的独立卡片使用 miuix `PressFeedbackType.Tilt` + 按压着色；分组内选项保持整行反馈，不缩放单行文字。miuix 与 Material 共用息匣深浅色主题。
