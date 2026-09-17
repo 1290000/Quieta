@@ -76,6 +76,7 @@ fun QuietaRoot() {
     var selectedRoute by rememberSaveable { mutableStateOf(QuietaRoutes.HOME) }
     var blurEnabled by rememberSaveable { mutableStateOf(true) }
     var secondaryStack by rememberSaveable { mutableStateOf(listOf<String>()) }
+    var quietMode by rememberSaveable { mutableStateOf(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND.name) }
     val homeViewModel: HomeViewModel = viewModel()
     val context = LocalContext.current
     val pageStateHolder = rememberSaveableStateHolder()
@@ -156,6 +157,9 @@ fun QuietaRoot() {
                     onBack = { secondaryStack = secondaryStack.dropLast(1) },
                     onChannelAction = homeViewModel::applyChannelAction,
                     blurEnabled = blurEnabled,
+                    mode = runCatching {
+                        app.quieta.core.engine.QuietMode.valueOf(quietMode)
+                    }.getOrDefault(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND),
                 )
             }
         }
@@ -225,7 +229,10 @@ fun QuietaRoot() {
                             onOpenPrivilege = { secondaryStack = secondaryStack + "privilege" },
                             onOpenConfig = { selectedRoute = QuietaRoutes.CONFIG },
                             onOpenMutePreview = { secondaryStack = secondaryStack + "mute_preview" },
-                            onOpenSilentChannels = { secondaryStack = secondaryStack + "silent_channels" },
+                            onOpenQuietChannels = { mode ->
+                                quietMode = mode.name
+                                secondaryStack = secondaryStack + "silent_channels"
+                            },
                             blurEnabled = blurEnabled,
                         )
                         QuietaRoutes.CONFIG -> {

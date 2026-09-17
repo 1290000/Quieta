@@ -2,6 +2,7 @@ package app.quieta.feature.home
 
 import app.quieta.core.engine.MarketingHeuristic
 import app.quieta.core.engine.SilentButAllowed
+import app.quieta.core.engine.QuietMode
 import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
 import app.quieta.core.model.ChannelImportance
@@ -29,11 +30,13 @@ data class ChannelListFilters(
     val onlyLikelyMarketing: Boolean = false,
     /** 允许通知开着，但声音/横幅/振动基本全关。 */
     val onlySilentAllowed: Boolean = false,
+    /** 允许通知开着，有声音，无横幅。 */
+    val onlyQuietWithSound: Boolean = false,
     val sound: SoundFilter = SoundFilter.ALL,
 ) {
     val isActive: Boolean
         get() = hasHigh || hasNone || willMute || onlyUser || onlySystem ||
-            onlyLikelyMarketing || onlySilentAllowed || sound != SoundFilter.ALL
+            onlyLikelyMarketing || onlySilentAllowed || onlyQuietWithSound || sound != SoundFilter.ALL
 }
 
 data class ChannelListAppItem(
@@ -66,7 +69,9 @@ object ChannelListProjector {
             .map { app ->
                 val base = applySoundChannelFilter(app, filters.sound)
                 if (filters.onlySilentAllowed) {
-                    base.copy(channels = base.channels.filter { SilentButAllowed.isMatch(it) })
+                    base.copy(channels = base.channels.filter { SilentButAllowed.isSilentNoSound(it) })
+                } else if (filters.onlyQuietWithSound) {
+                    base.copy(channels = base.channels.filter { SilentButAllowed.isQuietWithSound(it) })
                 } else base
             }
             .filter { app -> app.channels.isNotEmpty() && matchesFilters(app, filters, plan) }
@@ -96,9 +101,12 @@ object ChannelListProjector {
     }
 
     /** Flatten silent-but-allowed hits for secondary detail list. */
-    fun silentAllowedChannels(apps: List<AppChannels>): List<Pair<AppChannels, List<Channel>>> {
+    fun silentAllowedChannels(
+        apps: List<AppChannels>,
+        mode: QuietMode = QuietMode.SILENT_NO_SOUND,
+    ): List<Pair<AppChannels, List<Channel>>> {
         return apps.mapNotNull { app ->
-            val hits = app.channels.filter { SilentButAllowed.isMatch(it) }
+            val hits = app.channels.filter { SilentButAllowed.isMatch(it, mode) }
             if (hits.isEmpty()) null else app to hits
         }
     }
@@ -139,7 +147,11 @@ object ChannelListProjector {
             if (!hit) return false
         }
         if (filters.onlySilentAllowed) {
-            val hit = app.channels.any { SilentButAllowed.isMatch(it) }
+            val hit = app.channels.any { SilentButAllowed.isSilentNoSound(it) }
+            if (!hit) return false
+        }
+        if (filters.onlyQuietWithSound) {
+            val hit = app.channels.any { SilentButAllowed.isQuietWithSound(it) }
             if (!hit) return false
         }
         if (filters.sound != SoundFilter.ALL) {

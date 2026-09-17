@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.quieta.R
+import app.quieta.core.engine.QuietMode
 import app.quieta.core.engine.SilentButAllowed
 import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
@@ -52,16 +53,25 @@ fun SilentChannelsScreen(
     onChannelAction: (Channel, RuleAction) -> Unit,
     modifier: Modifier = Modifier,
     blurEnabled: Boolean = true,
+    mode: QuietMode = QuietMode.SILENT_NO_SOUND,
 ) {
     BackHandler(onBack = onBack)
+    val title = when (mode) {
+        QuietMode.SILENT_NO_SOUND -> "静默仍开"
+        QuietMode.QUIET_WITH_SOUND -> "仅声音·无横幅"
+    }
+    val tip = when (mode) {
+        QuietMode.SILENT_NO_SOUND -> "允许通知仍开着，但声音/悬浮/振动基本已关闭的渠道。"
+        QuietMode.QUIET_WITH_SOUND -> "允许通知仍开着，有声音、无悬浮横幅的渠道。"
+    }
     val groups = apps.mapNotNull { app ->
-        val hits = app.channels.filter { SilentButAllowed.isMatch(it) }
+        val hits = app.channels.filter { SilentButAllowed.isMatch(it, mode) }
         if (hits.isEmpty()) null else Triple(app.appLabel, app.packageName, hits)
     }
     val total = groups.sumOf { it.third.size }
 
     QuietaPage(
-        title = "静默仍开",
+        title = title,
         modifier = modifier,
         blurEnabled = blurEnabled,
         navigationIcon = {
@@ -75,7 +85,7 @@ fun SilentChannelsScreen(
     ) {
         item(key = "tip") {
             Text(
-                text = "允许通知仍开着，但声音/悬浮/振动基本已关闭的渠道（共 $total）。",
+                text = tip + "（共 $total）",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

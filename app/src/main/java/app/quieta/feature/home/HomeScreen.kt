@@ -77,6 +77,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
 import app.quieta.core.model.Channel
 import app.quieta.core.model.RuleAction
+import app.quieta.core.engine.QuietMode
 import app.quieta.ui.component.HyperOsPopup
 import app.quieta.ui.component.HyperOsPopupDivider
 import app.quieta.ui.component.HyperOsPopupRow
@@ -104,7 +105,7 @@ fun HomeScreen(
     onOpenPrivilege: () -> Unit = {},
     onOpenConfig: () -> Unit = {},
     onOpenMutePreview: () -> Unit = {},
-    onOpenSilentChannels: () -> Unit = {},
+    onOpenQuietChannels: (app.quieta.core.engine.QuietMode) -> Unit = {},
     blurEnabled: Boolean = true,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -292,8 +293,9 @@ fun HomeScreen(
             onToggleOnlyUser = { viewModel.toggleFilter { it.copy(onlyUser = !it.onlyUser, onlySystem = false) } },
             onToggleOnlySystem = { viewModel.toggleFilter { it.copy(onlySystem = !it.onlySystem, onlyUser = false) } },
             onToggleOnlyMarketing = { viewModel.toggleFilter { it.copy(onlyLikelyMarketing = !it.onlyLikelyMarketing) } },
-            onToggleOnlySilent = { viewModel.toggleFilter { it.copy(onlySilentAllowed = !it.onlySilentAllowed) } },
-            onOpenSilentChannels = onOpenSilentChannels,
+            onToggleOnlySilent = { viewModel.toggleFilter { it.copy(onlySilentAllowed = !it.onlySilentAllowed, onlyQuietWithSound = false) } },
+            onToggleOnlyQuietWithSound = { viewModel.toggleFilter { it.copy(onlyQuietWithSound = !it.onlyQuietWithSound, onlySilentAllowed = false) } },
+            onOpenQuietChannels = onOpenQuietChannels,
             onSoundFilter = { sound -> viewModel.toggleFilter { it.copy(sound = sound) } },
             onSortChange = viewModel::setSort,
             onResetFilters = {
@@ -606,7 +608,8 @@ private fun FilterSortSheet(
     onToggleOnlySystem: () -> Unit,
     onToggleOnlyMarketing: () -> Unit,
     onToggleOnlySilent: () -> Unit,
-    onOpenSilentChannels: () -> Unit,
+    onToggleOnlyQuietWithSound: () -> Unit,
+    onOpenQuietChannels: (QuietMode) -> Unit,
     onSoundFilter: (SoundFilter) -> Unit,
     onSortChange: (ChannelSort) -> Unit,
     onResetFilters: () -> Unit,
@@ -626,7 +629,16 @@ private fun FilterSortSheet(
                 subtitle = "允许通知开，声音/悬浮/振动关",
                 onClick = {
                     onToggleOnlySilent()
-                    onOpenSilentChannels()
+                    onOpenQuietChannels(QuietMode.SILENT_NO_SOUND)
+                },
+            )
+            HyperOsPopupRow(
+                title = "仅声音·无横幅",
+                selected = filters.onlyQuietWithSound,
+                subtitle = "允许通知开，有声音，不横幅",
+                onClick = {
+                    onToggleOnlyQuietWithSound()
+                    onOpenQuietChannels(QuietMode.QUIET_WITH_SOUND)
                 },
             )
             HyperOsPopupRow(
