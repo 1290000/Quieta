@@ -87,7 +87,7 @@ object QuietaColors {
     val StatusGreenDark = Color(0xFF163D25)
 }
 
-/** InstallerX-aligned materialkolor scheme from seed. */
+/** Full-page seed scheme — InstallerX materialkolor output, including surface/background. */
 fun seedMaterialScheme(
     seed: Color,
     dark: Boolean,
@@ -118,8 +118,9 @@ fun seedMaterialScheme(
         UiPaletteStyle.Rainbow -> SchemeRainbow(hct, dark, 0.0, specVersion)
         UiPaletteStyle.Monochrome -> SchemeMonochrome(hct, dark, 0.0, specVersion)
     }
-    val builder = if (dark) darkColorScheme() else lightColorScheme()
-    return builder.copy(
+    val base = if (dark) darkColorScheme() else lightColorScheme()
+    // Map ALL visible roles from seed so custom colors cover the whole page.
+    return base.copy(
         primary = Color(scheme.primary),
         onPrimary = Color(scheme.onPrimary),
         primaryContainer = Color(scheme.primaryContainer),
@@ -133,17 +134,28 @@ fun seedMaterialScheme(
         tertiaryContainer = Color(scheme.tertiaryContainer),
         onTertiaryContainer = Color(scheme.onTertiaryContainer),
         inversePrimary = Color(scheme.inversePrimary),
-        background = if (dark) DarkColors.background else LightColors.background,
-        onBackground = if (dark) DarkColors.onBackground else LightColors.onBackground,
-        surface = if (dark) DarkColors.surface else LightColors.surface,
-        onSurface = if (dark) DarkColors.onSurface else LightColors.onSurface,
-        surfaceContainer = if (dark) Color(0xFF242424) else Color.White,
-        surfaceContainerHigh = if (dark) Color(0xFF242424) else Color(0xFFE8E8E8),
-        surfaceContainerHighest = if (dark) Color(0xFF2D2D2D) else Color(0xFFE8E8E8),
-        surfaceVariant = if (dark) Color(0xFF242424) else Color.White,
-        onSurfaceVariant = if (dark) Color(0xFFAEAEB2) else Color(0xFF5C5C5E),
-        outlineVariant = if (dark) Color(0xFF404040) else Color(0xFFE0E0E0),
-        error = if (dark) Color(0xFFF28B82) else Color(0xFFD93025),
+        background = Color(scheme.background),
+        onBackground = Color(scheme.onBackground),
+        surface = Color(scheme.surface),
+        onSurface = Color(scheme.onSurface),
+        surfaceVariant = Color(scheme.surfaceVariant),
+        onSurfaceVariant = Color(scheme.onSurfaceVariant),
+        outline = Color(scheme.outline),
+        outlineVariant = Color(scheme.outlineVariant),
+        error = Color(scheme.error),
+        onError = Color(scheme.onError),
+        errorContainer = Color(scheme.errorContainer),
+        onErrorContainer = Color(scheme.onErrorContainer),
+        inverseSurface = Color(scheme.inverseSurface),
+        inverseOnSurface = Color(scheme.inverseOnSurface),
+        surfaceContainer = Color(scheme.surfaceContainer),
+        surfaceContainerHigh = Color(scheme.surfaceContainerHigh),
+        surfaceContainerHighest = Color(scheme.surfaceContainerHighest),
+        surfaceContainerLow = Color(scheme.surfaceContainerLow),
+        surfaceContainerLowest = Color(scheme.surfaceContainerLowest),
+        surfaceBright = Color(scheme.surfaceBright),
+        surfaceDim = Color(scheme.surfaceDim),
+        scrim = Color(scheme.scrim),
     )
 }
 

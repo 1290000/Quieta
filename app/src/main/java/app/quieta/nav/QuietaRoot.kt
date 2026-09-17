@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -45,9 +46,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -130,7 +133,9 @@ fun QuietaRoot() {
     val homeState by homeViewModel.state.collectAsStateWithLifecycle()
     val recordSelection by recordViewModel.selection.collectAsStateWithLifecycle()
 
-    // InstallerX-aligned predictive back: system gesture progress drives the page transform.
+    // InstallerX ScaleNavTransition geometry (see ScaleNavTransition.kt).
+    val SCALE_MIN = 0.85f
+    val scaleExitDriftPx = with(LocalDensity.current) { 96.dp.toPx() }
     val pbProgress = remember { mutableFloatStateOf(0f) }
     var gestureCommitted by remember { mutableStateOf(false) }
     if (secondary != null) {
@@ -154,69 +159,122 @@ fun QuietaRoot() {
 
     if (secondary != null) {
         val gesture = pbProgress.floatValue
+        val density = LocalDensity.current
+        // InstallerX exitDirectionSign: FollowGesture(left)=+1, AlwaysRight=+1, AlwaysLeft=-1
         val dirSign = when (pbExit) {
             PredictiveBackExitDirection.ALWAYS_LEFT -> -1f
             PredictiveBackExitDirection.ALWAYS_RIGHT -> 1f
             PredictiveBackExitDirection.FOLLOW_GESTURE -> 1f
         }
+        val cardStyle = pbAnimation == PredictiveBackAnimation.SCALE ||
+            pbAnimation == PredictiveBackAnimation.AOSP ||
+            pbAnimation == PredictiveBackAnimation.CLASSIC
+        val cornerRadius = if (cardStyle) 32.dp else 0.dp
+        val pageBg = MaterialTheme.colorScheme.surfaceContainer
+
+        // Dim + backdrop (NavDisplayEffects: dimAmount 0.5, backdropColor surface)
+        if (gesture > 0f || gestureCommitted) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f * gesture.coerceIn(0f, 1f))),
+            )
+        }
+
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    if (gesture > 0f) {
-                        when (pbAnimation) {
-                            PredictiveBackAnimation.SCALE -> {
-                                // InstallerX scaleNavTransition: min scale 0.85, drift 96dp-ish.
-                                val s = 1f - 0.15f * gesture
-                                scaleX = s
-                                scaleY = s
-                                translationX = dirSign * gesture * 96f
-                                alpha = 1f - 0.35f * gesture
-                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
-                                    pivotFractionX = if (dirSign > 0) 0.8f else 0.2f,
-                                    pivotFractionY = 0.5f,
-                                )
-                            }
-                            PredictiveBackAnimation.CLASSIC -> {
-                                val s = 1f - 0.1f * gesture
-                                scaleX = s
-                                scaleY = s
-                                alpha = gesture
-                                translationX = dirSign * gesture * 24f
-                            }
-                            PredictiveBackAnimation.AOSP, PredictiveBackAnimation.MIUIX -> {
-                                val s = 1f - 0.05f * gesture
-                                scaleX = s
-                                scaleY = s
-                                translationX = dirSign * gesture * 32f
-                                alpha = 1f - 0.2f * gesture
-                            }
-                            PredictiveBackAnimation.NONE -> Unit
-                        }
-                    }
-                },
+            modifier = Modifier.fillMaxSize(),
         ) {
-            val duration = if (gestureCommitted) 1 else 320
-            AnimatedContent(
-                targetState = secondary,
-                transitionSpec = {
-                    if (gestureCommitted) {
-                        fadeIn(tween(duration)) togetherWith fadeOut(tween(duration))
-                    } else {
-                        // Programmatic push/pop (InstallerX MiuixDefault-like slide).
-                        when {
-                            initialState == null -> {
-                                slideInHorizontally(tween(420)) { it } + fadeIn(tween(280)) togetherWith
-                                    slideOutHorizontally(tween(420)) { -it / 3 } + fadeOut(tween(220))
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        if (gesture > 0f) {
+                            when (pbAnimation) {
+                                PredictiveBackAnimation.SCALE -> {
+                                    // pageScale = SCALE_MIN + (1-SCALE_MIN) * (1-progress)
+                                    val s = SCALE_MIN + (1f - SCALE_MIN) * (1f - gesture)
+                                    scaleX = s
+                                    scaleY = s
+                                    // InstallerX: translationX = 0 while gesture is tracked
+                                    translationX = 0f
+                                    translationY = 0f
+                                    alpha = 1f
+                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
+                                        pivotFractionX = 0.8f,
+                                        pivotFractionY = 0.5f,
+                                    )
+                                }
+                                PredictiveBackAnimation.CLASSIC -> {
+                                    val s = 0.9f + 0.1f * (1f - gesture)
+                                    scaleX = s
+                                    scaleY = s
+                                    translationX = dirSign * gesture * with(density) { 24.dp.toPx() }
+                                    alpha = 1f
+                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
+                                        pivotFractionX = 0.5f,
+                                        pivotFractionY = 0.5f,
+                                    )
+                                }
+                                PredictiveBackAnimation.AOSP -> {
+                                    val s = 0.9f + 0.1f * (1f - gesture)
+                                    scaleX = s
+                                    scaleY = s
+                                    translationX = dirSign * gesture * with(density) { 32.dp.toPx() }
+                                    alpha = 1f
+                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
+                                        pivotFractionX = if (dirSign > 0) 0.8f else 0.2f,
+                                        pivotFractionY = 0.5f,
+                                    )
+                                }
+                                PredictiveBackAnimation.MIUIX -> {
+                                    val s = 1f - 0.04f * gesture
+                                    scaleX = s
+                                    scaleY = s
+                                    translationX = dirSign * gesture * with(density) { 48.dp.toPx() }
+                                    alpha = 1f
+                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
+                                        pivotFractionX = 0.5f,
+                                        pivotFractionY = 0.5f,
+                                    )
+                                }
+                                PredictiveBackAnimation.NONE -> Unit
                             }
-                            targetState == null -> {
-                                slideInHorizontally(tween(420)) { -it / 3 } + fadeIn(tween(280)) togetherWith
-                                    slideOutHorizontally(tween(420)) { it } + fadeOut(tween(220))
-                            }
-                            else -> fadeIn(tween(200)) togetherWith fadeOut(tween(200))
                         }
                     }
-                },
+                    .then(
+                        if (cardStyle && (gesture > 0f || gestureCommitted)) {
+                            Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(cornerRadius))
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .background(pageBg),
+            ) {
+                val duration = if (gestureCommitted) 1 else 320
+                AnimatedContent(
+                    targetState = secondary,
+                    transitionSpec = {
+                        if (gestureCommitted) {
+                            fadeIn(tween(duration)) togetherWith fadeOut(tween(duration))
+                        } else {
+                            when (pbAnimation) {
+                                PredictiveBackAnimation.SCALE, PredictiveBackAnimation.CLASSIC,
+                                PredictiveBackAnimation.AOSP, PredictiveBackAnimation.MIUIX,
+                                -> {
+                                    if (initialState == null) {
+                                        slideInHorizontally(tween(420)) { it } + fadeIn(tween(280)) togetherWith
+                                            slideOutHorizontally(tween(420)) { -it / 3 } + fadeOut(tween(220))
+                                    } else if (targetState == null) {
+                                        slideInHorizontally(tween(420)) { -it / 3 } + fadeIn(tween(280)) togetherWith
+                                            slideOutHorizontally(tween(420)) { it } + fadeOut(tween(220))
+                                    } else {
+                                        fadeIn(tween(200)) togetherWith fadeOut(tween(200))
+                                    }
+                                }
+                                PredictiveBackAnimation.NONE -> fadeIn(tween(120)) togetherWith fadeOut(tween(120))
+                            }
+                        }
+                    },
                 label = "secondary-nav",
             ) { key ->
                 when (key) {
@@ -280,6 +338,7 @@ fun QuietaRoot() {
                         }.getOrDefault(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND),
                     )
                 }
+            }
             }
         }
         return
