@@ -58,17 +58,9 @@ fun SettingsScreen(
             SectionTitle("个性化")
             SettingsGroup {
                 NavRow(
-                    title = "主题设置",
-                    subtitle = "更改应用主题",
+                    title = stringResource(R.string.theme_settings),
+                    subtitle = stringResource(R.string.theme_settings_theme_mode) + " · " + stringResource(R.string.theme_settings_use_blur),
                     onClick = onOpenTheme,
-                )
-                NavRow(
-                    title = "液态玻璃",
-                    subtitle = modeLabel(bottomBarMode) + " · 开关",
-                    onClick = { onBlurEnabledChange(!blurEnabled) },
-                    trailing = {
-                        QuietaSwitch(checked = blurEnabled, onCheckedChange = onBlurEnabledChange)
-                    },
                 )
             }
         }

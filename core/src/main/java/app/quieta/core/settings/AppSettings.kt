@@ -29,6 +29,12 @@ enum class PreferredAuthorizer {
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+enum class PaletteStyle { TonalSpot, Vibrant, Expressive, Spritz, FruitSalad, Rainbow, Monochrome }
+
+enum class PredictiveBackAnimation { NONE, AOSP, MIUIX, SCALE, CLASSIC }
+
+enum class PredictiveBackExitDirection { FOLLOW_GESTURE, ALWAYS_RIGHT, ALWAYS_LEFT }
+
 /** Persisted capability snapshot for cold-start UI seed only. */
 data class CachedCapabilities(
     val shizukuAvailable: Boolean,
@@ -46,6 +52,57 @@ class AppSettings(private val context: Context) {
 
     val themeMode: Flow<ThemeMode> = context.settingsStore.data.map { prefs ->
         prefs[KEY_THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM
+    }
+
+    val blurEnabled: Flow<Boolean> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_BLUR_ENABLED] ?: true
+    }
+
+    suspend fun setBlurEnabled(enabled: Boolean) {
+        context.settingsStore.edit { it[KEY_BLUR_ENABLED] = enabled }
+    }
+
+    val customColors: Flow<Boolean> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_CUSTOM_COLORS] ?: false
+    }
+
+    suspend fun setCustomColors(enabled: Boolean) {
+        context.settingsStore.edit { it[KEY_CUSTOM_COLORS] = enabled }
+    }
+
+    val dynamicColor: Flow<Boolean> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_DYNAMIC_COLOR] ?: true
+    }
+
+    suspend fun setDynamicColor(enabled: Boolean) {
+        context.settingsStore.edit { it[KEY_DYNAMIC_COLOR] = enabled }
+    }
+
+    val paletteStyle: Flow<PaletteStyle> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_PALETTE_STYLE]?.let { runCatching { PaletteStyle.valueOf(it) }.getOrNull() }
+            ?: PaletteStyle.TonalSpot
+    }
+
+    suspend fun setPaletteStyle(style: PaletteStyle) {
+        context.settingsStore.edit { it[KEY_PALETTE_STYLE] = style.name }
+    }
+
+    val predictiveBackAnimation: Flow<PredictiveBackAnimation> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_PB_ANIMATION]?.let { runCatching { PredictiveBackAnimation.valueOf(it) }.getOrNull() }
+            ?: PredictiveBackAnimation.NONE
+    }
+
+    suspend fun setPredictiveBackAnimation(value: PredictiveBackAnimation) {
+        context.settingsStore.edit { it[KEY_PB_ANIMATION] = value.name }
+    }
+
+    val predictiveBackExitDirection: Flow<PredictiveBackExitDirection> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_PB_EXIT]?.let { runCatching { PredictiveBackExitDirection.valueOf(it) }.getOrNull() }
+            ?: PredictiveBackExitDirection.FOLLOW_GESTURE
+    }
+
+    suspend fun setPredictiveBackExitDirection(value: PredictiveBackExitDirection) {
+        context.settingsStore.edit { it[KEY_PB_EXIT] = value.name }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -171,6 +228,12 @@ class AppSettings(private val context: Context) {
         private val KEY_TIMELINE_ENABLED = booleanPreferencesKey("notification_timeline_enabled")
         private val KEY_FILE_LOGGING = booleanPreferencesKey("enable_file_logging")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
+        private val KEY_BLUR_ENABLED = booleanPreferencesKey("blur_enabled")
+        private val KEY_CUSTOM_COLORS = booleanPreferencesKey("theme_custom_colors")
+        private val KEY_DYNAMIC_COLOR = booleanPreferencesKey("theme_dynamic_color")
+        private val KEY_PALETTE_STYLE = stringPreferencesKey("theme_palette_style")
+        private val KEY_PB_ANIMATION = stringPreferencesKey("predictive_back_animation")
+        private val KEY_PB_EXIT = stringPreferencesKey("predictive_back_exit")
         private val KEY_AUTHORIZER = stringPreferencesKey("preferred_authorizer")
         private val KEY_LAST_PRIVILEGE_ID = stringPreferencesKey("last_known_privilege_id")
         private val KEY_LAST_PRIVILEGE_LABEL = stringPreferencesKey("last_known_privilege_label")

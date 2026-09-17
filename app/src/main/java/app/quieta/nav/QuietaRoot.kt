@@ -36,6 +36,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -82,6 +83,11 @@ private val tabRoutes = listOf(
 fun QuietaRoot() {
     var selectedRoute by rememberSaveable { mutableStateOf(QuietaRoutes.HOME) }
     var blurEnabled by rememberSaveable { mutableStateOf(true) }
+    val settingsViewModelForBlur: app.quieta.feature.settings.SettingsViewModel = viewModel()
+    val persistedBlur by settingsViewModelForBlur.blurEnabled.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(persistedBlur) {
+        blurEnabled = persistedBlur
+    }
     var secondaryStack by rememberSaveable { mutableStateOf(listOf<String>()) }
     var quietMode by rememberSaveable { mutableStateOf(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND.name) }
     val homeViewModel: HomeViewModel = viewModel()
@@ -109,8 +115,36 @@ fun QuietaRoot() {
     }
 
     val secondary = secondaryStack.lastOrNull()
+    val pbAnimation by settingsViewModelForBlur.predictiveBackAnimation.collectAsStateWithLifecycle()
+    val pbExit by settingsViewModelForBlur.predictiveBackExitDirection.collectAsStateWithLifecycle()
     if (secondary != null) {
         BackHandler { secondaryStack = secondaryStack.dropLast(1) }
+        val pbScale = when (pbAnimation) {
+            app.quieta.core.settings.PredictiveBackAnimation.SCALE,
+            app.quieta.core.settings.PredictiveBackAnimation.CLASSIC,
+            -> 0.92f
+            app.quieta.core.settings.PredictiveBackAnimation.MIUIX -> 0.95f
+            else -> 1f
+        }
+        val pbAlpha = when (pbAnimation) {
+            app.quieta.core.settings.PredictiveBackAnimation.NONE -> 1f
+            else -> 0.96f
+        }
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = pbScale
+                    scaleY = pbScale
+                    alpha = pbAlpha
+                    val dx = when (pbExit) {
+                        app.quieta.core.settings.PredictiveBackExitDirection.ALWAYS_LEFT -> -8f
+                        app.quieta.core.settings.PredictiveBackExitDirection.ALWAYS_RIGHT -> 8f
+                        else -> 0f
+                    }
+                    translationX = if (pbScale < 1f) dx else 0f
+                },
+        ) {
         when (secondary) {
             "licenses" -> LicensesScreen(onBack = { secondaryStack = secondaryStack.dropLast(1) }, blurEnabled = blurEnabled)
             "about" -> AboutScreen(
@@ -135,8 +169,19 @@ fun QuietaRoot() {
             }
             "theme" -> {
                 val settingsViewModel: app.quieta.feature.settings.SettingsViewModel = viewModel()
-                val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
-                ThemeScreen(themeMode, settingsViewModel::setThemeMode, { secondaryStack = secondaryStack.dropLast(1) }, blurEnabled)
+                val persistedBlur by settingsViewModel.blurEnabled.collectAsStateWithLifecycle()
+                ThemeScreen(
+                    onBack = { secondaryStack = secondaryStack.dropLast(1) },
+                    blurEnabledForChrome = blurEnabled,
+                    onBlurEnabledChange = { enabled ->
+                        blurEnabled = enabled
+                        settingsViewModel.setBlurEnabled(enabled)
+                    },
+                )
+                // Keep local chrome in sync if another surface wrote the setting.
+                androidx.compose.runtime.LaunchedEffect(persistedBlur) {
+                    if (persistedBlur != blurEnabled) blurEnabled = persistedBlur
+                }
             }
             "mute_preview" -> {
                 val homeState by homeViewModel.state.collectAsStateWithLifecycle()
@@ -175,6 +220,7 @@ fun QuietaRoot() {
                     }.getOrDefault(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND),
                 )
             }
+        }
         }
         return
     }
