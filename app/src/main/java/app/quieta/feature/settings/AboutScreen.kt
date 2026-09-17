@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,6 +44,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -91,6 +93,21 @@ private fun aboutCardBlend(isDark: Boolean): List<BlendColorEntry> = if (isDark)
     listOf(
         BlendColorEntry(Color(0x340034F9), BlurBlendMode.Overlay),
         BlendColorEntry(Color(0xB3FFFFFF), BlurBlendMode.HardLight),
+    )
+}
+
+// InstallerX MiuixAboutPage logoBlend (tints monochrome mark with the aurora).
+private fun aboutLogoBlend(isDark: Boolean): List<BlendColorEntry> = if (isDark) {
+    listOf(
+        BlendColorEntry(Color(0xe6a1a1a1), BlurBlendMode.ColorDodge),
+        BlendColorEntry(Color(0x4de6e6e6), BlurBlendMode.LinearLight),
+        BlendColorEntry(Color(0xff1af500), BlurBlendMode.Lab),
+    )
+} else {
+    listOf(
+        BlendColorEntry(Color(0xcc4a4a4a), BlurBlendMode.ColorBurn),
+        BlendColorEntry(Color(0xff4f4f4f), BlurBlendMode.LinearLight),
+        BlendColorEntry(Color(0xff1af200), BlurBlendMode.Lab),
     )
 }
 
@@ -195,7 +212,12 @@ fun AboutScreen(
                         .onSizeChanged { size -> heroHeightPx = size.height },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    AboutHeroIcon(scrollProgress = scrollProgress)
+                    AboutHeroIcon(
+                        scrollProgress = scrollProgress,
+                        backdrop = cardBackdrop,
+                        isDark = isDark,
+                        blurOk = blurOk,
+                    )
                     Text(
                         modifier = Modifier
                             .padding(top = 12.dp, bottom = 5.dp)
@@ -312,15 +334,13 @@ private fun versionInfoText(): String {
 }
 
 @Composable
-private fun AboutHeroIcon(scrollProgress: Float) {
-    val context = LocalContext.current
-    val iconBitmap = remember(context) {
-        runCatching {
-            context.packageManager.getApplicationIcon(context.packageName)
-                .toBitmap(192, 192)
-                .asImageBitmap()
-        }.getOrNull()
-    }
+private fun AboutHeroIcon(
+    scrollProgress: Float,
+    backdrop: LayerBackdrop?,
+    isDark: Boolean,
+    blurOk: Boolean,
+) {
+    val logoBlend = remember(isDark) { aboutLogoBlend(isDark) }
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -332,9 +352,28 @@ private fun AboutHeroIcon(scrollProgress: Float) {
                 scaleY = 1f - (iconProgress * 0.05f)
             },
     ) {
-        if (iconBitmap != null) {
+        // Foreground-only mark: no adaptive-icon white/colored background.
+        // InstallerX: monochrome + textureBlur(DstIn) so the aurora paints the glyph.
+        if (backdrop != null && blurOk) {
             Image(
-                bitmap = iconBitmap,
+                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .requiredSize(160.dp)
+                    .textureBlur(
+                        backdrop = backdrop,
+                        shape = RoundedCornerShape(16.dp),
+                        blurRadius = 200f,
+                        noiseCoefficient = 0.02f,
+                        colors = BlurColors(blendColors = logoBlend),
+                        contentBlendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                        enabled = true,
+                    ),
+            )
+        } else {
+            Image(
+                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_launcher_foreground),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.size(88.dp),
