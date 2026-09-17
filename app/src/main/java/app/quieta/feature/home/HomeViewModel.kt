@@ -98,6 +98,22 @@ enum class MuteScope {
     FILTERED,
 }
 
+/** Density knobs for the home channel list (mirrors RecordDisplayPrefs). */
+data class HomeDisplayPrefs(
+    val showAppIcon: Boolean = true,
+    val showAppName: Boolean = true,
+    val showPackageName: Boolean = true,
+    val showChannelCount: Boolean = true,
+    val showChannelName: Boolean = true,
+    val showChannelId: Boolean = false,
+    val showImportance: Boolean = true,
+    val showSoundDot: Boolean = true,
+    val showVibration: Boolean = false,
+    val showRulePreview: Boolean = true,
+    val showMarketingTag: Boolean = true,
+    val showAppActions: Boolean = true,
+)
+
 data class MutePreviewItem(
     val packageName: String,
     val appLabel: String,
@@ -130,6 +146,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val appSettings = AppSettings(application)
     private val muteLog = app.quieta.core.engine.MuteLogStore.getInstance(application)
     private val muteUndo = MuteUndoStore.getInstance(application)
+    private val displayPrefsStorage =
+        application.getSharedPreferences("home_display", android.content.Context.MODE_PRIVATE)
+    private val displayPrefsFlow = MutableStateFlow(loadDisplayPrefs())
+
+    val displayPrefs: kotlinx.coroutines.flow.StateFlow<HomeDisplayPrefs> = displayPrefsFlow
 
     private val _state = MutableStateFlow(seedHomeState(appSettings))
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -368,6 +389,69 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun collapseAll() {
         _state.update { it.copy(expandedPackages = emptySet()) }
+    }
+
+    fun toggleDisplayPref(key: String) {
+        displayPrefsFlow.update { prefs ->
+            val next = when (key) {
+                "appIcon" -> prefs.copy(showAppIcon = !prefs.showAppIcon)
+                "appName" -> prefs.copy(showAppName = !prefs.showAppName)
+                "packageName" -> prefs.copy(showPackageName = !prefs.showPackageName)
+                "channelCount" -> prefs.copy(showChannelCount = !prefs.showChannelCount)
+                "channelName" -> prefs.copy(showChannelName = !prefs.showChannelName)
+                "channelId" -> prefs.copy(showChannelId = !prefs.showChannelId)
+                "importance" -> prefs.copy(showImportance = !prefs.showImportance)
+                "soundDot" -> prefs.copy(showSoundDot = !prefs.showSoundDot)
+                "vibration" -> prefs.copy(showVibration = !prefs.showVibration)
+                "rulePreview" -> prefs.copy(showRulePreview = !prefs.showRulePreview)
+                "marketingTag" -> prefs.copy(showMarketingTag = !prefs.showMarketingTag)
+                "appActions" -> prefs.copy(showAppActions = !prefs.showAppActions)
+                else -> prefs
+            }
+            saveDisplayPrefs(next)
+            next
+        }
+    }
+
+    fun resetDisplayPrefs() {
+        val defaults = HomeDisplayPrefs()
+        saveDisplayPrefs(defaults)
+        displayPrefsFlow.value = defaults
+    }
+
+    private fun loadDisplayPrefs(): HomeDisplayPrefs {
+        fun b(key: String, default: Boolean) = displayPrefsStorage.getBoolean(key, default)
+        return HomeDisplayPrefs(
+            showAppIcon = b("appIcon", true),
+            showAppName = b("appName", true),
+            showPackageName = b("packageName", true),
+            showChannelCount = b("channelCount", true),
+            showChannelName = b("channelName", true),
+            showChannelId = b("channelId", false),
+            showImportance = b("importance", true),
+            showSoundDot = b("soundDot", true),
+            showVibration = b("vibration", false),
+            showRulePreview = b("rulePreview", true),
+            showMarketingTag = b("marketingTag", true),
+            showAppActions = b("appActions", true),
+        )
+    }
+
+    private fun saveDisplayPrefs(p: HomeDisplayPrefs) {
+        displayPrefsStorage.edit()
+            .putBoolean("appIcon", p.showAppIcon)
+            .putBoolean("appName", p.showAppName)
+            .putBoolean("packageName", p.showPackageName)
+            .putBoolean("channelCount", p.showChannelCount)
+            .putBoolean("channelName", p.showChannelName)
+            .putBoolean("channelId", p.showChannelId)
+            .putBoolean("importance", p.showImportance)
+            .putBoolean("soundDot", p.showSoundDot)
+            .putBoolean("vibration", p.showVibration)
+            .putBoolean("rulePreview", p.showRulePreview)
+            .putBoolean("marketingTag", p.showMarketingTag)
+            .putBoolean("appActions", p.showAppActions)
+            .apply()
     }
 
     fun setPreferredAuthorizer(authorizer: app.quieta.core.settings.PreferredAuthorizer) {

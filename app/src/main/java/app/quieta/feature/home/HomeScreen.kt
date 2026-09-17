@@ -39,6 +39,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SettingsBackupRestore
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Undo
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
@@ -65,6 +66,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -72,6 +75,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
@@ -135,6 +139,8 @@ fun HomeScreen(
     }
 
     var showFilterSheet by rememberSaveable { mutableStateOf(false) }
+    var showDisplaySheet by rememberSaveable { mutableStateOf(false) }
+    val display by viewModel.displayPrefs.collectAsStateWithLifecycle()
 
     QuietaPage(
         title = stringResource(R.string.home_title),
@@ -207,6 +213,13 @@ fun HomeScreen(
                         IconButton(onClick = viewModel::expandAllVisible) {
                             Icon(Icons.Outlined.ExpandMore, contentDescription = "全部展开")
                         }
+                        IconButton(onClick = { showDisplaySheet = true }) {
+                            Icon(
+                                Icons.Outlined.Visibility,
+                                contentDescription = "显示选项",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         IconButton(onClick = { showFilterSheet = true }) {
                             Icon(
                                 Icons.Outlined.Tune,
@@ -262,6 +275,7 @@ fun HomeScreen(
                     AppChannelCard(
                         item = item,
                         plan = state.plan,
+                        display = display,
                         onToggleExpand = { viewModel.toggleExpanded(item.app.packageName) },
                         onChannelAction = viewModel::applyChannelAction,
                         onMuteApp = { viewModel.muteApp(item.app.packageName) },
@@ -280,6 +294,15 @@ fun HomeScreen(
                 )
             }
         }
+    }
+
+    if (showDisplaySheet) {
+        HomeDisplaySheet(
+            display = display,
+            onDismiss = { showDisplaySheet = false },
+            onToggle = viewModel::toggleDisplayPref,
+            onReset = viewModel::resetDisplayPrefs,
+        )
     }
 
     if (showFilterSheet) {
@@ -688,9 +711,72 @@ private fun FilterSortSheet(
 }
 
 @Composable
+private fun HomeDisplaySheet(
+    display: HomeDisplayPrefs,
+    onDismiss: () -> Unit,
+    onToggle: (String) -> Unit,
+    onReset: () -> Unit,
+) {
+    HyperOsPopup(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HyperOsPopupRow("应用图标", selected = display.showAppIcon, onClick = { onToggle("appIcon") })
+            HyperOsPopupRow("应用名", selected = display.showAppName, onClick = { onToggle("appName") })
+            HyperOsPopupRow("包名", selected = display.showPackageName, onClick = { onToggle("packageName") })
+            HyperOsPopupRow("渠道数", selected = display.showChannelCount, onClick = { onToggle("channelCount") })
+            HyperOsPopupRow("渠道名", selected = display.showChannelName, onClick = { onToggle("channelName") })
+            HyperOsPopupRow("渠道 ID", selected = display.showChannelId, onClick = { onToggle("channelId") })
+            HyperOsPopupRow("importance", selected = display.showImportance, onClick = { onToggle("importance") })
+            HyperOsPopupRow("声音点", selected = display.showSoundDot, onClick = { onToggle("soundDot") })
+            HyperOsPopupRow("振动", selected = display.showVibration, onClick = { onToggle("vibration") })
+            HyperOsPopupRow("规则预览", selected = display.showRulePreview, onClick = { onToggle("rulePreview") })
+            HyperOsPopupRow("疑似营销", selected = display.showMarketingTag, onClick = { onToggle("marketingTag") })
+            HyperOsPopupRow("应用操作入口", selected = display.showAppActions, onClick = { onToggle("appActions") })
+            HyperOsPopupDivider()
+            HyperOsPopupRow("恢复默认显示", selected = false, showCheck = false, onClick = onReset)
+        }
+    }
+}
+
+@Composable
+private fun HomeAppIcon(packageName: String) {
+    val context = LocalContext.current
+    val bitmap = remember(packageName) {
+        runCatching {
+            val drawable = context.packageManager.getApplicationIcon(packageName)
+            drawable.toBitmap(96, 96).asImageBitmap()
+        }.getOrNull()
+    }
+    if (bitmap != null) {
+        androidx.compose.foundation.Image(
+            bitmap = bitmap,
+            contentDescription = null,
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Crop,
+        )
+    } else {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = packageName.take(1).uppercase(),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
 private fun AppChannelCard(
     item: ChannelListAppItem,
     plan: Map<Channel, RuleAction>,
+    display: HomeDisplayPrefs,
     onToggleExpand: () -> Unit,
     onChannelAction: (Channel, RuleAction) -> Unit,
     onMuteApp: () -> Unit,
@@ -703,21 +789,33 @@ private fun AppChannelCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(item.app.appLabel, style = MaterialTheme.typography.titleLarge)
-                Text(
-                    text = item.app.packageName + " · " + item.app.channels.size + " 个渠道",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (display.showAppIcon) {
+                HomeAppIcon(packageName = item.app.packageName)
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
                 )
             }
-            if (item.expanded) {
+            Column(modifier = Modifier.weight(1f)) {
+                if (display.showAppName) {
+                    Text(item.app.appLabel, style = MaterialTheme.typography.titleLarge)
+                }
+                val meta = buildList {
+                    if (display.showPackageName) add(item.app.packageName)
+                    if (display.showChannelCount) add("${item.app.channels.size} 个渠道")
+                }.joinToString(" · ")
+                if (meta.isNotBlank()) {
+                    Text(
+                        text = meta,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (item.expanded && display.showAppActions) {
                 IconButton(onClick = { showAppActions = true }) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = "应用操作")
                 }
@@ -752,6 +850,7 @@ private fun AppChannelCard(
                     ChannelRow(
                         channel = channel,
                         plannedAction = plan[channel] ?: RuleAction.KEEP,
+                        display = display,
                         onClick = { actionTarget = channel },
                         likelyMarketing = item.likelyMarketingChannelIds.contains(channel.id),
                     )
@@ -861,29 +960,38 @@ private fun ChannelActionSheet(
 private fun ChannelRow(
     channel: Channel,
     plannedAction: RuleAction,
+    display: HomeDisplayPrefs,
     onClick: () -> Unit,
     likelyMarketing: Boolean = false,
 ) {
     val status = remember(channel.importance) { ChannelLiveStatus.from(channel.importance) }
-    val secondary = remember(status, plannedAction, channel.id, likelyMarketing) {
-        buildString {
-            append(channel.id)
-            append(" · ")
-            append(status.label)
-            if (likelyMarketing) {
-                append(" · 疑似营销")
+    val secondary = remember(
+        status,
+        plannedAction,
+        channel.id,
+        likelyMarketing,
+        display.showChannelName,
+        display.showChannelId,
+        display.showRulePreview,
+        display.showMarketingTag,
+        display.showVibration,
+    ) {
+        buildList {
+            if (display.showChannelId) add(channel.id)
+            if (display.showVibration) {
+                add(if (channel.vibrationEnabled) "振动开" else "振动关")
             }
-            if (plannedAction != RuleAction.KEEP) {
-                append(" · 规则 ")
-                append(
-                    when (plannedAction) {
+            if (display.showMarketingTag && likelyMarketing) add("疑似营销")
+            if (display.showRulePreview && plannedAction != RuleAction.KEEP) {
+                add(
+                    "规则 " + when (plannedAction) {
                         RuleAction.MUTE -> "将静音"
                         RuleAction.DOWNGRADE -> "将降级"
                         RuleAction.KEEP -> ""
                     },
                 )
             }
-        }
+        }.joinToString(" · ")
     }
     Row(
         modifier = Modifier
@@ -894,18 +1002,26 @@ private fun ChannelRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(channel.name, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = secondary,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (display.showChannelName) {
+                Text(channel.name, style = MaterialTheme.typography.bodyLarge)
+            }
+            if (secondary.isNotBlank()) {
+                Text(
+                    text = secondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
-        LiveStatusChip(status)
-        Spacer(modifier = Modifier.width(6.dp))
-        SoundDot(enabled = channel.soundEnabled)
+        if (display.showImportance) {
+            LiveStatusChip(status)
+        }
+        if (display.showSoundDot) {
+            Spacer(modifier = Modifier.width(6.dp))
+            SoundDot(enabled = channel.soundEnabled)
+        }
     }
 }
 
