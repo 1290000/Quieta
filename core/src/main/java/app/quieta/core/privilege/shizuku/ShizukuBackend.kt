@@ -44,6 +44,10 @@ class ShizukuBackend(
                     name = raw.name?.toString().orEmpty().ifEmpty { raw.id },
                     importance = raw.importance.toDomain(),
                     soundEnabled = raw.sound?.toString()?.isNotEmpty() == true,
+                    vibrationEnabled = runCatching { raw.shouldVibrate() }.getOrDefault(false),
+                    lockscreenHidden = runCatching {
+                        raw.lockscreenVisibility == -1 || raw.lockscreenVisibility == 0
+                    }.getOrDefault(false),
                 )
             }
         } catch (t: Throwable) {

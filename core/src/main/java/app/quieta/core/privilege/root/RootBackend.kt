@@ -99,6 +99,10 @@ class RootBackend(private val context: Context? = null) : PrivilegeBackend {
                         else -> ChannelImportance.DEFAULT
                     },
                     soundEnabled = it.sound?.toString()?.isNotEmpty() == true,
+                    vibrationEnabled = runCatching { it.shouldVibrate() }.getOrDefault(false),
+                    lockscreenHidden = runCatching {
+                        it.lockscreenVisibility == -1 || it.lockscreenVisibility == 0
+                    }.getOrDefault(false),
                 )
             }
         }

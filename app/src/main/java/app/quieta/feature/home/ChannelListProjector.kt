@@ -1,6 +1,7 @@
 package app.quieta.feature.home
 
 import app.quieta.core.engine.MarketingHeuristic
+import app.quieta.core.engine.SilentButAllowed
 import app.quieta.core.model.AppChannels
 import app.quieta.core.model.Channel
 import app.quieta.core.model.ChannelImportance
@@ -26,11 +27,13 @@ data class ChannelListFilters(
     val onlyUser: Boolean = false,
     val onlySystem: Boolean = false,
     val onlyLikelyMarketing: Boolean = false,
+    /** 允许通知开着，但声音/横幅/振动基本全关。 */
+    val onlySilentAllowed: Boolean = false,
     val sound: SoundFilter = SoundFilter.ALL,
 ) {
     val isActive: Boolean
         get() = hasHigh || hasNone || willMute || onlyUser || onlySystem ||
-            onlyLikelyMarketing || sound != SoundFilter.ALL
+            onlyLikelyMarketing || onlySilentAllowed || sound != SoundFilter.ALL
 }
 
 data class ChannelListAppItem(
@@ -60,7 +63,12 @@ object ChannelListProjector {
             apps.mapNotNull { app -> filterChannelsForSearch(app, needle) }
         }
         val filtered = searched
-            .map { app -> applySoundChannelFilter(app, filters.sound) }
+            .map { app ->
+                val base = applySoundChannelFilter(app, filters.sound)
+                if (filters.onlySilentAllowed) {
+                    base.copy(channels = base.channels.filter { SilentButAllowed.isMatch(it) })
+                } else base
+            }
             .filter { app -> app.channels.isNotEmpty() && matchesFilters(app, filters, plan) }
         val sorted = sortApps(filtered, sort)
         return sorted.map { app ->
@@ -85,6 +93,14 @@ object ChannelListProjector {
             if (sound == SoundFilter.ON) ch.soundEnabled else !ch.soundEnabled
         }
         return app.copy(channels = kept)
+    }
+
+    /** Flatten silent-but-allowed hits for secondary detail list. */
+    fun silentAllowedChannels(apps: List<AppChannels>): List<Pair<AppChannels, List<Channel>>> {
+        return apps.mapNotNull { app ->
+            val hits = app.channels.filter { SilentButAllowed.isMatch(it) }
+            if (hits.isEmpty()) null else app to hits
+        }
     }
 
     fun matchesQuery(app: AppChannels, query: String): Boolean {
@@ -120,6 +136,10 @@ object ChannelListProjector {
             val hit = app.channels.any {
                 MarketingHeuristic.isLikelyMarketing(it, app.isSystem)
             }
+            if (!hit) return false
+        }
+        if (filters.onlySilentAllowed) {
+            val hit = app.channels.any { SilentButAllowed.isMatch(it) }
             if (!hit) return false
         }
         if (filters.sound != SoundFilter.ALL) {

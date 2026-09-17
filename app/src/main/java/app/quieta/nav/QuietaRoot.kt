@@ -148,6 +148,16 @@ fun QuietaRoot() {
                     blurEnabled = blurEnabled,
                 )
             }
+            "silent_channels" -> {
+                val homeState by homeViewModel.state.collectAsStateWithLifecycle()
+                app.quieta.feature.home.SilentChannelsScreen(
+                    apps = homeState.apps,
+                    plan = homeState.plan,
+                    onBack = { secondaryStack = secondaryStack.dropLast(1) },
+                    onChannelAction = homeViewModel::applyChannelAction,
+                    blurEnabled = blurEnabled,
+                )
+            }
         }
         return
     }
@@ -215,6 +225,7 @@ fun QuietaRoot() {
                             onOpenPrivilege = { secondaryStack = secondaryStack + "privilege" },
                             onOpenConfig = { selectedRoute = QuietaRoutes.CONFIG },
                             onOpenMutePreview = { secondaryStack = secondaryStack + "mute_preview" },
+                            onOpenSilentChannels = { secondaryStack = secondaryStack + "silent_channels" },
                             blurEnabled = blurEnabled,
                         )
                         QuietaRoutes.CONFIG -> {

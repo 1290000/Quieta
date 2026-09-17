@@ -16,6 +16,10 @@ data class Channel(
     val importance: ChannelImportance,
     /** True when the system channel still has a non-empty sound URI. */
     val soundEnabled: Boolean = true,
+    /** Channel-level vibrate flag. */
+    val vibrationEnabled: Boolean = false,
+    /** True when lockscreen visibility hides the notification (VISIBILITY_SECRET / NO). */
+    val lockscreenHidden: Boolean = false,
 )
 
 data class AppChannels(

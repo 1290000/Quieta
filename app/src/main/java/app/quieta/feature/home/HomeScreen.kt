@@ -104,6 +104,7 @@ fun HomeScreen(
     onOpenPrivilege: () -> Unit = {},
     onOpenConfig: () -> Unit = {},
     onOpenMutePreview: () -> Unit = {},
+    onOpenSilentChannels: () -> Unit = {},
     blurEnabled: Boolean = true,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -291,6 +292,8 @@ fun HomeScreen(
             onToggleOnlyUser = { viewModel.toggleFilter { it.copy(onlyUser = !it.onlyUser, onlySystem = false) } },
             onToggleOnlySystem = { viewModel.toggleFilter { it.copy(onlySystem = !it.onlySystem, onlyUser = false) } },
             onToggleOnlyMarketing = { viewModel.toggleFilter { it.copy(onlyLikelyMarketing = !it.onlyLikelyMarketing) } },
+            onToggleOnlySilent = { viewModel.toggleFilter { it.copy(onlySilentAllowed = !it.onlySilentAllowed) } },
+            onOpenSilentChannels = onOpenSilentChannels,
             onSoundFilter = { sound -> viewModel.toggleFilter { it.copy(sound = sound) } },
             onSortChange = viewModel::setSort,
             onResetFilters = {
@@ -602,6 +605,8 @@ private fun FilterSortSheet(
     onToggleOnlyUser: () -> Unit,
     onToggleOnlySystem: () -> Unit,
     onToggleOnlyMarketing: () -> Unit,
+    onToggleOnlySilent: () -> Unit,
+    onOpenSilentChannels: () -> Unit,
     onSoundFilter: (SoundFilter) -> Unit,
     onSortChange: (ChannelSort) -> Unit,
     onResetFilters: () -> Unit,
@@ -615,6 +620,15 @@ private fun FilterSortSheet(
             HyperOsPopupRow("仅用户应用", selected = filters.onlyUser, onClick = onToggleOnlyUser)
             HyperOsPopupRow("仅系统应用", selected = filters.onlySystem, onClick = onToggleOnlySystem)
             HyperOsPopupRow("疑似营销", selected = filters.onlyLikelyMarketing, onClick = onToggleOnlyMarketing)
+            HyperOsPopupRow(
+                title = "静默仍开",
+                selected = filters.onlySilentAllowed,
+                subtitle = "允许通知开，声音/悬浮/振动关",
+                onClick = {
+                    onToggleOnlySilent()
+                    onOpenSilentChannels()
+                },
+            )
             HyperOsPopupRow(
                 title = "声音",
                 selected = filters.sound != SoundFilter.ALL,

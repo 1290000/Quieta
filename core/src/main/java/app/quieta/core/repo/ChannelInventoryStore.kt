@@ -46,7 +46,9 @@ class ChannelInventoryStore private constructor(context: Context) {
                         .put("id", ch.id)
                         .put("name", ch.name)
                         .put("importance", ch.importance.name)
-                        .put("soundEnabled", ch.soundEnabled),
+                        .put("soundEnabled", ch.soundEnabled)
+                        .put("vibrationEnabled", ch.vibrationEnabled)
+                        .put("lockscreenHidden", ch.lockscreenHidden),
                 )
             }
             arr.put(
@@ -80,6 +82,8 @@ class ChannelInventoryStore private constructor(context: Context) {
                                         ChannelImportance.valueOf(c.getString("importance"))
                                     }.getOrDefault(ChannelImportance.DEFAULT),
                                     soundEnabled = c.optBoolean("soundEnabled", true),
+                                    vibrationEnabled = c.optBoolean("vibrationEnabled", false),
+                                    lockscreenHidden = c.optBoolean("lockscreenHidden", false),
                                 ),
                             )
                         }
