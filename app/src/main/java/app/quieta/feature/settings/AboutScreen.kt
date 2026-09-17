@@ -44,7 +44,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -227,18 +229,29 @@ private fun AboutHero(
     topPadding: androidx.compose.ui.unit.Dp,
     versionText: String,
 ) {
+    val context = LocalContext.current
+    // Adaptive icon XML in mipmap-anydpi-v26 cannot be loaded via painterResource.
+    val iconBitmap = androidx.compose.runtime.remember(context) {
+        runCatching {
+            context.packageManager.getApplicationIcon(context.packageName)
+                .toBitmap(192, 192)
+                .asImageBitmap()
+        }.getOrNull()
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = topPadding, bottom = 56.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // InstallerX uses ~80dp app icon in the hero.
-        Image(
-            painter = painterResource(R.mipmap.ic_launcher_round),
-            contentDescription = null,
-            modifier = Modifier.size(88.dp),
-        )
+        if (iconBitmap != null) {
+            Image(
+                bitmap = iconBitmap,
+                contentDescription = null,
+                modifier = Modifier.size(88.dp),
+                contentScale = ContentScale.Fit,
+            )
+        }
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = stringResource(R.string.app_name),
