@@ -48,6 +48,7 @@ import app.quieta.feature.home.HomeViewModel
 import app.quieta.feature.home.MutePreviewScreen
 import app.quieta.feature.privilege.PrivilegeScreen
 import app.quieta.feature.record.RecordScreen
+import app.quieta.feature.record.RecordViewModel
 import app.quieta.feature.settings.LicensesScreen
 import app.quieta.feature.settings.SettingsScreen
 import app.quieta.feature.settings.ThemeScreen
@@ -83,6 +84,7 @@ fun QuietaRoot() {
     var secondaryStack by rememberSaveable { mutableStateOf(listOf<String>()) }
     var quietMode by rememberSaveable { mutableStateOf(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND.name) }
     val homeViewModel: HomeViewModel = viewModel()
+    val recordViewModel: RecordViewModel = viewModel()
     val context = LocalContext.current
     val pageStateHolder = rememberSaveableStateHolder()
 
@@ -249,7 +251,11 @@ fun QuietaRoot() {
                                 onOpenEditor = { secondaryStack = secondaryStack + "rule_editor" },
                             )
                         }
-                        QuietaRoutes.RECORD -> RecordScreen(modifier = Modifier.fillMaxSize(), blurEnabled = blurEnabled)
+                        QuietaRoutes.RECORD -> RecordScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            blurEnabled = blurEnabled,
+                            viewModel = recordViewModel,
+                        )
                         QuietaRoutes.SETTINGS -> SettingsScreen(
                             blurEnabled = blurEnabled,
                             onBlurEnabledChange = { blurEnabled = it },
@@ -264,65 +270,109 @@ fun QuietaRoot() {
 
             // Multi-select action bar owns the bottom edge — hide the tab bar so it is not covered.
             val homeState by homeViewModel.state.collectAsStateWithLifecycle()
+            val recordSelection by recordViewModel.selection.collectAsStateWithLifecycle()
             val bottomBarModifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 14.dp)
                 .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
 
-            if (homeState.selectionMode) {
-                val selectionEnabled = !homeState.checkingPrivilege &&
-                    homeState.selectedChannelKeys.isNotEmpty() &&
-                    homeState.progress == null
-                FloatingSelectionBar(
-                    countLabel = "已选 ${homeState.selectedChannelKeys.size}",
-                    busy = homeState.progress != null,
-                    mode = mode,
-                    backdrop = pageBackdrop,
-                    modifier = bottomBarModifier,
-                    actions = listOf(
-                        FloatingSelectionAction(
-                            id = "mute",
-                            label = "静音",
-                            icon = Icons.Outlined.VolumeOff,
-                            enabled = selectionEnabled,
-                            emphasized = true,
-                            onClick = {
-                                homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.MUTE)
-                            },
+            when {
+                homeState.selectionMode -> {
+                    val selectionEnabled = !homeState.checkingPrivilege &&
+                        homeState.selectedChannelKeys.isNotEmpty() &&
+                        homeState.progress == null
+                    FloatingSelectionBar(
+                        countLabel = "已选 ${homeState.selectedChannelKeys.size}",
+                        busy = homeState.progress != null,
+                        mode = mode,
+                        backdrop = pageBackdrop,
+                        modifier = bottomBarModifier,
+                        actions = listOf(
+                            FloatingSelectionAction(
+                                id = "mute",
+                                label = "静音",
+                                icon = Icons.Outlined.VolumeOff,
+                                enabled = selectionEnabled,
+                                emphasized = true,
+                                onClick = {
+                                    homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.MUTE)
+                                },
+                            ),
+                            FloatingSelectionAction(
+                                id = "downgrade",
+                                label = "降级",
+                                icon = Icons.Outlined.South,
+                                enabled = selectionEnabled,
+                                onClick = {
+                                    homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.DOWNGRADE)
+                                },
+                            ),
+                            FloatingSelectionAction(
+                                id = "keep",
+                                label = "保留",
+                                icon = Icons.Outlined.Restore,
+                                enabled = selectionEnabled,
+                                onClick = {
+                                    homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.KEEP)
+                                },
+                            ),
                         ),
-                        FloatingSelectionAction(
-                            id = "downgrade",
-                            label = "降级",
-                            icon = Icons.Outlined.South,
-                            enabled = selectionEnabled,
-                            onClick = {
-                                homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.DOWNGRADE)
-                            },
+                    )
+                }
+                recordSelection.mode -> {
+                    val selectionEnabled = recordSelection.selectedKeys.isNotEmpty() && !recordSelection.busy
+                    FloatingSelectionBar(
+                        countLabel = "已选 ${recordSelection.selectedKeys.size}",
+                        busy = recordSelection.busy,
+                        mode = mode,
+                        backdrop = pageBackdrop,
+                        modifier = bottomBarModifier,
+                        actions = listOf(
+                            FloatingSelectionAction(
+                                id = "mute",
+                                label = "静音",
+                                icon = Icons.Outlined.VolumeOff,
+                                enabled = selectionEnabled,
+                                emphasized = true,
+                                onClick = {
+                                    recordViewModel.applySelectionAction(app.quieta.core.model.RuleAction.MUTE)
+                                },
+                            ),
+                            FloatingSelectionAction(
+                                id = "downgrade",
+                                label = "降级",
+                                icon = Icons.Outlined.South,
+                                enabled = selectionEnabled,
+                                onClick = {
+                                    recordViewModel.applySelectionAction(app.quieta.core.model.RuleAction.DOWNGRADE)
+                                },
+                            ),
+                            FloatingSelectionAction(
+                                id = "keep",
+                                label = "保留",
+                                icon = Icons.Outlined.Restore,
+                                enabled = selectionEnabled,
+                                onClick = {
+                                    recordViewModel.applySelectionAction(app.quieta.core.model.RuleAction.KEEP)
+                                },
+                            ),
                         ),
-                        FloatingSelectionAction(
-                            id = "keep",
-                            label = "保留",
-                            icon = Icons.Outlined.Restore,
-                            enabled = selectionEnabled,
-                            onClick = {
-                                homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.KEEP)
-                            },
-                        ),
-                    ),
-                )
-            } else {
-                FloatingBottomBar(
-                    tabs = tabs,
-                    selectedRoute = tabRoutes[mainPagerState.selectedPage.coerceIn(0, tabRoutes.lastIndex)],
-                    onTabSelected = { route ->
-                        selectedRoute = route
-                        mainPagerState.animateToPage(tabRoutes.indexOf(route).coerceAtLeast(0))
-                    },
-                    mode = mode,
-                    backdrop = pageBackdrop,
-                    colors = FloatingBottomBarDefaults.colors(),
-                    modifier = bottomBarModifier,
-                )
+                    )
+                }
+                else -> {
+                    FloatingBottomBar(
+                        tabs = tabs,
+                        selectedRoute = tabRoutes[mainPagerState.selectedPage.coerceIn(0, tabRoutes.lastIndex)],
+                        onTabSelected = { route ->
+                            selectedRoute = route
+                            mainPagerState.animateToPage(tabRoutes.indexOf(route).coerceAtLeast(0))
+                        },
+                        mode = mode,
+                        backdrop = pageBackdrop,
+                        colors = FloatingBottomBarDefaults.colors(),
+                        modifier = bottomBarModifier,
+                    )
+                }
             }
         }
     }

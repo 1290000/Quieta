@@ -106,17 +106,27 @@ data class TimelineSummary(
     val topChannels: List<Pair<String, Int>> = emptyList(),
 )
 
+data class RecordSelectionUiState(
+    val mode: Boolean = false,
+    val selectedKeys: Set<String> = emptySet(),
+    val busy: Boolean = false,
+)
+
 class RecordViewModel(application: Application) : AndroidViewModel(application) {
 
     private val context = application
     private val store = MuteLogStore.getInstance(application)
     private val timelineStore = NotificationTimelineStore.getInstance(application)
     private val inventoryStore = ChannelInventoryStore.getInstance(application)
+    private val muteUndo = app.quieta.core.engine.MuteUndoStore.getInstance(application)
     private val prefs = context.getSharedPreferences("record_display", Context.MODE_PRIVATE)
 
     private val expandedApps = MutableStateFlow<Set<String>>(emptySet())
     private val filtersFlow = MutableStateFlow(RecordFilters())
     private val displayFlow = MutableStateFlow(loadDisplayPrefs())
+    private val selectionFlow = MutableStateFlow(RecordSelectionUiState())
+
+    val selection: StateFlow<RecordSelectionUiState> = selectionFlow
 
     val filters: StateFlow<RecordFilters> = filtersFlow
     val displayPrefs: StateFlow<RecordDisplayPrefs> = displayFlow
@@ -232,6 +242,175 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         val defaults = RecordDisplayPrefs()
         saveDisplayPrefs(defaults)
         displayFlow.value = defaults
+    }
+
+    private fun channelKey(packageName: String, channelId: String): String =
+        packageName + "|" + channelId
+
+    fun enterSelection(packageName: String? = null, channelId: String? = null) {
+        val seed = buildSet {
+            if (packageName != null && channelId != null) {
+                add(channelKey(packageName, channelId))
+            } else if (packageName != null) {
+                dayGroups.value.forEach { day ->
+                    day.apps.firstOrNull { it.packageName == packageName }?.channels?.forEach { item ->
+                        add(channelKey(item.packageName, item.channelId))
+                    }
+                }
+            }
+        }
+        selectionFlow.value = RecordSelectionUiState(mode = true, selectedKeys = seed)
+    }
+
+    fun exitSelection() {
+        selectionFlow.value = RecordSelectionUiState()
+    }
+
+    fun toggleItemSelection(item: TimelineItem) {
+        selectionFlow.update { current ->
+            if (!current.mode) {
+                RecordSelectionUiState(
+                    mode = true,
+                    selectedKeys = setOf(channelKey(item.packageName, item.channelId)),
+                )
+            } else {
+                val key = channelKey(item.packageName, item.channelId)
+                val next = if (key in current.selectedKeys) {
+                    current.selectedKeys - key
+                } else {
+                    current.selectedKeys + key
+                }
+                current.copy(selectedKeys = next)
+            }
+        }
+    }
+
+    fun toggleAppSelection(packageName: String) {
+        selectionFlow.update { current ->
+            val items = dayGroups.value
+                .flatMap { it.apps }
+                .filter { it.packageName == packageName }
+                .flatMap { it.channels }
+            val keys = items.map { channelKey(it.packageName, it.channelId) }.toSet()
+            if (keys.isEmpty()) return@update current.copy(mode = true)
+            val allSelected = keys.all { it in current.selectedKeys }
+            val next = if (allSelected) current.selectedKeys - keys else current.selectedKeys + keys
+            current.copy(mode = true, selectedKeys = next)
+        }
+    }
+
+    fun selectAllVisible() {
+        selectionFlow.update { current ->
+            val keys = dayGroups.value
+                .flatMap { it.apps }
+                .flatMap { it.channels }
+                .map { channelKey(it.packageName, it.channelId) }
+                .toSet()
+            current.copy(mode = true, selectedKeys = keys)
+        }
+    }
+
+    fun clearSelection() {
+        selectionFlow.update { it.copy(selectedKeys = emptySet()) }
+    }
+
+    fun applySelectionAction(action: RuleAction) {
+        viewModelScope.launch {
+            val current = selectionFlow.value
+            if (!current.mode || current.busy || current.selectedKeys.isEmpty()) return@launch
+            val backend = PrivilegeBackends.preferred(context) ?: run {
+                actionMessage = "无可用提权后端"
+                return@launch
+            }
+            selectionFlow.update { it.copy(busy = true) }
+
+            val selectedItems = dayGroups.value
+                .flatMap { it.apps }
+                .flatMap { it.channels }
+                .filter { channelKey(it.packageName, it.channelId) in current.selectedKeys }
+            val channels = selectedItems
+                .map { item ->
+                    Channel(
+                        packageName = item.packageName,
+                        id = item.channelId,
+                        name = item.channelName.ifBlank { item.channelId },
+                        importance = when (item.importance) {
+                            0 -> ChannelImportance.NONE
+                            1 -> ChannelImportance.MIN
+                            2 -> ChannelImportance.LOW
+                            4, 5 -> ChannelImportance.HIGH
+                            else -> ChannelImportance.DEFAULT
+                        },
+                    )
+                }
+                .distinctBy { it.packageName + "|" + it.id }
+            if (channels.isEmpty()) {
+                selectionFlow.update { it.copy(busy = false) }
+                return@launch
+            }
+
+            val actionLabel = when (action) {
+                RuleAction.MUTE -> "记录多选静音"
+                RuleAction.DOWNGRADE -> "记录多选降级"
+                RuleAction.KEEP -> "记录多选恢复"
+            }
+            val newImportance = when (action) {
+                RuleAction.MUTE -> 0
+                RuleAction.DOWNGRADE -> 2
+                RuleAction.KEEP -> 3
+            }
+            val entries = channels.map { ch ->
+                app.quieta.core.engine.MuteSnapshotEntry(
+                    packageName = ch.packageName,
+                    channelId = ch.id,
+                    channelName = ch.name,
+                    previousImportance = app.quieta.core.engine.MuteUndoStore.importanceToInt(ch.importance),
+                    newImportance = newImportance,
+                )
+            }
+            muteUndo.push(
+                app.quieta.core.engine.MuteSnapshot(
+                    label = actionLabel + "（${entries.size}）",
+                    time = app.quieta.core.engine.MuteUndoStore.now(),
+                    entries = entries,
+                ),
+            )
+
+            val result = withContext(Dispatchers.Default) {
+                ChannelActionUseCase(backend).applyToApp(channels, action)
+            }
+
+            // Write back inventory so home list stays consistent (LibChecker-style cache update).
+            val byPackage = channels.groupBy { it.packageName }
+            byPackage.forEach { (packageName, updated) ->
+                val existing = inventoryStore.current().firstOrNull { it.packageName == packageName }
+                    ?: return@forEach
+                val map = existing.channels.associateBy { it.id }
+                val nextChannels = existing.channels.map { ch ->
+                    val target = updated.firstOrNull { it.id == ch.id } ?: return@map ch
+                    val importance = when (action) {
+                        RuleAction.MUTE -> ChannelImportance.NONE
+                        RuleAction.DOWNGRADE -> ChannelImportance.LOW
+                        RuleAction.KEEP -> ChannelImportance.DEFAULT
+                    }
+                    ch.copy(importance = importance)
+                }
+                if (map.isNotEmpty()) {
+                    inventoryStore.upsert(existing.copy(channels = nextChannels))
+                }
+            }
+
+            store.append(
+                MuteLogEntry(
+                    label = actionLabel,
+                    detail = "成功 ${result.success} / ${result.total}，失败 ${result.failed}",
+                    time = MuteLogStore.now(),
+                    tag = if (result.failed == 0) "成功" else "部分失败",
+                ),
+            )
+            actionMessage = "$actionLabel：成功 ${result.success} / ${result.total}"
+            selectionFlow.value = RecordSelectionUiState()
+        }
     }
 
     fun applyChannelAction(item: TimelineItem, action: RuleAction) {

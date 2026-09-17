@@ -462,8 +462,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val seed = if (packageName != null && channelId != null) {
                 setOf(channelKey(packageName, channelId))
             } else if (packageName != null) {
-                state.apps.firstOrNull { it.packageName == packageName }
-                    ?.channels
+                val visible = state.listItems.firstOrNull { it.app.packageName == packageName }?.channels
+                    ?: state.apps.firstOrNull { it.packageName == packageName }?.channels
+                visible
                     ?.map { channelKey(packageName, it.id) }
                     ?.toSet()
                     .orEmpty()
@@ -500,9 +501,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleAppSelection(packageName: String) {
         _state.update { state ->
-            val app = state.apps.firstOrNull { it.packageName == packageName } ?: return@update state
-            val keys = app.channels.map { channelKey(packageName, it.id) }
-            val allSelected = keys.isNotEmpty() && keys.all { it in state.selectedChannelKeys }
+            // Prefer currently filtered/visible channels so "app select" matches the list on screen.
+            val visible = state.listItems.firstOrNull { it.app.packageName == packageName }?.channels
+                ?: state.apps.firstOrNull { it.packageName == packageName }?.channels
+                ?: return@update state
+            val keys = visible.map { channelKey(packageName, it.id) }
+            if (keys.isEmpty()) return@update state
+            val allSelected = keys.all { it in state.selectedChannelKeys }
             val next = if (allSelected) {
                 state.selectedChannelKeys - keys.toSet()
             } else {

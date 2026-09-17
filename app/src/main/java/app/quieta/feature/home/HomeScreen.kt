@@ -854,8 +854,10 @@ private fun AppChannelCard(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (selectionMode) {
+                val total = item.app.channels.size
                 SelectionCheck(
-                    selected = appSelectedCount == item.app.channels.size && item.app.channels.isNotEmpty(),
+                    selected = total > 0 && appSelectedCount == total,
+                    partial = appSelectedCount > 0 && appSelectedCount < total,
                 )
             } else if (display.showAppIcon) {
                 HomeAppIcon(packageName = item.app.packageName)
@@ -1147,23 +1149,32 @@ private fun LiveStatusChip(status: ChannelLiveStatus) {
 
 /** File-manager style circular check for multi-select. */
 @Composable
-private fun SelectionCheck(selected: Boolean) {
+private fun SelectionCheck(selected: Boolean, partial: Boolean = false) {
     Box(
         modifier = Modifier
             .size(22.dp)
             .clip(CircleShape)
             .background(
-                if (selected) Color(0xFF3482FF)
-                else MaterialTheme.colorScheme.surfaceVariant,
+                when {
+                    selected -> Color(0xFF3482FF)
+                    partial -> Color(0xFF3482FF).copy(alpha = 0.35f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                },
             ),
         contentAlignment = Alignment.Center,
     ) {
-        if (selected) {
-            Icon(
+        when {
+            selected -> Icon(
                 imageVector = Icons.Outlined.Check,
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(14.dp),
+            )
+            partial -> Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
             )
         }
     }

@@ -1,6 +1,7 @@
 package app.quieta.feature.record
 
 import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +20,8 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Card
@@ -28,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,17 +80,46 @@ fun RecordScreen(
     val summary by viewModel.summary.collectAsStateWithLifecycle()
     val filters by viewModel.filters.collectAsStateWithLifecycle()
     val display by viewModel.displayPrefs.collectAsStateWithLifecycle()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
 
     var actionTarget by remember { mutableStateOf<TimelineItem?>(null) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showDisplaySheet by remember { mutableStateOf(false) }
 
+    if (selection.mode) {
+        BackHandler { viewModel.exitSelection() }
+    }
+
     QuietaPage(
-        title = stringResource(R.string.record_title),
+        title = if (selection.mode) {
+            if (selection.selectedKeys.isEmpty()) "多选渠道" else "已选择 ${selection.selectedKeys.size} 项"
+        } else {
+            stringResource(R.string.record_title)
+        },
         modifier = modifier,
         blurEnabled = blurEnabled,
+        navigationIcon = if (selection.mode) {
+            {
+                IconButton(onClick = viewModel::exitSelection) {
+                    Icon(Icons.Outlined.Close, contentDescription = "退出多选")
+                }
+            }
+        } else {
+            {}
+        },
         actions = {
+            if (selection.mode) {
+                TextButton(onClick = viewModel::selectAllVisible) { Text("全选") }
+                TextButton(onClick = viewModel::clearSelection) { Text("清空") }
+            } else {
+            IconButton(onClick = { viewModel.enterSelection() }) {
+                Icon(
+                    Icons.Outlined.Checklist,
+                    contentDescription = "多选",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
             IconButton(onClick = { showFilterSheet = true }) {
                 Icon(
                     Icons.Outlined.Tune,
@@ -100,6 +133,7 @@ fun RecordScreen(
             }
             IconButton(onClick = { showMoreMenu = true }) {
                 Icon(Icons.Outlined.MoreVert, contentDescription = "更多")
+            }
             }
         },
     ) {
@@ -152,8 +186,24 @@ fun RecordScreen(
                     RecordAppCard(
                         group = appGroup,
                         display = display,
-                        onToggle = { viewModel.toggleApp(appGroup.packageName) },
-                        onChannelClick = { actionTarget = it },
+                        selectionMode = selection.mode,
+                        selectedKeys = selection.selectedKeys,
+                        onToggle = {
+                            if (selection.mode) {
+                                viewModel.toggleAppSelection(appGroup.packageName)
+                            } else {
+                                viewModel.toggleApp(appGroup.packageName)
+                            }
+                        },
+                        onToggleExpand = { viewModel.toggleApp(appGroup.packageName) },
+                        onLongPressApp = { viewModel.enterSelection(appGroup.packageName) },
+                        onChannelClick = { item ->
+                            if (selection.mode) {
+                                viewModel.toggleItemSelection(item)
+                            } else {
+                                actionTarget = item
+                            }
+                        },
                     )
                 }
             }
@@ -338,13 +388,26 @@ private fun RecordAppCard(
     display: RecordDisplayPrefs,
     onToggle: () -> Unit,
     onChannelClick: (TimelineItem) -> Unit,
+    selectionMode: Boolean = false,
+    selectedKeys: Set<String> = emptySet(),
+    onToggleExpand: () -> Unit = onToggle,
+    onLongPressApp: () -> Unit = {},
 ) {
+    val selectedCount = group.channels.count {
+        (it.packageName + "|" + it.channelId) in selectedKeys
+    }
+    val total = group.channels.size
     val header: @Composable () -> Unit = {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (display.showAppIcon) {
+            if (selectionMode) {
+                RecordSelectionCheck(
+                    selected = total > 0 && selectedCount == total,
+                    partial = selectedCount > 0 && selectedCount < total,
+                )
+            } else if (display.showAppIcon) {
                 AppIcon(packageName = group.packageName)
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -356,6 +419,9 @@ private fun RecordAppCard(
                     if (isNotEmpty()) append(" · ")
                     append(group.channels.sumOf { it.count })
                     append(" 条")
+                    if (selectionMode && selectedCount > 0) {
+                        append(" · 已选 $selectedCount")
+                    }
                 }
                 MiuixText(
                     text = meta,
@@ -363,11 +429,13 @@ private fun RecordAppCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Icon(
-                imageVector = if (group.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                contentDescription = if (group.expanded) "收起" else "展开",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            IconButton(onClick = onToggleExpand) {
+                Icon(
+                    imageVector = if (group.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = if (group.expanded) "收起" else "展开",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
     if (group.expanded) {
@@ -389,6 +457,8 @@ private fun RecordAppCard(
                     TimelineRow(
                         item = row,
                         display = display,
+                        selectionMode = selectionMode,
+                        selected = (row.packageName + "|" + row.channelId) in selectedKeys,
                         onClick = { onChannelClick(row) },
                     )
                 }
@@ -398,12 +468,45 @@ private fun RecordAppCard(
         // Collapsed: same InstallerX press feedback as home app cards.
         PressableCard(
             onClick = onToggle,
+            onLongClick = onLongPressApp,
             cornerRadius = 20.dp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 header()
             }
+        }
+    }
+}
+
+@Composable
+private fun RecordSelectionCheck(selected: Boolean, partial: Boolean = false) {
+    Box(
+        modifier = Modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(
+                when {
+                    selected -> Color(0xFF3482FF)
+                    partial -> Color(0xFF3482FF).copy(alpha = 0.35f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            selected -> Icon(
+                imageVector = Icons.Outlined.Check,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp),
+            )
+            partial -> Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
+            )
         }
     }
 }
@@ -448,6 +551,8 @@ private fun TimelineRow(
     item: TimelineItem,
     display: RecordDisplayPrefs,
     onClick: () -> Unit,
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -456,6 +561,9 @@ private fun TimelineRow(
             .padding(vertical = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (selectionMode) {
+                RecordSelectionCheck(selected = selected)
+            }
             if (display.showChannelName) {
                 Text(
                     text = item.channelName,
