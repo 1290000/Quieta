@@ -9,8 +9,13 @@ object InstalledApps {
 
     /**
      * User-facing installed apps (non-system first). Uses QUERY_ALL_PACKAGES when granted.
+     * [known] supplies previously scanned labels/system flags so PackageManager.loadLabel
+     * is only paid for unknown packages (LibChecker caches labels in Room).
      */
-    fun load(context: Context): List<AppChannels> {
+    fun load(
+        context: Context,
+        known: Map<String, AppChannels> = emptyMap(),
+    ): List<AppChannels> {
         val pm = context.packageManager
         val flags = PackageManager.GET_META_DATA
         val packages = pm.getInstalledPackages(flags)
@@ -19,10 +24,12 @@ object InstalledApps {
             .filter { it.packageName != context.packageName }
             .mapNotNull { pkg ->
                 val info = pkg.applicationInfo ?: return@mapNotNull null
-                val label = runCatching {
-                    pm.getApplicationLabel(info).toString()
-                }.getOrDefault(pkg.packageName)
-                val isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                val cached = known[pkg.packageName]
+                val label = cached?.appLabel?.takeIf { it.isNotBlank() }
+                    ?: runCatching { pm.getApplicationLabel(info).toString() }
+                        .getOrDefault(pkg.packageName)
+                val isSystem = cached?.isSystem
+                    ?: ((info.flags and ApplicationInfo.FLAG_SYSTEM) != 0)
                 Triple(pkg.packageName, label, isSystem)
             }
             .sortedWith(compareBy({ it.third }, { it.second.lowercase() }))

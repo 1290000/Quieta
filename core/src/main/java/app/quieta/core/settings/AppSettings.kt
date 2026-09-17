@@ -29,6 +29,17 @@ enum class PreferredAuthorizer {
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Persisted capability snapshot for cold-start UI seed only. */
+data class CachedCapabilities(
+    val shizukuAvailable: Boolean,
+    val shizukuAuthorized: Boolean,
+    val dhizukuAvailable: Boolean,
+    val rootAvailable: Boolean,
+    val rootLabel: String,
+    val rootDescription: String,
+    val rootWriteSupported: Boolean,
+)
+
 class AppSettings(private val context: Context) {
 
     private val bootPrefs = context.getSharedPreferences("quieta_boot", Context.MODE_PRIVATE)
@@ -101,6 +112,39 @@ class AppSettings(private val context: Context) {
         bootPrefs.edit().putLong(BOOT_INVENTORY_AT, System.currentTimeMillis()).apply()
     }
 
+    /**
+     * Last privilege capability table (InstallerX Flow-style cache). Used only to seed
+     * authorizer stats on cold start — never treated as live authorization proof.
+     */
+    fun capabilitiesSync(): CachedCapabilities? {
+        if (!bootPrefs.contains(BOOT_CAP_SHIZUKU_AVAILABLE) &&
+            !bootPrefs.contains(BOOT_CAP_ROOT_AVAILABLE)
+        ) {
+            return null
+        }
+        return CachedCapabilities(
+            shizukuAvailable = bootPrefs.getBoolean(BOOT_CAP_SHIZUKU_AVAILABLE, false),
+            shizukuAuthorized = bootPrefs.getBoolean(BOOT_CAP_SHIZUKU_AUTHORIZED, false),
+            dhizukuAvailable = bootPrefs.getBoolean(BOOT_CAP_DHIZUKU_AVAILABLE, false),
+            rootAvailable = bootPrefs.getBoolean(BOOT_CAP_ROOT_AVAILABLE, false),
+            rootLabel = bootPrefs.getString(BOOT_CAP_ROOT_LABEL, null).orEmpty(),
+            rootDescription = bootPrefs.getString(BOOT_CAP_ROOT_DESC, null).orEmpty(),
+            rootWriteSupported = bootPrefs.getBoolean(BOOT_CAP_ROOT_WRITE, false),
+        )
+    }
+
+    fun saveCapabilities(caps: CachedCapabilities) {
+        bootPrefs.edit()
+            .putBoolean(BOOT_CAP_SHIZUKU_AVAILABLE, caps.shizukuAvailable)
+            .putBoolean(BOOT_CAP_SHIZUKU_AUTHORIZED, caps.shizukuAuthorized)
+            .putBoolean(BOOT_CAP_DHIZUKU_AVAILABLE, caps.dhizukuAvailable)
+            .putBoolean(BOOT_CAP_ROOT_AVAILABLE, caps.rootAvailable)
+            .putString(BOOT_CAP_ROOT_LABEL, caps.rootLabel)
+            .putString(BOOT_CAP_ROOT_DESC, caps.rootDescription)
+            .putBoolean(BOOT_CAP_ROOT_WRITE, caps.rootWriteSupported)
+            .apply()
+    }
+
     suspend fun setLastKnownPrivilege(status: PrivilegeStatus) {
         bootPrefs.edit()
             .putString(BOOT_PRIVILEGE_ID, status.id.name)
@@ -122,5 +166,12 @@ class AppSettings(private val context: Context) {
         private const val BOOT_PRIVILEGE_ID = "last_known_privilege_id"
         private const val BOOT_PRIVILEGE_LABEL = "last_known_privilege_label"
         private const val BOOT_INVENTORY_AT = "inventory_scanned_at"
+        private const val BOOT_CAP_SHIZUKU_AVAILABLE = "cap_shizuku_available"
+        private const val BOOT_CAP_SHIZUKU_AUTHORIZED = "cap_shizuku_authorized"
+        private const val BOOT_CAP_DHIZUKU_AVAILABLE = "cap_dhizuku_available"
+        private const val BOOT_CAP_ROOT_AVAILABLE = "cap_root_available"
+        private const val BOOT_CAP_ROOT_LABEL = "cap_root_label"
+        private const val BOOT_CAP_ROOT_DESC = "cap_root_description"
+        private const val BOOT_CAP_ROOT_WRITE = "cap_root_write_supported"
     }
 }

@@ -28,6 +28,9 @@ import java.util.concurrent.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -134,6 +137,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private var inventoryJob: Job? = null
     private var refreshJob: Job? = null
     private var authorizerBootstrapped = false
+    private var projectionEmitted = false
     private val cacheJob: Job
 
     init {
@@ -184,6 +188,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     sort = sort,
                 )
             }.collectLatest { core ->
+                // LibChecker APP_LIST_UPDATE_DEBOUNCE: coalesce batch publishes during scan.
+                // First projection after process start stays immediate so cache paint is fast.
+                if (projectionEmitted) {
+                    delay(PROJECTION_DEBOUNCE_MS)
+                }
+                projectionEmitted = true
                 val plan = withContext(Dispatchers.Default) {
                     RulesEngine(core.rules).plan(core.apps.flatMap { it.channels })
                 }
@@ -275,11 +285,32 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
          */
         fun seedHomeState(appSettings: AppSettings): HomeUiState {
             val seed = appSettings.lastKnownPrivilegeSync() ?: return HomeUiState()
+            val caps = appSettings.capabilitiesSync()
             return HomeUiState(
                 gate = PrivilegeGate.READY,
                 checkingPrivilege = false,
                 privilege = seed,
+                shizukuAvailable = caps?.shizukuAvailable ?: false,
+                shizukuAuthorized = caps?.shizukuAuthorized ?: false,
+                dhizukuAvailable = caps?.dhizukuAvailable ?: false,
+                rootAvailable = caps?.rootAvailable ?: false,
+                rootLabel = caps?.rootLabel?.takeIf { it.isNotBlank() } ?: "无",
+                rootDescription = caps?.rootDescription.orEmpty(),
+                rootWriteSupported = caps?.rootWriteSupported ?: false,
             )
+        }
+
+        /** LibChecker doOnMainThreadIdle: run after the next frame so first paint wins. */
+        suspend fun awaitMainThreadIdle() {
+            suspendCancellableCoroutine<Unit> { cont ->
+                val idle = android.os.MessageQueue.IdleHandler {
+                    if (cont.isActive) cont.resume(Unit)
+                    false
+                }
+                val queue = android.os.Looper.getMainLooper().queue
+                queue.addIdleHandler(idle)
+                cont.invokeOnCancellation { queue.removeIdleHandler(idle) }
+            }
         }
 
         /**
@@ -295,6 +326,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         const val SCAN_CONCURRENCY = 6
         const val PUBLISH_BATCH = 20
         const val PUBLISH_INTERVAL_MS = 200L
+        const val PROJECTION_DEBOUNCE_MS = 250L
     }
 
     private data class ProjectionCore(
@@ -383,11 +415,52 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     gate = if (keepGreen) PrivilegeGate.READY else it.gate,
                 )
             }
+            val pref = _state.value.preferredAuthorizer
+            val rootProbe = async(Dispatchers.IO) { rootBackend.probeCapabilities() }
             val shizukuProbe = async(Dispatchers.IO) { CapabilityProbe.probeShizuku() }
             val dhizukuProbe = async(Dispatchers.IO) { dhizukuBackend.isAvailable() }
-            val rootProbe = async(Dispatchers.IO) { rootBackend.probeCapabilities() }
             val shizuku = shizukuProbe.await()
             val dhizukuOk = dhizukuProbe.await()
+            val shizukuOk = shizuku.binderAlive && shizuku.permissionGranted
+
+            // InstallerX: paint READY from the fast path. Root `su` must not block the
+            // first list/status when Shizuku/Dhizuku already work (unless user pinned ROOT).
+            var inventoryStarted = false
+            val rootPinned = pref == app.quieta.core.settings.PreferredAuthorizer.ROOT
+            if (!rootPinned && (shizukuOk || dhizukuOk)) {
+                val fastId = when {
+                    shizukuOk && pref != app.quieta.core.settings.PreferredAuthorizer.DHIZUKU ->
+                        PrivilegeId.SHIZUKU
+                    else -> PrivilegeId.DHIZUKU
+                }
+                backend = when (fastId) {
+                    PrivilegeId.SHIZUKU -> shizukuBackend
+                    else -> dhizukuBackend
+                }
+                val label = if (fastId == PrivilegeId.SHIZUKU) "Shizuku" else "Dhizuku"
+                _state.update {
+                    it.copy(
+                        checkingPrivilege = false,
+                        shizukuAvailable = shizuku.binderAlive,
+                        shizukuAuthorized = shizukuOk,
+                        dhizukuAvailable = dhizukuOk,
+                        gate = PrivilegeGate.READY,
+                        error = null,
+                        privilege = PrivilegeStatus(id = fastId, available = true, label = label),
+                    )
+                }
+                appSettings.setLastKnownPrivilege(
+                    PrivilegeStatus(fastId, available = true, label = label),
+                )
+                if (forceInventory || _state.value.apps.isEmpty()) {
+                    awaitMainThreadIdle()
+                    startInventoryRefresh(showLoading = !hasApps)
+                    inventoryStarted = true
+                } else {
+                    _state.update { it.copy(loading = false, progress = null) }
+                }
+            }
+
             val rootCapabilities = rootProbe.await()
             val rootIdentity = rootCapabilities.identity
             val rootOk = rootCapabilities.readable
@@ -404,13 +477,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     else -> app.quieta.R.string.privilege_root_write_pending
                 }))
             }
-            val pref = _state.value.preferredAuthorizer
 
             val capabilityUpdate: (HomeUiState) -> HomeUiState = {
                 it.copy(
                     checkingPrivilege = false,
                     shizukuAvailable = shizuku.binderAlive,
-                    shizukuAuthorized = shizuku.binderAlive && shizuku.permissionGranted,
+                    shizukuAuthorized = shizukuOk,
                     dhizukuAvailable = dhizukuOk,
                     rootAvailable = rootOk,
                     rootLabel = rootLabel,
@@ -418,8 +490,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     rootWriteSupported = rootCapabilities.writeSupported,
                 )
             }
+            appSettings.saveCapabilities(
+                app.quieta.core.settings.CachedCapabilities(
+                    shizukuAvailable = shizuku.binderAlive,
+                    shizukuAuthorized = shizukuOk,
+                    dhizukuAvailable = dhizukuOk,
+                    rootAvailable = rootOk,
+                    rootLabel = rootLabel,
+                    rootDescription = rootDescription,
+                    rootWriteSupported = rootCapabilities.writeSupported,
+                ),
+            )
 
-            val shizukuOk = shizuku.binderAlive && shizuku.permissionGranted
             val chosen = when (selectAuthorizer(pref, rootOk, shizukuOk, dhizukuOk)) {
                 PrivilegeId.ROOT -> rootBackend
                 PrivilegeId.SHIZUKU -> shizukuBackend
@@ -449,10 +531,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 appSettings.setLastKnownPrivilege(
                     PrivilegeStatus(chosen.id, available = true, label = label),
                 )
-                if (forceInventory || _state.value.apps.isEmpty()) {
-                    startInventoryRefresh(showLoading = true)
-                } else {
-                    // Fresh cache path: list already on screen; no Binder full scan.
+                if (!inventoryStarted && (forceInventory || _state.value.apps.isEmpty())) {
+                    awaitMainThreadIdle()
+                    startInventoryRefresh(showLoading = !hasApps)
+                } else if (!inventoryStarted) {
                     _state.update { it.copy(loading = false, progress = null) }
                 }
             } else if (pref == app.quieta.core.settings.PreferredAuthorizer.NONE) {
@@ -813,7 +895,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
             runCatching {
                 ruleRepository.current()
-                val baseApps = withContext(Dispatchers.IO) { InstalledApps.load(appContext) }
+                val baseApps = withContext(Dispatchers.IO) {
+                    InstalledApps.load(
+                        context = appContext,
+                        known = cached.associateBy { it.packageName },
+                    )
+                }
                 val results = HashMap<String, AppChannels>(baseApps.size + cached.size)
                 val systemByPkg = baseApps.associate { it.packageName to it.isSystem }
                 cached.forEach { item ->
