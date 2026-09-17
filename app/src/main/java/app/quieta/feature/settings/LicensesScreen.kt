@@ -2,10 +2,7 @@ package app.quieta.feature.settings
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
@@ -21,14 +18,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.quieta.R
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.PressableCard
-import app.quieta.ui.effect.AboutGradientBackground
 import com.mikepenz.aboutlibraries.entity.Library
 import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
 
@@ -66,65 +61,52 @@ fun LicensesScreen(
             .distinctBy { it.url }
             .sortedBy { it.name.lowercase() }
     }
-    val isDark = isSystemInDarkTheme()
-    // Same aurora chrome as About so the secondary stack feels continuous.
-    Box(modifier = modifier.fillMaxSize()) {
-        AboutGradientBackground(isDark = isDark)
-        QuietaPage(
-            title = stringResource(R.string.about_licenses),
-            blurEnabled = blurEnabled,
-            itemSpacing = 12.dp,
-            bottomPadding = 28.dp,
-            containerColor = Color.Transparent,
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.navigate_back))
-                }
-            },
-        ) {
-            if (generatedLibraries == null) {
-                item(key = "licenses-loading") {
-                    Text(
-                        text = "正在加载开源许可…",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (isDark) {
-                            Color.White.copy(alpha = 0.75f)
-                        } else {
-                            Color(0xFF5A4A66).copy(alpha = 0.8f)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 24.dp),
-                    )
-                }
-            } else {
-                items(ossLibs, key = { it.url }) { lib ->
-                    PressableCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        // Readable card over aurora (AboutActionCard alpha).
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                        cornerRadius = 16.dp,
-                        onClick = {
-                            runCatching {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(lib.url)))
-                            }
-                        },
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(lib.name, style = MaterialTheme.typography.titleMedium)
-                            Text(lib.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Surface(
-                                shape = RoundedCornerShape(50),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier.padding(top = 8.dp),
-                            ) {
-                                Text(
-                                    text = lib.license + (lib.version?.let { " · $it" } ?: ""),
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                )
-                            }
+    QuietaPage(
+        title = stringResource(R.string.about_licenses),
+        modifier = modifier,
+        blurEnabled = blurEnabled,
+        bottomPadding = 24.dp,
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.navigate_back))
+            }
+        },
+    ) {
+        if (generatedLibraries == null) {
+            item(key = "licenses-loading") {
+                Text(
+                    text = "正在加载开源许可…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                )
+            }
+        } else {
+            items(ossLibs, key = { it.url }) { lib ->
+                PressableCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(lib.url)))
+                        }
+                    },
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(lib.name, style = MaterialTheme.typography.titleMedium)
+                        Text(lib.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) {
+                            Text(
+                                text = lib.license + (lib.version?.let { " · $it" } ?: ""),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
                         }
                     }
                 }
