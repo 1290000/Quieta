@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -50,7 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.BuildConfig
@@ -93,21 +91,6 @@ private fun aboutCardBlend(isDark: Boolean): List<BlendColorEntry> = if (isDark)
     listOf(
         BlendColorEntry(Color(0x340034F9), BlurBlendMode.Overlay),
         BlendColorEntry(Color(0xB3FFFFFF), BlurBlendMode.HardLight),
-    )
-}
-
-// InstallerX MiuixAboutPage logoBlend (tints monochrome mark with the aurora).
-private fun aboutLogoBlend(isDark: Boolean): List<BlendColorEntry> = if (isDark) {
-    listOf(
-        BlendColorEntry(Color(0xe6a1a1a1), BlurBlendMode.ColorDodge),
-        BlendColorEntry(Color(0x4de6e6e6), BlurBlendMode.LinearLight),
-        BlendColorEntry(Color(0xff1af500), BlurBlendMode.Lab),
-    )
-} else {
-    listOf(
-        BlendColorEntry(Color(0xcc4a4a4a), BlurBlendMode.ColorBurn),
-        BlendColorEntry(Color(0xff4f4f4f), BlurBlendMode.LinearLight),
-        BlendColorEntry(Color(0xff1af200), BlurBlendMode.Lab),
     )
 }
 
@@ -340,7 +323,6 @@ private fun AboutHeroIcon(
     isDark: Boolean,
     blurOk: Boolean,
 ) {
-    val logoBlend = remember(isDark) { aboutLogoBlend(isDark) }
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -352,33 +334,13 @@ private fun AboutHeroIcon(
                 scaleY = 1f - (iconProgress * 0.05f)
             },
     ) {
-        // Foreground-only mark: no adaptive-icon white/colored background.
-        // InstallerX: monochrome + textureBlur(DstIn) so the aurora paints the glyph.
-        if (backdrop != null && blurOk) {
-            Image(
-                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .requiredSize(160.dp)
-                    .textureBlur(
-                        backdrop = backdrop,
-                        shape = RoundedCornerShape(16.dp),
-                        blurRadius = 200f,
-                        noiseCoefficient = 0.02f,
-                        colors = BlurColors(blendColors = logoBlend),
-                        contentBlendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
-                        enabled = true,
-                    ),
-            )
-        } else {
-            Image(
-                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.size(88.dp),
-            )
-        }
+        // Transparent-background brand mark (no adaptive-icon white plate).
+        Image(
+            painter = painterResource(R.drawable.ic_about_logo),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.height(88.dp),
+        )
     }
 }
 
