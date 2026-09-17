@@ -5,30 +5,24 @@ package app.quieta.feature.settings
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -40,7 +34,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -57,6 +50,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.BuildConfig
 import app.quieta.R
 import app.quieta.ui.component.QuietaPage
+import app.quieta.ui.effect.AboutGradientBackground
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
@@ -88,7 +82,7 @@ fun AboutScreen(
     val lazyListState = rememberLazyListState()
 
     Box(modifier = modifier.fillMaxSize()) {
-        AboutAuroraBackground(isDark = isDark)
+        AboutGradientBackground(isDark = isDark)
 
         QuietaPage(
             title = stringResource(R.string.about),
@@ -160,67 +154,6 @@ fun AboutScreen(
 private fun versionInfoText(): String {
     val level = if (BuildConfig.DEBUG) "调试版" else "正式版"
     return "$level ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
-}
-
-/**
- * InstallerX-like soft aurora. AGSL BgEffectBackground is optional later;
- * this static multi-stop brush matches the product screenshots.
- */
-@Composable
-private fun AboutAuroraBackground(isDark: Boolean) {
-    val colors = if (isDark) {
-        listOf(
-            Color(0xFF2A2038),
-            Color(0xFF3D2A45),
-            Color(0xFF2B2848),
-            Color(0xFF241E30),
-            Color(0xFF1C1824),
-        )
-    } else {
-        listOf(
-            Color(0xFFC5B8F0),
-            Color(0xFFE8B8D4),
-            Color(0xFFF0C8DC),
-            Color(0xFFD4C8F5),
-            Color(0xFFB8D0F0),
-            Color(0xFFF2E4F0),
-        )
-    }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(brush = Brush.verticalGradient(colors = colors)),
-    )
-    if (!isDark) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFFFD6E8).copy(alpha = 0.55f),
-                            Color.Transparent,
-                        ),
-                        radius = 1100f,
-                        center = androidx.compose.ui.geometry.Offset(0.35f, 0.3f),
-                    ),
-                ),
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFC8D8FF).copy(alpha = 0.45f),
-                            Color.Transparent,
-                        ),
-                        radius = 1000f,
-                        center = androidx.compose.ui.geometry.Offset(0.8f, 0.15f),
-                    ),
-                ),
-        )
-    }
 }
 
 @Composable
