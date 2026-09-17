@@ -31,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.MoreVert
@@ -141,12 +142,43 @@ fun HomeScreen(
     var showFilterSheet by rememberSaveable { mutableStateOf(false) }
     var showDisplaySheet by rememberSaveable { mutableStateOf(false) }
     val display by viewModel.displayPrefs.collectAsStateWithLifecycle()
+    val selectionMode = state.selectionMode
+    val selectedCount = state.selectedChannelKeys.size
 
-    QuietaPage(
-        title = stringResource(R.string.home_title),
-        modifier = modifier,
-        blurEnabled = blurEnabled,
-    ) {
+    if (selectionMode) {
+        androidx.activity.compose.BackHandler {
+            viewModel.exitSelection()
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        QuietaPage(
+            title = if (selectionMode) {
+                if (selectedCount == 0) "多选渠道" else "已选择 $selectedCount 项"
+            } else {
+                stringResource(R.string.home_title)
+            },
+            blurEnabled = blurEnabled,
+            navigationIcon = if (selectionMode) {
+                {
+                    IconButton(onClick = viewModel::exitSelection) {
+                        Icon(Icons.Outlined.Close, contentDescription = "退出多选")
+                    }
+                }
+            } else {
+                {}
+            },
+            actions = {
+                if (selectionMode) {
+                    TextButton(onClick = viewModel::selectAllVisible) {
+                        Text("全选")
+                    }
+                    TextButton(onClick = viewModel::clearSelection) {
+                        Text("清空")
+                    }
+                }
+            },
+        ) {
         item(key = "status") {
             StatusGrid(
                 gate = state.gate,
@@ -161,6 +193,7 @@ fun HomeScreen(
         item(key = "actions") {
             GateActions(
                 state = state,
+                selectionMode = selectionMode,
                 onRequestPermission = {
                     runCatching { Shizuku.requestPermission(REQ_SHIZUKU) }
                 },
@@ -202,11 +235,20 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
-                            text = "通知渠道",
+                            text = if (selectionMode) "选择渠道" else "通知渠道",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f),
                         )
+                        if (!selectionMode) {
+                            IconButton(onClick = { viewModel.enterSelection() }) {
+                                Icon(
+                                    Icons.Outlined.Checklist,
+                                    contentDescription = "多选",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                         IconButton(onClick = viewModel::collapseAll) {
                             Icon(Icons.Outlined.ExpandLess, contentDescription = "全部收起")
                         }
@@ -276,7 +318,17 @@ fun HomeScreen(
                         item = item,
                         plan = state.plan,
                         display = display,
-                        onToggleExpand = { viewModel.toggleExpanded(item.app.packageName) },
+                        selectionMode = selectionMode,
+                        selectedKeys = state.selectedChannelKeys,
+                        onToggleExpand = {
+                            if (selectionMode) {
+                                viewModel.toggleAppSelection(item.app.packageName)
+                            } else {
+                                viewModel.toggleExpanded(item.app.packageName)
+                            }
+                        },
+                        onLongPressApp = { viewModel.enterSelection(item.app.packageName) },
+                        onToggleChannelSelection = viewModel::toggleChannelSelection,
                         onChannelAction = viewModel::applyChannelAction,
                         onMuteApp = { viewModel.muteApp(item.app.packageName) },
                         onRestoreApp = { viewModel.restoreApp(item.app.packageName) },
@@ -325,6 +377,79 @@ fun HomeScreen(
                 viewModel.toggleFilter { ChannelListFilters() }
             },
         )
+    }
+
+        if (selectionMode) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 28.dp),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                SelectionActionBar(
+                    count = selectedCount,
+                    enabled = !state.checkingPrivilege && selectedCount > 0,
+                    busy = state.progress != null,
+                    onMute = { viewModel.applySelectionAction(RuleAction.MUTE) },
+                    onDowngrade = { viewModel.applySelectionAction(RuleAction.DOWNGRADE) },
+                    onKeep = { viewModel.applySelectionAction(RuleAction.KEEP) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectionActionBar(
+    count: Int,
+    enabled: Boolean,
+    busy: Boolean,
+    onMute: () -> Unit,
+    onDowngrade: () -> Unit,
+    onKeep: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = if (busy) "处理中…" else "已选 $count",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+            Spacer(modifier = Modifier.weight(0.4f))
+            Button(
+                onClick = onMute,
+                enabled = enabled && !busy,
+                modifier = Modifier.weight(1.2f),
+            ) {
+                Text("静音")
+            }
+            OutlinedButton(
+                onClick = onDowngrade,
+                enabled = enabled && !busy,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("降级")
+            }
+            OutlinedButton(
+                onClick = onKeep,
+                enabled = enabled && !busy,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("保留")
+            }
+        }
     }
 }
 
@@ -488,6 +613,7 @@ private fun GateActions(
     onUndo: () -> Unit = {},
     undoLabel: String? = null,
     canUndo: Boolean = false,
+    selectionMode: Boolean = false,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -522,7 +648,7 @@ private fun GateActions(
                     }
                     Button(
                         onClick = onApplyMute,
-                        enabled = !state.checkingPrivilege && state.gate == PrivilegeGate.READY &&
+                        enabled = !selectionMode && !state.checkingPrivilege && state.gate == PrivilegeGate.READY &&
                             state.plan.any { it.value != RuleAction.KEEP } &&
                             (state.privilege.id != app.quieta.core.model.PrivilegeId.ROOT || state.rootWriteSupported),
                         modifier = Modifier.weight(1f),
@@ -777,19 +903,30 @@ private fun AppChannelCard(
     item: ChannelListAppItem,
     plan: Map<Channel, RuleAction>,
     display: HomeDisplayPrefs,
+    selectionMode: Boolean = false,
+    selectedKeys: Set<String> = emptySet(),
     onToggleExpand: () -> Unit,
+    onLongPressApp: () -> Unit = {},
+    onToggleChannelSelection: (packageName: String, channelId: String) -> Unit = { _, _ -> },
     onChannelAction: (Channel, RuleAction) -> Unit,
     onMuteApp: () -> Unit,
     onRestoreApp: () -> Unit,
 ) {
     var actionTarget by remember { mutableStateOf<Channel?>(null) }
     var showAppActions by remember { mutableStateOf(false) }
+    val appSelectedCount = item.app.channels.count { ch ->
+        (item.app.packageName + "|" + ch.id) in selectedKeys
+    }
     val header: @Composable () -> Unit = {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (display.showAppIcon) {
+            if (selectionMode) {
+                SelectionCheck(
+                    selected = appSelectedCount == item.app.channels.size && item.app.channels.isNotEmpty(),
+                )
+            } else if (display.showAppIcon) {
                 HomeAppIcon(packageName = item.app.packageName)
             } else {
                 Box(
@@ -806,6 +943,7 @@ private fun AppChannelCard(
                 val meta = buildList {
                     if (display.showPackageName) add(item.app.packageName)
                     if (display.showChannelCount) add("${item.app.channels.size} 个渠道")
+                    if (selectionMode && appSelectedCount > 0) add("已选 $appSelectedCount")
                 }.joinToString(" · ")
                 if (meta.isNotBlank()) {
                     Text(
@@ -815,7 +953,7 @@ private fun AppChannelCard(
                     )
                 }
             }
-            if (item.expanded && display.showAppActions) {
+            if (!selectionMode && item.expanded && display.showAppActions) {
                 IconButton(onClick = { showAppActions = true }) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = "应用操作")
                 }
@@ -851,7 +989,15 @@ private fun AppChannelCard(
                         channel = channel,
                         plannedAction = plan[channel] ?: RuleAction.KEEP,
                         display = display,
-                        onClick = { actionTarget = channel },
+                        selectionMode = selectionMode,
+                        selected = (item.app.packageName + "|" + channel.id) in selectedKeys,
+                        onClick = {
+                            if (selectionMode) {
+                                onToggleChannelSelection(item.app.packageName, channel.id)
+                            } else {
+                                actionTarget = channel
+                            }
+                        },
                         likelyMarketing = item.likelyMarketingChannelIds.contains(channel.id),
                     )
                 }
@@ -861,6 +1007,7 @@ private fun AppChannelCard(
         // Collapsed: keep InstallerX press feedback on the compact app header only.
         PressableCard(
             onClick = onToggleExpand,
+            onLongClick = onLongPressApp,
             cornerRadius = 20.dp,
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -963,6 +1110,8 @@ private fun ChannelRow(
     display: HomeDisplayPrefs,
     onClick: () -> Unit,
     likelyMarketing: Boolean = false,
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
 ) {
     val status = remember(channel.importance) { ChannelLiveStatus.from(channel.importance) }
     val secondary = remember(
@@ -1001,6 +1150,9 @@ private fun ChannelRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (selectionMode) {
+            SelectionCheck(selected = selected)
+        }
         Column(modifier = Modifier.weight(1f)) {
             if (display.showChannelName) {
                 Text(channel.name, style = MaterialTheme.typography.bodyLarge)
@@ -1057,6 +1209,30 @@ private fun LiveStatusChip(status: ChannelLiveStatus) {
             .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
         Text(status.label, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+/** File-manager style circular check for multi-select. */
+@Composable
+private fun SelectionCheck(selected: Boolean) {
+    Box(
+        modifier = Modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(
+                if (selected) Color(0xFF3482FF)
+                else MaterialTheme.colorScheme.surfaceVariant,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) {
+            Icon(
+                imageVector = Icons.Outlined.Check,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp),
+            )
+        }
     }
 }
 

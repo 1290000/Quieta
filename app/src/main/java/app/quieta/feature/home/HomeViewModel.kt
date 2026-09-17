@@ -91,6 +91,9 @@ data class HomeUiState(
     val muteScope: MuteScope = MuteScope.ALL,
     val canUndoLastBatch: Boolean = false,
     val undoLabel: String? = null,
+    val selectionMode: Boolean = false,
+    /** Stable keys `packageName|channelId`. */
+    val selectedChannelKeys: Set<String> = emptySet(),
 )
 
 enum class MuteScope {
@@ -453,6 +456,145 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             .putBoolean("appActions", p.showAppActions)
             .apply()
     }
+
+    fun enterSelection(packageName: String? = null, channelId: String? = null) {
+        _state.update { state ->
+            val seed = if (packageName != null && channelId != null) {
+                setOf(channelKey(packageName, channelId))
+            } else if (packageName != null) {
+                state.apps.firstOrNull { it.packageName == packageName }
+                    ?.channels
+                    ?.map { channelKey(packageName, it.id) }
+                    ?.toSet()
+                    .orEmpty()
+            } else {
+                emptySet()
+            }
+            state.copy(selectionMode = true, selectedChannelKeys = seed, mutePreview = null)
+        }
+    }
+
+    fun exitSelection() {
+        _state.update { it.copy(selectionMode = false, selectedChannelKeys = emptySet()) }
+    }
+
+    fun toggleChannelSelection(packageName: String, channelId: String) {
+        _state.update { state ->
+            if (!state.selectionMode) {
+                state.copy(
+                    selectionMode = true,
+                    selectedChannelKeys = setOf(channelKey(packageName, channelId)),
+                )
+            } else {
+                val key = channelKey(packageName, channelId)
+                val next = if (key in state.selectedChannelKeys) {
+                    state.selectedChannelKeys - key
+                } else {
+                    state.selectedChannelKeys + key
+                }
+                state.copy(selectedChannelKeys = next)
+            }
+        }
+    }
+
+    fun toggleAppSelection(packageName: String) {
+        _state.update { state ->
+            val app = state.apps.firstOrNull { it.packageName == packageName } ?: return@update state
+            val keys = app.channels.map { channelKey(packageName, it.id) }
+            val allSelected = keys.isNotEmpty() && keys.all { it in state.selectedChannelKeys }
+            val next = if (allSelected) {
+                state.selectedChannelKeys - keys.toSet()
+            } else {
+                state.selectedChannelKeys + keys
+            }
+            state.copy(selectionMode = true, selectedChannelKeys = next)
+        }
+    }
+
+    fun selectAllVisible() {
+        _state.update { state ->
+            val keys = state.listItems.flatMap { item ->
+                item.channels.map { channelKey(item.app.packageName, it.id) }
+            }.toSet()
+            state.copy(selectionMode = true, selectedChannelKeys = keys)
+        }
+    }
+
+    fun clearSelection() {
+        _state.update { it.copy(selectedChannelKeys = emptySet()) }
+    }
+
+    fun applySelectionAction(action: RuleAction) {
+        viewModelScope.launch {
+            val state = _state.value
+            if (!state.selectionMode || state.checkingPrivilege || state.gate != PrivilegeGate.READY) return@launch
+            if (state.privilege.id == PrivilegeId.ROOT && !state.rootWriteSupported) return@launch
+            val selected = state.selectedChannelKeys
+            if (selected.isEmpty()) return@launch
+
+            val byKey = state.apps
+                .flatMap { app -> app.channels.map { channelKey(it.packageName, it.id) to it } }
+                .toMap()
+            val targets = selected.mapNotNull { byKey[it] }
+            if (targets.isEmpty()) return@launch
+
+            val activeBackend = backend
+            val actionLabel = when (action) {
+                RuleAction.MUTE -> "多选静音"
+                RuleAction.DOWNGRADE -> "多选降级"
+                RuleAction.KEEP -> "多选恢复"
+            }
+            val newImportance = when (action) {
+                RuleAction.MUTE -> 0
+                RuleAction.DOWNGRADE -> 2
+                RuleAction.KEEP -> 3
+            }
+            _state.update { it.copy(progress = "正在处理 $actionLabel（${targets.size}）…", muteResult = null) }
+
+            val entries = targets.map { channel ->
+                MuteSnapshotEntry(
+                    packageName = channel.packageName,
+                    channelId = channel.id,
+                    channelName = channel.name,
+                    previousImportance = MuteUndoStore.importanceToInt(channel.importance),
+                    newImportance = newImportance,
+                )
+            }
+            if (entries.isNotEmpty()) {
+                muteUndo.push(
+                    MuteSnapshot(
+                        label = actionLabel + "（${entries.size}）",
+                        time = MuteUndoStore.now(),
+                        entries = entries,
+                    ),
+                )
+            }
+
+            val result = withContext(Dispatchers.Default) {
+                ChannelActionUseCase(activeBackend).applyToApp(targets, action)
+            }
+            muteLog.append(
+                app.quieta.core.engine.MuteLogEntry(
+                    label = actionLabel,
+                    detail = "成功 ${result.success} / ${result.total}，失败 ${result.failed}",
+                    time = app.quieta.core.engine.MuteLogStore.now(),
+                    tag = if (result.failed == 0) "成功" else "部分失败",
+                ),
+            )
+            _state.update {
+                it.copy(
+                    progress = null,
+                    muteResult = result,
+                    selectionMode = false,
+                    selectedChannelKeys = emptySet(),
+                )
+            }
+            startInventoryRefresh(showLoading = false)
+        }
+    }
+
+    private fun channelKey(packageName: String, channelId: String): String =
+        packageName + "|" + channelId
 
     fun setPreferredAuthorizer(authorizer: app.quieta.core.settings.PreferredAuthorizer) {
         viewModelScope.launch {

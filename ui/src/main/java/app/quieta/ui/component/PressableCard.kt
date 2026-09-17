@@ -4,7 +4,9 @@ package app.quieta.ui.component
 
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -30,12 +32,14 @@ import top.yukonga.miuix.kmp.utils.TiltFeedback
 import top.yukonga.miuix.kmp.utils.pressable
 
 /** Position-aware tilt and press tint shared by actionable standalone cards. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PressableCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.surface,
     cornerRadius: Dp = 16.dp,
+    onLongClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -52,7 +56,22 @@ fun PressableCard(
             .pressable(interactionSource = interactionSource, indication = feedback, delay = null)
             .clip(shape)
             .drawBehind { drawRect(animatedColor.value) }
-            .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick),
+            .then(
+                if (onLongClick != null) {
+                    Modifier.combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    )
+                } else {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = onClick,
+                    )
+                },
+            ),
         content = content,
         )
     }
