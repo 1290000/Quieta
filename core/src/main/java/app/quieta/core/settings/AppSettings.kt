@@ -60,6 +60,16 @@ class AppSettings(private val context: Context) {
         prefs[KEY_TIMELINE_ENABLED] ?: true
     }
 
+    val enableFileLogging: Flow<Boolean> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_FILE_LOGGING] ?: false
+    }
+
+    suspend fun setEnableFileLogging(enabled: Boolean) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_FILE_LOGGING] = enabled
+        }
+    }
+
     suspend fun setNotificationTimelineEnabled(enabled: Boolean) {
         context.settingsStore.edit { prefs ->
             prefs[KEY_TIMELINE_ENABLED] = enabled
@@ -159,6 +169,7 @@ class AppSettings(private val context: Context) {
     companion object {
         private val KEY_AUTO_MUTE = booleanPreferencesKey("auto_mute_new_channels")
         private val KEY_TIMELINE_ENABLED = booleanPreferencesKey("notification_timeline_enabled")
+        private val KEY_FILE_LOGGING = booleanPreferencesKey("enable_file_logging")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_AUTHORIZER = stringPreferencesKey("preferred_authorizer")
         private val KEY_LAST_PRIVILEGE_ID = stringPreferencesKey("last_known_privilege_id")

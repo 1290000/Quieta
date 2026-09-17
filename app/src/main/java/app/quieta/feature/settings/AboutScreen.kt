@@ -123,6 +123,19 @@ fun AboutScreen(
     val context = LocalContext.current
     val repoUrl = stringResource(R.string.repo_url)
     val updateState by viewModel.state.collectAsStateWithLifecycle()
+    val loggingEnabled by viewModel.enableFileLogging.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is AboutUiEvent.ShowError -> {
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                }
+                is AboutUiEvent.ShareLog -> {
+                    runCatching { context.startActivity(event.intent) }
+                }
+            }
+        }
+    }
     val isDark = isSystemInDarkTheme()
     val layoutDirection = LocalLayoutDirection.current
     val safeInsets = WindowInsets.safeDrawing.asPaddingValues()
@@ -316,10 +329,48 @@ fun AboutScreen(
                             }
                         }
                     }
+                    item(key = "debug-content") {
+                        SmallTitle("调试")
+                        AboutGlassCard(
+                            backdrop = cardBackdrop,
+                            isDark = isDark,
+                            blurOk = blurOk,
+                        ) {
+                            DebugLogSwitchRow(
+                                checked = loggingEnabled,
+                                onCheckedChange = viewModel::setEnableFileLogging,
+                            )
+                            if (loggingEnabled) {
+                                ArrowPreference(
+                                    title = "导出日志",
+                                    summary = "导出应用日志（不含通知正文）",
+                                    onClick = viewModel::shareLog,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun DebugLogSwitchRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    BasicComponent(
+        title = "存储日志文件",
+        summary = "将日志写入本地以便调试（不含通知正文）",
+        endActions = {
+            top.yukonga.miuix.kmp.basic.Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+            )
+        },
+        onClick = { onCheckedChange(!checked) },
+    )
 }
 
 @Composable

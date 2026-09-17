@@ -15,6 +15,7 @@ import app.quieta.core.model.ChannelImportance
 import app.quieta.core.model.RuleAction
 import app.quieta.core.privilege.PrivilegeBackends
 import app.quieta.core.repo.ChannelInventoryStore
+import app.quieta.util.log.QLog
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -379,6 +380,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
             val result = withContext(Dispatchers.Default) {
                 ChannelActionUseCase(backend).applyToApp(channels, action)
             }
+            QLog.i(QLog.TAG_MUTE, "record batch action=$action success=${result.success}/${result.total} fail=${result.failed}")
 
             // Write back inventory so home list stays consistent (LibChecker-style cache update).
             val byPackage = channels.groupBy { it.packageName }

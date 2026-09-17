@@ -10,6 +10,7 @@ import app.quieta.core.model.ChannelImportance
 import app.quieta.core.repo.ChannelInventoryStore
 import app.quieta.core.repo.RuleRepository
 import app.quieta.core.settings.AppSettings
+import app.quieta.util.log.QLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -47,12 +48,14 @@ class QuietaNotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         Log.i(TAG, "listener connected")
+        QLog.i(QLog.TAG_TIMELINE, "listener connected")
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val notification = sbn?.notification ?: return
         val pkg = sbn.packageName ?: return
         val channelId = notification.channelId ?: return
+        QLog.d(QLog.TAG_TIMELINE, "posted pkg=$pkg channel=$channelId")
         val appLabel = resolveAppLabel(pkg)
         scope.launch {
             val (channelName, channelImportance) = resolveChannel(pkg, channelId)

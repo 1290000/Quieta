@@ -24,6 +24,7 @@ import app.quieta.core.privilege.shizuku.ShizukuBackend
 import app.quieta.core.repo.ChannelInventoryStore
 import app.quieta.core.repo.RuleRepository
 import app.quieta.core.settings.AppSettings
+import app.quieta.util.log.QLog
 import java.util.concurrent.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -555,6 +556,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 RuleAction.DOWNGRADE -> 2
                 RuleAction.KEEP -> 3
             }
+            QLog.i(QLog.TAG_MUTE, "selection action=$actionLabel n=${targets.size} backend=${activeBackend.id}")
             _state.update { it.copy(progress = "正在处理 $actionLabel（${targets.size}）…", muteResult = null) }
 
             val entries = targets.map { channel ->
@@ -587,6 +589,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     tag = if (result.failed == 0) "成功" else "部分失败",
                 ),
             )
+            if (result.failed > 0) {
+                QLog.w(QLog.TAG_MUTE, "$actionLabel partial fail success=${result.success}/${result.total} errors=${result.errors.take(4)}")
+            } else {
+                QLog.i(QLog.TAG_MUTE, "$actionLabel done success=${result.success}/${result.total}")
+            }
             _state.update {
                 it.copy(
                     progress = null,
@@ -619,8 +626,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             cacheJob.join()
             val hasCache = _state.value.apps.isNotEmpty()
             val fresh = isInventoryFresh(appSettings.inventoryScannedAt())
+            QLog.i(
+                QLog.TAG_BOOT,
+                "bootstrap cache=$hasCache fresh=$fresh apps=${_state.value.apps.size}",
+            )
             if (hasCache && fresh) {
-                // InstallerX-style: keep last green status; only background-probe, no full rescan.
                 refresh(forceInventory = false)
             } else {
                 refresh(forceInventory = true)
@@ -633,6 +643,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         if (forceInventory) {
             inventoryJob?.cancel()
         }
+        val startedAt = android.os.SystemClock.elapsedRealtime()
+        QLog.i(QLog.TAG_PRIVILEGE, "refresh forceInventory=$forceInventory keepGreen=${_state.value.gate == PrivilegeGate.READY && _state.value.privilege.available}")
         // Preserve InstallerX green card: never regress a known-good READY status to gray/red
         // just because a background probe is still running.
         val keepGreen = _state.value.gate == PrivilegeGate.READY && _state.value.privilege.available
@@ -654,6 +666,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val shizuku = shizukuProbe.await()
             val dhizukuOk = dhizukuProbe.await()
             val shizukuOk = shizuku.binderAlive && shizuku.permissionGranted
+            QLog.i(QLog.TAG_PRIVILEGE, "fast probe shizuku=$shizukuOk dhizuku=$dhizukuOk elapsedMs=${android.os.SystemClock.elapsedRealtime() - startedAt}")
 
             // InstallerX: paint READY from the fast path. Root `su` must not block the
             // first list/status when Shizuku/Dhizuku already work (unless user pinned ROOT).
@@ -694,6 +707,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val rootCapabilities = rootProbe.await()
+            QLog.i(
+                QLog.TAG_PRIVILEGE,
+                "root probe available=${rootCapabilities.identity.available} readable=${rootCapabilities.readable} write=${rootCapabilities.writeSupported} manager=${rootCapabilities.identity.manager} elapsedMs=${android.os.SystemClock.elapsedRealtime() - startedAt}",
+            )
             val rootIdentity = rootCapabilities.identity
             val rootOk = rootCapabilities.readable
             val rootLabel = rootIdentity.manager ?: appContext.getString(app.quieta.R.string.privilege_root_unknown)
@@ -1112,6 +1129,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun startInventoryRefresh(showLoading: Boolean = true) {
         inventoryJob?.cancel()
         val activeBackend = backend
+        val scanStarted = android.os.SystemClock.elapsedRealtime()
+        QLog.i(QLog.TAG_INVENTORY, "scan start backend=${activeBackend.id} showLoading=$showLoading")
         inventoryJob = viewModelScope.launch {
             cacheJob.join()
             val cached = withContext(Dispatchers.IO) { inventoryStore.current() }
@@ -1190,6 +1209,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val finalApps = withContext(Dispatchers.Default) { sortApps(results.values.toList()) }
+                QLog.i(
+                    QLog.TAG_INVENTORY,
+                    "scan done apps=${finalApps.size} failures=$failures elapsedMs=${android.os.SystemClock.elapsedRealtime() - scanStarted}",
+                )
                 if (failures > 0) {
                     _state.update { it.copy(error = appContext.getString(app.quieta.R.string.inventory_partial_failure, failures)) }
                 }
