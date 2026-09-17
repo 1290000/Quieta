@@ -100,7 +100,7 @@ class AppSettings(private val context: Context) {
 
     val predictiveBackExitDirection: Flow<PredictiveBackExitDirection> = context.settingsStore.data.map { prefs ->
         prefs[KEY_PB_EXIT]?.let { runCatching { PredictiveBackExitDirection.valueOf(it) }.getOrNull() }
-            ?: PredictiveBackExitDirection.FOLLOW_GESTURE
+            ?: PredictiveBackExitDirection.ALWAYS_RIGHT
     }
 
     suspend fun setPredictiveBackExitDirection(value: PredictiveBackExitDirection) {

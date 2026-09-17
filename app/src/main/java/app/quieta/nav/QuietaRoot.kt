@@ -4,14 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import androidx.activity.BackEventCompat
 import androidx.activity.compose.PredictiveBackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -23,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.outlined.History
@@ -36,7 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,15 +43,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
 import app.quieta.core.settings.PredictiveBackAnimation
-import app.quieta.core.settings.PredictiveBackExitDirection
+import app.quieta.feature.config.ConfigRuleEditorScreen
+import app.quieta.feature.config.ConfigScreen
+import app.quieta.feature.config.ConfigViewModel
 import app.quieta.feature.home.HomeScreen
 import app.quieta.feature.home.HomeViewModel
 import app.quieta.feature.home.MutePreviewScreen
@@ -77,6 +77,10 @@ import app.quieta.ui.glass.FloatingSelectionAction
 import app.quieta.ui.glass.FloatingSelectionBar
 import app.quieta.ui.glass.QuietaNavTab
 import app.quieta.ui.glass.resolveBottomBarMode
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
@@ -105,6 +109,7 @@ fun QuietaRoot() {
     val settingsViewModel: SettingsViewModel = viewModel()
     val context = LocalContext.current
     val pageStateHolder = rememberSaveableStateHolder()
+    val coroutineScope = rememberCoroutineScope()
 
     val persistedBlur by settingsViewModel.blurEnabled.collectAsStateWithLifecycle()
     val pbAnimation by settingsViewModel.predictiveBackAnimation.collectAsStateWithLifecycle()
@@ -133,217 +138,225 @@ fun QuietaRoot() {
     val homeState by homeViewModel.state.collectAsStateWithLifecycle()
     val recordSelection by recordViewModel.selection.collectAsStateWithLifecycle()
 
-    // InstallerX ScaleNavTransition geometry (see ScaleNavTransition.kt).
-    val SCALE_MIN = 0.85f
-    val scaleExitDriftPx = with(LocalDensity.current) { 96.dp.toPx() }
-    val pbProgress = remember { mutableFloatStateOf(0f) }
-    var gestureCommitted by remember { mutableStateOf(false) }
-    if (secondary != null) {
-        PredictiveBackHandler(enabled = true) { progress ->
-            try {
-                progress.collect { edge ->
-                    pbProgress.floatValue = edge.progress
-                }
-                gestureCommitted = true
-                secondaryStack = secondaryStack.dropLast(1)
-                pbProgress.floatValue = 0f
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                pbProgress.floatValue = 0f
-                throw e
-            }
-        }
-    } else {
-        pbProgress.floatValue = 0f
-        gestureCommitted = false
+    val driver = remember { PredictiveBackDriver() }
+    var layoutSize by remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val rtl = layoutDirection == LayoutDirection.Rtl
+
+    LaunchedEffect(pbAnimation, pbExit) {
+        driver.animation = pbAnimation
+        driver.exitDirection = pbExit
     }
 
-    if (secondary != null) {
-        val gesture = pbProgress.floatValue
-        val density = LocalDensity.current
-        // InstallerX exitDirectionSign: FollowGesture(left)=+1, AlwaysRight=+1, AlwaysLeft=-1
-        val dirSign = when (pbExit) {
-            PredictiveBackExitDirection.ALWAYS_LEFT -> -1f
-            PredictiveBackExitDirection.ALWAYS_RIGHT -> 1f
-            PredictiveBackExitDirection.FOLLOW_GESTURE -> 1f
+    // Programmatic push when a secondary route appears.
+    var lastSecondary by remember { mutableStateOf(secondary) }
+    LaunchedEffect(secondary) {
+        if (secondary != null && lastSecondary == null) {
+            driver.animation = pbAnimation
+            driver.exitDirection = pbExit
+            driver.beginPush()
+            animatePredictiveSettle(driver, pbAnimation, PredictiveNavPhase.Push)
+            driver.reset()
         }
-        val cardStyle = pbAnimation == PredictiveBackAnimation.SCALE ||
-            pbAnimation == PredictiveBackAnimation.AOSP ||
-            pbAnimation == PredictiveBackAnimation.CLASSIC
-        val cornerRadius = if (cardStyle) 32.dp else 0.dp
-        val pageBg = MaterialTheme.colorScheme.surfaceContainer
+        lastSecondary = secondary
+    }
 
-        // Dim + backdrop (NavDisplayEffects: dimAmount 0.5, backdropColor surface)
-        if (gesture > 0f || gestureCommitted) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f * gesture.coerceIn(0f, 1f))),
-            )
+    PredictiveBackHandler(enabled = secondary != null) { progress ->
+        driver.animation = pbAnimation
+        driver.exitDirection = pbExit
+        try {
+            progress.collect { event: BackEventCompat ->
+                driver.onGestureEvent(event)
+            }
+            driver.beginCommit()
+            animatePredictiveSettle(driver, driver.animation, PredictiveNavPhase.Commit)
+            secondaryStack = secondaryStack.dropLast(1)
+            driver.reset()
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) {
+                driver.beginCancel()
+                animatePredictiveSettle(driver, driver.animation, PredictiveNavPhase.Cancel)
+                driver.reset()
+            }
+            throw e
         }
+    }
 
-        Box(
-            modifier = Modifier.fillMaxSize(),
+    val popSecondary: () -> Unit = {
+        if (secondaryStack.isNotEmpty() &&
+            driver.phase != PredictiveNavPhase.Commit &&
+            driver.phase != PredictiveNavPhase.Cancel &&
+            driver.phase != PredictiveNavPhase.Pop &&
+            driver.phase != PredictiveNavPhase.Push
         ) {
+            coroutineScope.launch {
+                if (secondaryStack.isEmpty() || driver.phase != PredictiveNavPhase.Idle) return@launch
+                driver.animation = pbAnimation
+                driver.exitDirection = pbExit
+                driver.beginPop()
+                animatePredictiveSettle(driver, driver.animation, PredictiveNavPhase.Pop)
+                if (secondaryStack.isNotEmpty()) {
+                    secondaryStack = secondaryStack.dropLast(1)
+                }
+                driver.reset()
+            }
+        }
+    }
+
+    val leaveProgress = driver.leaveProgress
+    val showUnderlay = secondary == null ||
+        leaveProgress > 0f ||
+        driver.phase == PredictiveNavPhase.Push ||
+        driver.phase == PredictiveNavPhase.Pop
+
+    val widthPx = layoutSize.width.toFloat()
+    val heightPx = layoutSize.height.toFloat()
+    val roundAll = predictiveRoundAllCorners(pbAnimation)
+    val cardStyle = predictiveCardStyle(pbAnimation) &&
+        (leaveProgress > 0f || driver.phase != PredictiveNavPhase.Idle)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged { layoutSize = it },
+    ) {
+        if (showUnderlay) {
+            val underlayTransform = if (secondary != null) {
+                predictiveUnderlayTransform(
+                    animation = driver.animation,
+                    phase = driver.phase,
+                    leaveProgress = leaveProgress,
+                    gestureProgress = driver.gestureProgress,
+                    releaseProgress = driver.releaseProgress,
+                    settleEased = driver.settleEased,
+                    swipeEdge = driver.swipeEdge,
+                    touchY = driver.touchY,
+                    initialTouchY = driver.initialTouchY,
+                    widthPx = widthPx,
+                    heightPx = heightPx,
+                    density = density,
+                    rtl = rtl,
+                )
+            } else {
+                LayerTransform()
+            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        if (gesture > 0f) {
-                            when (pbAnimation) {
-                                PredictiveBackAnimation.SCALE -> {
-                                    // pageScale = SCALE_MIN + (1-SCALE_MIN) * (1-progress)
-                                    val s = SCALE_MIN + (1f - SCALE_MIN) * (1f - gesture)
-                                    scaleX = s
-                                    scaleY = s
-                                    // InstallerX: translationX = 0 while gesture is tracked
-                                    translationX = 0f
-                                    translationY = 0f
-                                    alpha = 1f
-                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
-                                        pivotFractionX = 0.8f,
-                                        pivotFractionY = 0.5f,
-                                    )
-                                }
-                                PredictiveBackAnimation.CLASSIC -> {
-                                    val s = 0.9f + 0.1f * (1f - gesture)
-                                    scaleX = s
-                                    scaleY = s
-                                    translationX = dirSign * gesture * with(density) { 24.dp.toPx() }
-                                    alpha = 1f
-                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
-                                        pivotFractionX = 0.5f,
-                                        pivotFractionY = 0.5f,
-                                    )
-                                }
-                                PredictiveBackAnimation.AOSP -> {
-                                    val s = 0.9f + 0.1f * (1f - gesture)
-                                    scaleX = s
-                                    scaleY = s
-                                    translationX = dirSign * gesture * with(density) { 32.dp.toPx() }
-                                    alpha = 1f
-                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
-                                        pivotFractionX = if (dirSign > 0) 0.8f else 0.2f,
-                                        pivotFractionY = 0.5f,
-                                    )
-                                }
-                                PredictiveBackAnimation.MIUIX -> {
-                                    val s = 1f - 0.04f * gesture
-                                    scaleX = s
-                                    scaleY = s
-                                    translationX = dirSign * gesture * with(density) { 48.dp.toPx() }
-                                    alpha = 1f
-                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
-                                        pivotFractionX = 0.5f,
-                                        pivotFractionY = 0.5f,
-                                    )
-                                }
-                                PredictiveBackAnimation.NONE -> Unit
-                            }
-                        }
+                        scaleX = underlayTransform.scaleX
+                        scaleY = underlayTransform.scaleY
+                        translationX = underlayTransform.translationX
+                        translationY = underlayTransform.translationY
+                        alpha = underlayTransform.alpha
+                        transformOrigin = underlayTransform.transformOrigin
+                    },
+            ) {
+                MainPagerLayer(
+                    pageStateHolder = pageStateHolder,
+                    selectedRoute = selectedRoute,
+                    onSelectedRouteChange = { selectedRoute = it },
+                    homeViewModel = homeViewModel,
+                    recordViewModel = recordViewModel,
+                    settingsViewModel = settingsViewModel,
+                    homeState = homeState,
+                    recordSelection = recordSelection,
+                    blurEnabled = blurEnabled,
+                    quietMode = quietMode,
+                    onQuietModeChange = { quietMode = it },
+                    secondaryStack = secondaryStack,
+                    onSecondaryStackChange = { secondaryStack = it },
+                )
+            }
+        }
+
+        if (secondary != null) {
+            val scrim = predictiveScrimAlpha(
+                animation = driver.animation,
+                phase = driver.phase,
+                leaveProgress = leaveProgress,
+                settleRaw = driver.settleRaw,
+            )
+            if (scrim > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = scrim)),
+                )
+            }
+
+            val outgoing = predictiveOutgoingTransform(
+                animation = driver.animation,
+                exitDirection = driver.exitDirection,
+                phase = driver.phase,
+                leaveProgress = leaveProgress,
+                gestureProgress = driver.gestureProgress,
+                releaseProgress = driver.releaseProgress,
+                settleEased = driver.settleEased,
+                settleRaw = driver.settleRaw,
+                swipeEdge = driver.swipeEdge,
+                touchY = driver.touchY,
+                initialTouchY = driver.initialTouchY,
+                widthPx = widthPx,
+                heightPx = heightPx,
+                density = density,
+                rtl = rtl,
+            )
+            val pageBg = MaterialTheme.colorScheme.surfaceContainer
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = outgoing.scaleX
+                        scaleY = outgoing.scaleY
+                        translationX = outgoing.translationX
+                        translationY = outgoing.translationY
+                        alpha = outgoing.alpha
+                        transformOrigin = outgoing.transformOrigin
                     }
                     .then(
-                        if (cardStyle && (gesture > 0f || gestureCommitted)) {
-                            Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(cornerRadius))
+                        if (cardStyle && roundAll) {
+                            Modifier.clip(RoundedCornerShape(32.dp))
                         } else {
                             Modifier
                         },
                     )
                     .background(pageBg),
             ) {
-                val duration = if (gestureCommitted) 1 else 320
-                AnimatedContent(
-                    targetState = secondary,
-                    transitionSpec = {
-                        if (gestureCommitted) {
-                            fadeIn(tween(duration)) togetherWith fadeOut(tween(duration))
-                        } else {
-                            when (pbAnimation) {
-                                PredictiveBackAnimation.SCALE, PredictiveBackAnimation.CLASSIC,
-                                PredictiveBackAnimation.AOSP, PredictiveBackAnimation.MIUIX,
-                                -> {
-                                    if (initialState == null) {
-                                        slideInHorizontally(tween(420)) { it } + fadeIn(tween(280)) togetherWith
-                                            slideOutHorizontally(tween(420)) { -it / 3 } + fadeOut(tween(220))
-                                    } else if (targetState == null) {
-                                        slideInHorizontally(tween(420)) { -it / 3 } + fadeIn(tween(280)) togetherWith
-                                            slideOutHorizontally(tween(420)) { it } + fadeOut(tween(220))
-                                    } else {
-                                        fadeIn(tween(200)) togetherWith fadeOut(tween(200))
-                                    }
-                                }
-                                PredictiveBackAnimation.NONE -> fadeIn(tween(120)) togetherWith fadeOut(tween(120))
-                            }
-                        }
-                    },
-                label = "secondary-nav",
-            ) { key ->
-                when (key) {
-                    "licenses" -> LicensesScreen(
-                        onBack = { secondaryStack = secondaryStack.dropLast(1) },
-                        blurEnabled = blurEnabled,
-                    )
-                    "about" -> AboutScreen(
-                        onBack = { secondaryStack = secondaryStack.dropLast(1) },
-                        onOpenLicenses = { secondaryStack = secondaryStack + "licenses" },
-                        blurEnabled = blurEnabled,
-                    )
-                    "privilege" -> PrivilegeScreen(
-                        selected = homeState.preferredAuthorizer,
-                        rootAvailable = homeState.rootAvailable,
-                        rootLabel = homeState.rootLabel,
-                        rootDescription = homeState.rootDescription,
-                        shizukuAvailable = homeState.shizukuAvailable,
-                        shizukuAuthorized = homeState.shizukuAuthorized,
-                        dhizukuAvailable = homeState.dhizukuAvailable,
-                        onBack = { secondaryStack = secondaryStack.dropLast(1) },
-                        onSelect = { homeViewModel.setPreferredAuthorizer(it) },
-                        blurEnabled = blurEnabled,
-                    )
-                    "theme" -> ThemeScreen(
-                        onBack = { secondaryStack = secondaryStack.dropLast(1) },
-                        blurEnabledForChrome = blurEnabled,
-                        onBlurEnabledChange = { enabled ->
-                            settingsViewModel.setBlurEnabled(enabled)
-                        },
-                    )
-                    "mute_preview" -> MutePreviewScreen(
-                        preview = homeState.mutePreview,
-                        onBack = {
-                            homeViewModel.dismissMutePreview()
-                            secondaryStack = secondaryStack.dropLast(1)
-                        },
-                        onConfirm = {
-                            homeViewModel.confirmBatchMute()
-                            secondaryStack = secondaryStack.dropLast(1)
-                        },
-                        onScopeChange = homeViewModel::setMuteScope,
-                        blurEnabled = blurEnabled,
-                    )
-                    "rule_editor" -> {
-                        val configViewModel: app.quieta.feature.config.ConfigViewModel = viewModel()
-                        app.quieta.feature.config.ConfigRuleEditorScreen(
-                            viewModel = configViewModel,
-                            onBack = { secondaryStack = secondaryStack.dropLast(1) },
-                            blurEnabled = blurEnabled,
-                        )
-                    }
-                    "silent_channels" -> SilentChannelsScreen(
-                        apps = homeState.apps,
-                        plan = homeState.plan,
-                        onBack = { secondaryStack = secondaryStack.dropLast(1) },
-                        onChannelAction = homeViewModel::applyChannelAction,
-                        blurEnabled = blurEnabled,
-                        mode = runCatching {
-                            app.quieta.core.engine.QuietMode.valueOf(quietMode)
-                        }.getOrDefault(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND),
-                    )
-                }
-            }
+                SecondaryPageLayer(
+                    route = secondary,
+                    secondaryStack = secondaryStack,
+                    onBack = popSecondary,
+                    onSecondaryStackChange = { secondaryStack = it },
+                    homeViewModel = homeViewModel,
+                    settingsViewModel = settingsViewModel,
+                    recordViewModel = recordViewModel,
+                    homeState = homeState,
+                    blurEnabled = blurEnabled,
+                    quietMode = quietMode,
+                )
             }
         }
-        return
     }
+}
 
+@Composable
+private fun MainPagerLayer(
+    pageStateHolder: androidx.compose.runtime.saveable.SaveableStateHolder,
+    selectedRoute: String,
+    onSelectedRouteChange: (String) -> Unit,
+    homeViewModel: HomeViewModel,
+    recordViewModel: RecordViewModel,
+    settingsViewModel: SettingsViewModel,
+    homeState: app.quieta.feature.home.HomeUiState,
+    recordSelection: app.quieta.feature.record.RecordSelectionUiState,
+    blurEnabled: Boolean,
+    quietMode: String,
+    onQuietModeChange: (String) -> Unit,
+    secondaryStack: List<String>,
+    onSecondaryStackChange: (List<String>) -> Unit,
+) {
     pageStateHolder.SaveableStateProvider("main_pages") {
         val tabs = listOf(
             QuietaNavTab(QuietaRoutes.HOME, stringResource(R.string.nav_home), Icons.Outlined.Home),
@@ -377,7 +390,7 @@ fun QuietaRoot() {
                 mainPagerState.syncPage()
                 val route = tabRoutes.getOrNull(page)
                 if (route != null && route != selectedRoute) {
-                    selectedRoute = route
+                    onSelectedRouteChange(route)
                 }
             }
         }
@@ -397,22 +410,22 @@ fun QuietaRoot() {
                         QuietaRoutes.HOME -> HomeScreen(
                             modifier = Modifier.fillMaxSize(),
                             viewModel = homeViewModel,
-                            onOpenPrivilege = { secondaryStack = secondaryStack + "privilege" },
-                            onOpenConfig = { selectedRoute = QuietaRoutes.CONFIG },
-                            onOpenMutePreview = { secondaryStack = secondaryStack + "mute_preview" },
+                            onOpenPrivilege = { onSecondaryStackChange(secondaryStack + "privilege") },
+                            onOpenConfig = { onSelectedRouteChange(QuietaRoutes.CONFIG) },
+                            onOpenMutePreview = { onSecondaryStackChange(secondaryStack + "mute_preview") },
                             onOpenQuietChannels = { m ->
-                                quietMode = m.name
-                                secondaryStack = secondaryStack + "silent_channels"
+                                onQuietModeChange(m.name)
+                                onSecondaryStackChange(secondaryStack + "silent_channels")
                             },
                             blurEnabled = blurEnabled,
                         )
                         QuietaRoutes.CONFIG -> {
-                            val configViewModel: app.quieta.feature.config.ConfigViewModel = viewModel()
-                            app.quieta.feature.config.ConfigScreen(
+                            val configViewModel: ConfigViewModel = viewModel()
+                            ConfigScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 blurEnabled = blurEnabled,
                                 viewModel = configViewModel,
-                                onOpenEditor = { secondaryStack = secondaryStack + "rule_editor" },
+                                onOpenEditor = { onSecondaryStackChange(secondaryStack + "rule_editor") },
                             )
                         }
                         QuietaRoutes.RECORD -> RecordScreen(
@@ -424,9 +437,9 @@ fun QuietaRoot() {
                             blurEnabled = blurEnabled,
                             onBlurEnabledChange = { settingsViewModel.setBlurEnabled(it) },
                             bottomBarMode = mode,
-                            onOpenLicenses = { secondaryStack = secondaryStack + "licenses" },
-                            onOpenTheme = { secondaryStack = secondaryStack + "theme" },
-                            onOpenAbout = { secondaryStack = secondaryStack + "about" },
+                            onOpenLicenses = { onSecondaryStackChange(secondaryStack + "licenses") },
+                            onOpenTheme = { onSecondaryStackChange(secondaryStack + "theme") },
+                            onOpenAbout = { onSecondaryStackChange(secondaryStack + "about") },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -441,7 +454,7 @@ fun QuietaRoot() {
                     tabs = tabs,
                     selectedRoute = tabRoutes[pagerState.currentPage.coerceIn(0, tabRoutes.lastIndex)],
                     onTabSelected = { route ->
-                        selectedRoute = route
+                        onSelectedRouteChange(route)
                         mainPagerState.animateToPage(tabRoutes.indexOf(route).coerceAtLeast(0))
                     },
                     mode = mode,
@@ -531,5 +544,81 @@ fun QuietaRoot() {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SecondaryPageLayer(
+    route: String,
+    secondaryStack: List<String>,
+    onBack: () -> Unit,
+    onSecondaryStackChange: (List<String>) -> Unit,
+    homeViewModel: HomeViewModel,
+    settingsViewModel: SettingsViewModel,
+    recordViewModel: RecordViewModel,
+    homeState: app.quieta.feature.home.HomeUiState,
+    blurEnabled: Boolean,
+    quietMode: String,
+) {
+    when (route) {
+        "licenses" -> LicensesScreen(
+            onBack = onBack,
+            blurEnabled = blurEnabled,
+        )
+        "about" -> AboutScreen(
+            onBack = onBack,
+            onOpenLicenses = { onSecondaryStackChange(secondaryStack + "licenses") },
+            blurEnabled = blurEnabled,
+        )
+        "privilege" -> PrivilegeScreen(
+            selected = homeState.preferredAuthorizer,
+            rootAvailable = homeState.rootAvailable,
+            rootLabel = homeState.rootLabel,
+            rootDescription = homeState.rootDescription,
+            shizukuAvailable = homeState.shizukuAvailable,
+            shizukuAuthorized = homeState.shizukuAuthorized,
+            dhizukuAvailable = homeState.dhizukuAvailable,
+            onBack = onBack,
+            onSelect = { homeViewModel.setPreferredAuthorizer(it) },
+            blurEnabled = blurEnabled,
+        )
+        "theme" -> ThemeScreen(
+            onBack = onBack,
+            blurEnabledForChrome = blurEnabled,
+            onBlurEnabledChange = { enabled ->
+                settingsViewModel.setBlurEnabled(enabled)
+            },
+        )
+        "mute_preview" -> MutePreviewScreen(
+            preview = homeState.mutePreview,
+            onBack = {
+                homeViewModel.dismissMutePreview()
+                onBack()
+            },
+            onConfirm = {
+                homeViewModel.confirmBatchMute()
+                onBack()
+            },
+            onScopeChange = homeViewModel::setMuteScope,
+            blurEnabled = blurEnabled,
+        )
+        "rule_editor" -> {
+            val configViewModel: ConfigViewModel = viewModel()
+            ConfigRuleEditorScreen(
+                viewModel = configViewModel,
+                onBack = onBack,
+                blurEnabled = blurEnabled,
+            )
+        }
+        "silent_channels" -> SilentChannelsScreen(
+            apps = homeState.apps,
+            plan = homeState.plan,
+            onBack = onBack,
+            onChannelAction = homeViewModel::applyChannelAction,
+            blurEnabled = blurEnabled,
+            mode = runCatching {
+                app.quieta.core.engine.QuietMode.valueOf(quietMode)
+            }.getOrDefault(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND),
+        )
     }
 }

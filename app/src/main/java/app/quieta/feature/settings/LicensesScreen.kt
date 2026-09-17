@@ -37,9 +37,9 @@ private data class OssLib(
 
 /** Source ports and architecture references that cannot be discovered from Gradle metadata. */
 private val supplementalOssLibs = listOf(
-    OssLib("miuix (Tilt / squircle path / TopAppBar / overscroll / controls)", "compose-miuix-ui", "Apache-2.0", "https://github.com/compose-miuix-ui/miuix", "includeBuild"),
-    OssLib("InstallerX Revived (cards / typography / page chrome / privilege layout / glass)", "wxxsfxyzm and contributors", "GPL-3.0-only", "https://github.com/wxxsfxyzm/InstallerX-Revived", "f6ffcd8"),
-    OssLib("KernelSU (via InstallerX DampedDrag / pager)", "tiann", "GPL-3.0", "https://github.com/tiann/KernelSU"),
+    OssLib("miuix (Tilt / squircle path / TopAppBar / overscroll / controls / miuix-nav MiuixDefault)", "compose-miuix-ui", "Apache-2.0", "https://github.com/compose-miuix-ui/miuix", "includeBuild"),
+    OssLib("InstallerX Revived (cards / typography / page chrome / privilege layout / glass / predictive back)", "wxxsfxyzm and contributors", "GPL-3.0-only", "https://github.com/wxxsfxyzm/InstallerX-Revived", "f6ffcd8"),
+    OssLib("KernelSU (via InstallerX DampedDrag / pager / Classic predictive back)", "tiann", "GPL-3.0", "https://github.com/tiann/KernelSU"),
     OssLib("LibChecker (scan/cache architecture reference)", "LibChecker", "Apache-2.0", "https://github.com/LibChecker/LibChecker"),
     OssLib("AndroidLiquidGlass", "Kyant0", "Apache-2.0", "https://github.com/Kyant0/AndroidLiquidGlass"),
 )

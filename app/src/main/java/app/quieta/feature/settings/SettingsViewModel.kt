@@ -37,7 +37,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PredictiveBackAnimation.MIUIX)
 
     val predictiveBackExitDirection: StateFlow<PredictiveBackExitDirection> = settings.predictiveBackExitDirection
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PredictiveBackExitDirection.FOLLOW_GESTURE)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PredictiveBackExitDirection.ALWAYS_RIGHT)
 
     val themeColorSpec: StateFlow<ThemeColorSpec> = settings.themeColorSpec
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeColorSpec.SPEC_2025)

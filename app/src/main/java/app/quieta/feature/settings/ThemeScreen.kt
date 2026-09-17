@@ -36,6 +36,7 @@ import app.quieta.core.settings.PredictiveBackAnimation
 import app.quieta.core.settings.PredictiveBackExitDirection
 import app.quieta.core.settings.ThemeColorSpec
 import app.quieta.core.settings.ThemeMode
+import app.quieta.nav.predictiveExitDirectionVisible
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.QuietaSwitch
 import app.quieta.ui.theme.PresetColors
@@ -203,9 +204,8 @@ fun ThemeScreen(
                     },
                 )
                 AnimatedVisibility(
-                    visible = pbAnimation == PredictiveBackAnimation.SCALE ||
-                        pbAnimation == PredictiveBackAnimation.CLASSIC ||
-                        pbAnimation == PredictiveBackAnimation.MIUIX,
+                    // InstallerX only exposes exit direction for the Scale animation.
+                    visible = predictiveExitDirectionVisible(pbAnimation),
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
@@ -268,7 +268,7 @@ private fun pbAnimationLabel(value: PredictiveBackAnimation): String = when (val
     PredictiveBackAnimation.AOSP -> "AOSP"
     PredictiveBackAnimation.MIUIX -> "Miuix"
     PredictiveBackAnimation.SCALE -> "缩放"
-    PredictiveBackAnimation.CLASSIC -> "Classic"
+    PredictiveBackAnimation.CLASSIC -> "经典"
 }
 
 @Composable

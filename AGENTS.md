@@ -39,7 +39,7 @@
 
 **一期明确不做：** 快捷设置 Tile、桌面 Widget、平板/折叠优先布局、应用内静默强更。
 
-**已交付（摘要）：** MVP 盘点/批量静音/可选自动静音；Shizuku 盘点与 setImportance（列表路径 + create/update，K40s 25/25）；本地规则 JSON；弱采集通知时间线（包名/渠道/时间/数量，默认 7 天 / 200 条保留）；四栏 HorizontalPager 壳；关于/许可/检测更新；HyperOS 风格 UI；底栏 InstallerX 移植 + 液态玻璃（K40s/K90 观感已验收）；主页渠道列表搜索 / 筛选（含 HIGH、含 NONE、将静音）/ 排序（渠道数、名称、包名、最高级）/ App 卡折叠与展开收起（派生投影，不触发重扫）。**未创建 GitHub Release / 未打 tag。**
+**已交付（摘要）：** MVP 盘点/批量静音/可选自动静音；Shizuku 盘点与 setImportance（列表路径 + create/update，K40s 25/25）；本地规则 JSON；弱采集通知时间线（包名/渠道/时间/数量，默认 7 天 / 200 条保留）；四栏 HorizontalPager 壳；关于/许可/检测更新；HyperOS 风格 UI；底栏 InstallerX 移植 + 液态玻璃（K40s/K90 观感已验收）；主页渠道列表搜索 / 筛选（含 HIGH、含 NONE、将静音）/ 排序（渠道数、名称、包名、最高级）/ App 卡折叠与展开收起（派生投影，不触发重扫）；二级页预测性返回动画严格对齐 InstallerX Revived（AOSP / Miuix / 缩放 / 经典 / 无；退出方向仅「缩放」生效，跟随手势按 swipeEdge）。**未创建 GitHub Release / 未打 tag。**
 
 **已约定、尚未完成 / 待验收（后续代理优先做）：**
 
