@@ -14,10 +14,25 @@ class NotificationTimelineStore private constructor(context: Context) {
     private val storage = AsyncLocalState(emptyList(), ::load, ::write)
     val entries: StateFlow<List<NotificationTimelineEntry>> = storage.state
 
-    suspend fun append(packageName: String, channelId: String, timestamp: Long = System.currentTimeMillis()) {
+    suspend fun append(
+        packageName: String,
+        appLabel: String,
+        channelId: String,
+        channelName: String,
+        importance: Int,
+        timestamp: Long = System.currentTimeMillis(),
+    ) {
         if (packageName.isBlank() || channelId.isBlank()) return
         storage.update { previous ->
-            NotificationTimelineReducer.append(previous, packageName, channelId, timestamp)
+            NotificationTimelineReducer.append(
+                previous = previous,
+                packageName = packageName,
+                appLabel = appLabel,
+                channelId = channelId,
+                channelName = channelName,
+                timestamp = timestamp,
+                importance = importance,
+            )
         }
     }
 
@@ -30,9 +45,13 @@ class NotificationTimelineStore private constructor(context: Context) {
                 JSONObject()
                     .put("id", entry.id)
                     .put("packageName", entry.packageName)
+                    .put("appLabel", entry.appLabel)
                     .put("channelId", entry.channelId)
-                    .put("timestamp", entry.timestamp)
-                    .put("count", entry.count),
+                    .put("channelName", entry.channelName)
+                    .put("firstAt", entry.firstAt)
+                    .put("lastAt", entry.lastAt)
+                    .put("count", entry.count)
+                    .put("importance", entry.importance),
             )
         }
         file.writeText(array.toString())
@@ -46,13 +65,14 @@ class NotificationTimelineStore private constructor(context: Context) {
             val seen = HashSet<String>()
             buildList {
                 for (index in 0 until array.length()) {
-                    val objectValue = array.getJSONObject(index)
-                    val timestamp = objectValue.optLong("timestamp", 0L)
-                    if (timestamp < now - NotificationTimelineReducer.RETENTION_MILLIS) continue
-                    val packageName = objectValue.optString("packageName")
-                    val channelId = objectValue.optString("channelId")
+                    val o = array.getJSONObject(index)
+                    val lastAt = o.optLong("lastAt", o.optLong("timestamp", 0L))
+                    val firstAt = o.optLong("firstAt", lastAt)
+                    if (lastAt < now - NotificationTimelineReducer.RETENTION_MILLIS) continue
+                    val packageName = o.optString("packageName")
+                    val channelId = o.optString("channelId")
                     if (packageName.isBlank() || channelId.isBlank()) continue
-                    var id = objectValue.optString("id")
+                    var id = o.optString("id")
                     if (id.isBlank() || !seen.add(id)) {
                         id = java.util.UUID.randomUUID().toString()
                         seen.add(id)
@@ -61,13 +81,17 @@ class NotificationTimelineStore private constructor(context: Context) {
                         NotificationTimelineEntry(
                             id = id,
                             packageName = packageName,
+                            appLabel = o.optString("appLabel"),
                             channelId = channelId,
-                            timestamp = timestamp,
-                            count = objectValue.optInt("count", 1).coerceAtLeast(1),
+                            channelName = o.optString("channelName"),
+                            firstAt = firstAt.coerceAtMost(lastAt).coerceAtLeast(0L),
+                            lastAt = lastAt,
+                            count = o.optInt("count", 1).coerceAtLeast(1),
+                            importance = o.optInt("importance", -1),
                         ),
                     )
                 }
-            }.sortedByDescending { it.timestamp }.take(NotificationTimelineReducer.MAX_ENTRIES)
+            }.sortedByDescending { it.lastAt }.take(NotificationTimelineReducer.MAX_ENTRIES)
         }.getOrDefault(emptyList())
     }
 

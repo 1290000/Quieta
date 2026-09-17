@@ -5,19 +5,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NotificationTimelineReducerTest {
-    @Test fun mergesSameChannelWithinFiveMinutes() {
-        val first = NotificationTimelineReducer.append(emptyList(), "a", "news", 1_000_000L)
-        val second = NotificationTimelineReducer.append(first, "a", "news", 1_100_000L)
+    @Test fun mergesSameChannelWithinOneMinute() {
+        val first = NotificationTimelineReducer.append(
+            emptyList(), "a", "App", "news", "News", 1_000_000L, 3,
+        )
+        val second = NotificationTimelineReducer.append(
+            first, "a", "App", "news", "News", 1_030_000L, 3,
+        )
 
         assertEquals(1, second.size)
-        assertEquals(2, second.single().count)
-        assertEquals(1_100_000L, second.single().timestamp)
+        val merged = second.single()
+        assertEquals(2, merged.count)
+        assertEquals(1_000_000L, merged.firstAt)
+        assertEquals(1_030_000L, merged.lastAt)
+        assertEquals("News", merged.channelName)
     }
 
     @Test fun separatesChannelsAndEventsOutsideWindow() {
-        val first = NotificationTimelineReducer.append(emptyList(), "a", "news", 1_000_000L)
-        val second = NotificationTimelineReducer.append(first, "a", "chat", 1_100_000L)
-        val third = NotificationTimelineReducer.append(second, "a", "news", 1_000_000L + NotificationTimelineReducer.MERGE_WINDOW_MILLIS + 1)
+        val first = NotificationTimelineReducer.append(
+            emptyList(), "a", "App", "news", "News", 1_000_000L, 3,
+        )
+        val second = NotificationTimelineReducer.append(
+            first, "a", "App", "chat", "Chat", 1_030_000L, 4,
+        )
+        val third = NotificationTimelineReducer.append(
+            second, "a", "App", "news", "News",
+            1_000_000L + NotificationTimelineReducer.MERGE_WINDOW_MILLIS + 1,
+            3,
+        )
 
         assertEquals(3, third.size)
         assertTrue(third.all { it.count == 1 })
@@ -25,15 +40,30 @@ class NotificationTimelineReducerTest {
 
     @Test fun dropsExpiredEntriesAndCapsHistory() {
         val now = 10_000_000L
-        val old = NotificationTimelineEntry(packageName = "old", channelId = "x", timestamp = now - NotificationTimelineReducer.RETENTION_MILLIS - 1)
-        val retained = NotificationTimelineReducer.append(listOf(old), "new", "x", now)
+        val old = NotificationTimelineEntry(
+            packageName = "old",
+            channelId = "x",
+            firstAt = now - NotificationTimelineReducer.RETENTION_MILLIS - 1,
+            lastAt = now - NotificationTimelineReducer.RETENTION_MILLIS - 1,
+        )
+        val retained = NotificationTimelineReducer.append(
+            listOf(old), "new", "New", "x", "X", now, 1,
+        )
         assertTrue(retained.none { it.packageName == "old" })
 
         val many = (0 until NotificationTimelineReducer.MAX_ENTRIES).map {
-            NotificationTimelineEntry(packageName = "p$it", channelId = "c", timestamp = now - it - 1)
+            NotificationTimelineEntry(
+                packageName = "p$it",
+                channelId = "c",
+                firstAt = now - it - 1,
+                lastAt = now - it - 1,
+            )
         }
-        val capped = NotificationTimelineReducer.append(many, "last", "c", now)
+        val capped = NotificationTimelineReducer.append(
+            many, "last", "Last", "c", "C", now, 2,
+        )
         assertEquals(NotificationTimelineReducer.MAX_ENTRIES, capped.size)
         assertEquals("last", capped.first().packageName)
+        assertEquals("Last", capped.first().appLabel)
     }
 }

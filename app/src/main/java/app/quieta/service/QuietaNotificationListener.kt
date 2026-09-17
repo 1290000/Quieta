@@ -1,5 +1,6 @@
 package app.quieta.service
 
+import android.app.NotificationManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -15,8 +16,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * Lightweight listener: only feeds AutoMuteCoordinator when the user enabled auto-mute.
- * Does not persist notification content.
+ * Lightweight listener: timeline identity fields + auto-mute hook.
+ * Never persists notification content.
  */
 class QuietaNotificationListener : NotificationListenerService() {
 
@@ -47,21 +48,47 @@ class QuietaNotificationListener : NotificationListenerService() {
         val notification = sbn?.notification ?: return
         val pkg = sbn.packageName ?: return
         val channelId = notification.channelId ?: return
-        // Channel display name is not on StatusBarNotification; use id.
+        val appLabel = resolveAppLabel(pkg)
+        val (channelName, channelImportance) = resolveChannel(pkg, channelId)
+        // Notification.priority is not the same as channel importance; prefer channel.
+        val importance = if (channelImportance >= 0) channelImportance else -1
         scope.launch {
             if (timelineEnabled.value) {
-                timeline.append(pkg, channelId)
+                timeline.append(
+                    packageName = pkg,
+                    appLabel = appLabel,
+                    channelId = channelId,
+                    channelName = channelName,
+                    importance = importance,
+                )
             }
             AutoMuteCoordinator.onChannelSeen(
                 context = applicationContext,
                 packageName = pkg,
                 channelId = channelId,
-                channelName = channelId,
-                importance = notification.priority,
+                channelName = channelName.ifBlank { channelId },
+                importance = if (importance >= 0) importance else notification.priority,
                 repository = rules,
                 autoMuteEnabled = autoMuteEnabled.value,
             )
         }
+    }
+
+    private fun resolveAppLabel(packageName: String): String {
+        return runCatching {
+            val ai = packageManager.getApplicationInfo(packageName, 0)
+            packageManager.getApplicationLabel(ai).toString()
+        }.getOrDefault(packageName)
+    }
+
+    /** Best-effort channel name/importance; may be unavailable without extra privilege. */
+    private fun resolveChannel(packageName: String, channelId: String): Pair<String, Int> {
+        return runCatching {
+            val nm = getSystemService(NotificationManager::class.java) ?: return@runCatching channelId to -1
+            val channel = nm.getNotificationChannel(channelId) ?: return@runCatching channelId to -1
+            val name = channel.name?.toString().orEmpty().ifBlank { channelId }
+            name to channel.importance
+        }.getOrDefault(channelId to -1)
     }
 
     companion object {
