@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.quieta.core.settings.AppSettings
 import app.quieta.core.settings.PaletteStyle
+import app.quieta.core.settings.ThemeColorSpec
 import app.quieta.core.settings.PredictiveBackAnimation
 import app.quieta.core.settings.PredictiveBackExitDirection
 import app.quieta.core.settings.ThemeMode
@@ -33,10 +34,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PaletteStyle.TonalSpot)
 
     val predictiveBackAnimation: StateFlow<PredictiveBackAnimation> = settings.predictiveBackAnimation
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PredictiveBackAnimation.NONE)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PredictiveBackAnimation.MIUIX)
 
     val predictiveBackExitDirection: StateFlow<PredictiveBackExitDirection> = settings.predictiveBackExitDirection
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PredictiveBackExitDirection.FOLLOW_GESTURE)
+
+    val themeColorSpec: StateFlow<ThemeColorSpec> = settings.themeColorSpec
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeColorSpec.SPEC_2025)
+
+    val seedColorInt: StateFlow<Int> = settings.seedColorInt
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0xFF6750A4.toInt())
 
     val autoMuteNewChannels: StateFlow<Boolean> = settings.autoMuteNewChannels
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -54,6 +61,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     fun setPredictiveBackExitDirection(value: PredictiveBackExitDirection) {
         viewModelScope.launch { settings.setPredictiveBackExitDirection(value) }
+    }
+
+    fun setThemeColorSpec(spec: ThemeColorSpec) {
+        viewModelScope.launch { settings.setThemeColorSpec(spec) }
+    }
+
+    fun setSeedColorInt(argb: Int) {
+        viewModelScope.launch { settings.setSeedColorInt(argb) }
     }
 
     fun setAutoMuteNewChannels(enabled: Boolean) {

@@ -239,7 +239,8 @@ core/rom/
 | 行内多动作 | 单渠道静音/降级/恢复 | **收进底部 Sheet**，列表行只留状态 + 可点 |
 | 图标操作 | 编辑、删除 | 行内 24–28dp 图标，与行高居中 |
 
-- 列表卡：`QuietaPage` 已有 12dp 水平边距，卡内**不要再加一层 12dp 外边距**；内边距 16dp；标题 `titleLarge`、摘要 `bodyMedium`。  
+- **二级页卡片与屏幕间距（强制）**：`QuietaPage` 已有 **12dp** 水平页边距；页面内分组卡**不得再叠一层 12dp**（禁止 `padding(horizontal = 12.dp)` 加在已包在 `QuietaPage` 里的 `Card` 上）。主题设置、配置、设置等所有二级页与主页列表卡同构：贴页边距即可，圆角 20dp。  
+
 - 分组规则/选项：一张 Card 多行 + `HorizontalDivider`（特权页同构），不要一行一张孤立卡。  
 - 独立可点卡用 `PressableCard`（squircle + Tilt）；**展开后的信息卡用静态 `Card`，不要整卡 Tilt**。  
 - 弹层底部：左「取消/重置」TextButton，右「完成/确认」Button；避免两个同权 TextButton 并排。

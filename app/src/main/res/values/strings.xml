@@ -25,6 +25,8 @@
     <string name="theme_settings_dynamic_color">动态颜色</string>
     <string name="theme_settings_dynamic_color_desc">使用系统动态取色</string>
     <string name="theme_settings_palette">调色板风格</string>
+    <string name="theme_settings_color_spec">颜色规格</string>
+    <string name="theme_settings_theme_color">主题颜色</string>
     <string name="theme_settings_predictive_back">预测性返回</string>
     <string name="theme_settings_pb_animation">预测性返回动画</string>
     <string name="theme_settings_pb_exit">退出方向</string>

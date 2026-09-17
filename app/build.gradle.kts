@@ -92,6 +92,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
     implementation(libs.miuix.ui)
+    implementation(libs.materialkolor)
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
     implementation(libs.aboutlibraries.core)

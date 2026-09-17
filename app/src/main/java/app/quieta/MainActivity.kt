@@ -22,6 +22,13 @@ class MainActivity : ComponentActivity() {
             val mode by settings.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
             val customColors by settings.customColors.collectAsStateWithLifecycle(initialValue = false)
             val dynamicColor by settings.dynamicColor.collectAsStateWithLifecycle(initialValue = true)
+            val seedArgb by settings.seedColorInt.collectAsStateWithLifecycle(initialValue = 0xFF6750A4.toInt())
+            val colorSpec by settings.themeColorSpec.collectAsStateWithLifecycle(
+                initialValue = app.quieta.core.settings.ThemeColorSpec.SPEC_2025,
+            )
+            val paletteStyle by settings.paletteStyle.collectAsStateWithLifecycle(
+                initialValue = app.quieta.core.settings.PaletteStyle.TonalSpot,
+            )
             QuietaTheme(
                 darkTheme = when (mode) {
                     ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -30,7 +37,7 @@ class MainActivity : ComponentActivity() {
                 },
                 customColors = customColors,
                 dynamicColor = dynamicColor,
-                seedColor = Color(0xFF3482FF),
+                seedColor = Color(seedArgb),
             ) {
                 QuietaRoot()
             }

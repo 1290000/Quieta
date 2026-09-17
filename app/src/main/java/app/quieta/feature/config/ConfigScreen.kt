@@ -108,7 +108,7 @@ fun ConfigScreen(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                     )
                     // InstallerX MiuixPrivPage: one Card hosts all option rows.
-                    Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
                         whitelistRules.forEachIndexed { index, rule ->
                             if (index > 0) {
                                 top.yukonga.miuix.kmp.basic.HorizontalDivider(
@@ -138,7 +138,7 @@ fun ConfigScreen(
                         text = "静音 / 降级",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                     )
-                    Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
                         actionRules.forEachIndexed { index, rule ->
                             if (index > 0) {
                                 top.yukonga.miuix.kmp.basic.HorizontalDivider(
@@ -180,7 +180,7 @@ fun ConfigScreen(
                 )
             }
             item(key = "packs") {
-                Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                Card(modifier = Modifier.fillMaxWidth()) {
                     val packs = app.quieta.core.repo.RulePresetPacks.all
                     packs.forEachIndexed { index, pack ->
                         if (index > 0) {
@@ -257,7 +257,7 @@ private fun PackImportDialog(
                         Icon(Icons.Outlined.Close, contentDescription = "关闭")
                     }
                 }
-                Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Column {
                         BasicComponent(
                             title = "合并导入",

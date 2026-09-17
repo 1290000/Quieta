@@ -5,7 +5,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -29,9 +34,11 @@ import app.quieta.R
 import app.quieta.core.settings.PaletteStyle
 import app.quieta.core.settings.PredictiveBackAnimation
 import app.quieta.core.settings.PredictiveBackExitDirection
+import app.quieta.core.settings.ThemeColorSpec
 import app.quieta.core.settings.ThemeMode
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.QuietaSwitch
+import app.quieta.ui.theme.PresetColors
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -56,7 +63,11 @@ fun ThemeScreen(
     val pbAnimation by viewModel.predictiveBackAnimation.collectAsStateWithLifecycle()
     val pbExit by viewModel.predictiveBackExitDirection.collectAsStateWithLifecycle()
 
+    val themeColorSpec by viewModel.themeColorSpec.collectAsStateWithLifecycle()
+    val seedColorInt by viewModel.seedColorInt.collectAsStateWithLifecycle()
     val themeModes = remember { ThemeMode.entries }
+    val colorSpecs = remember { ThemeColorSpec.entries }
+    val colorSpecItems = colorSpecs.map { DropdownItem(title = colorSpecLabel(it)) }
     val themeItems = themeModes.map { DropdownItem(title = themeModeLabel(it)) }
     val palettes = remember { PaletteStyle.entries }
     val paletteItems = palettes.map { DropdownItem(title = paletteLabel(it)) }
@@ -127,6 +138,53 @@ fun ThemeScreen(
                                 if (style != paletteStyle) viewModel.setPaletteStyle(style)
                             },
                         )
+                        WindowSpinnerPreference(
+                            items = colorSpecItems,
+                            selectedIndex = colorSpecs.indexOf(themeColorSpec).coerceAtLeast(0),
+                            title = stringResource(R.string.theme_settings_color_spec),
+                            onSelectedIndexChange = { index ->
+                                val spec = colorSpecs[index]
+                                if (spec != themeColorSpec) viewModel.setThemeColorSpec(spec)
+                            },
+                        )
+                    }
+                }
+            }
+            // InstallerX: theme color swatches when custom colors on and system dynamic off.
+            if (customColors && !dynamicColor) {
+                SmallTitle(stringResource(R.string.theme_settings_theme_color))
+                SettingsGroupCard {
+                    BoxWithConstraints(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp, horizontal = 4.dp),
+                    ) {
+                        val itemMinWidth = 88.dp
+                        val columns = (this.maxWidth / itemMinWidth).toInt().coerceAtLeast(1)
+                        val chunked = PresetColors.chunked(columns)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            chunked.forEach { rowItems ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                ) {
+                                    rowItems.forEach { raw ->
+                                        androidx.compose.foundation.layout.Box(
+                                            modifier = Modifier.weight(1f),
+                                            contentAlignment = androidx.compose.ui.Alignment.Center,
+                                        ) {
+                                            ColorSwatchPreview(
+                                                rawColor = raw,
+                                                paletteStyle = paletteStyle,
+                                                colorSpec = themeColorSpec,
+                                                isSelected = seedColorInt == raw.color.toArgb(),
+                                                onClick = { viewModel.setSeedColorInt(raw.color.toArgb()) },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -168,10 +226,11 @@ fun ThemeScreen(
 
 @Composable
 private fun SettingsGroupCard(content: @Composable () -> Unit) {
+    // QuietaPage already applies 12dp horizontal page padding — do not add another layer.
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 16.dp, start = 12.dp, end = 12.dp),
+            .padding(bottom = 16.dp),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
@@ -195,6 +254,12 @@ private fun paletteLabel(style: PaletteStyle): String = when (style) {
     PaletteStyle.FruitSalad -> "FruitSalad"
     PaletteStyle.Rainbow -> "Rainbow"
     PaletteStyle.Monochrome -> "Monochrome"
+}
+
+@Composable
+private fun colorSpecLabel(spec: ThemeColorSpec): String = when (spec) {
+    ThemeColorSpec.SPEC_2021 -> "Material 3 (2021)"
+    ThemeColorSpec.SPEC_2025 -> "Expressive (2025)"
 }
 
 @Composable

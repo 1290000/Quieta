@@ -31,6 +31,8 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 enum class PaletteStyle { TonalSpot, Vibrant, Expressive, Spritz, FruitSalad, Rainbow, Monochrome }
 
+enum class ThemeColorSpec { SPEC_2021, SPEC_2025 }
+
 enum class PredictiveBackAnimation { NONE, AOSP, MIUIX, SCALE, CLASSIC }
 
 enum class PredictiveBackExitDirection { FOLLOW_GESTURE, ALWAYS_RIGHT, ALWAYS_LEFT }
@@ -89,7 +91,7 @@ class AppSettings(private val context: Context) {
 
     val predictiveBackAnimation: Flow<PredictiveBackAnimation> = context.settingsStore.data.map { prefs ->
         prefs[KEY_PB_ANIMATION]?.let { runCatching { PredictiveBackAnimation.valueOf(it) }.getOrNull() }
-            ?: PredictiveBackAnimation.NONE
+            ?: PredictiveBackAnimation.MIUIX
     }
 
     suspend fun setPredictiveBackAnimation(value: PredictiveBackAnimation) {
@@ -103,6 +105,25 @@ class AppSettings(private val context: Context) {
 
     suspend fun setPredictiveBackExitDirection(value: PredictiveBackExitDirection) {
         context.settingsStore.edit { it[KEY_PB_EXIT] = value.name }
+    }
+
+    /** Material color spec version for seed schemes (InstallerX ThemeColorSpec). */
+    val themeColorSpec: Flow<ThemeColorSpec> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_COLOR_SPEC]?.let { runCatching { ThemeColorSpec.valueOf(it) }.getOrNull() }
+            ?: ThemeColorSpec.SPEC_2025
+    }
+
+    suspend fun setThemeColorSpec(spec: ThemeColorSpec) {
+        context.settingsStore.edit { it[KEY_COLOR_SPEC] = spec.name }
+    }
+
+    /** ARGB seed for custom colors; defaults to purple Material seed. */
+    val seedColorInt: Flow<Int> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_SEED_COLOR] ?: 0xFF6750A4.toInt()
+    }
+
+    suspend fun setSeedColorInt(argb: Int) {
+        context.settingsStore.edit { it[KEY_SEED_COLOR] = argb }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -234,6 +255,8 @@ class AppSettings(private val context: Context) {
         private val KEY_PALETTE_STYLE = stringPreferencesKey("theme_palette_style")
         private val KEY_PB_ANIMATION = stringPreferencesKey("predictive_back_animation")
         private val KEY_PB_EXIT = stringPreferencesKey("predictive_back_exit")
+        private val KEY_COLOR_SPEC = stringPreferencesKey("theme_color_spec")
+        private val KEY_SEED_COLOR = androidx.datastore.preferences.core.intPreferencesKey("theme_seed_color")
         private val KEY_AUTHORIZER = stringPreferencesKey("preferred_authorizer")
         private val KEY_LAST_PRIVILEGE_ID = stringPreferencesKey("last_known_privilege_id")
         private val KEY_LAST_PRIVILEGE_LABEL = stringPreferencesKey("last_known_privilege_label")

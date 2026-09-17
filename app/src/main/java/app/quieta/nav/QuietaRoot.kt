@@ -118,9 +118,56 @@ fun QuietaRoot() {
     val pbAnimation by settingsViewModelForBlur.predictiveBackAnimation.collectAsStateWithLifecycle()
     val pbExit by settingsViewModelForBlur.predictiveBackExitDirection.collectAsStateWithLifecycle()
     var lastSecondary by rememberSaveable { mutableStateOf<String?>(null) }
+    // System predictive-back progress (Android 13+/HyperOS gesture). 0 = idle, 1 = commit.
+    val pbProgress = androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     if (secondary != null) {
-        BackHandler { secondaryStack = secondaryStack.dropLast(1) }
+        androidx.activity.compose.PredictiveBackHandler(enabled = true) { progress ->
+            try {
+                progress.collect { edge ->
+                    pbProgress.floatValue = edge.progress
+                }
+                secondaryStack = secondaryStack.dropLast(1)
+                pbProgress.floatValue = 0f
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                pbProgress.floatValue = 0f
+                throw e
+            }
+        }
         val forward = lastSecondary != secondary
+        val gestureProgress = pbProgress.floatValue
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    if (gestureProgress > 0f) {
+                        when (pbAnimation) {
+                            app.quieta.core.settings.PredictiveBackAnimation.SCALE,
+                            app.quieta.core.settings.PredictiveBackAnimation.CLASSIC,
+                            -> {
+                                val p = gestureProgress
+                                scaleX = 1f - 0.1f * p
+                                scaleY = 1f - 0.1f * p
+                                alpha = 1f - 0.4f * p
+                                val dir = when (pbExit) {
+                                    app.quieta.core.settings.PredictiveBackExitDirection.ALWAYS_LEFT -> -1f
+                                    app.quieta.core.settings.PredictiveBackExitDirection.ALWAYS_RIGHT -> 1f
+                                    app.quieta.core.settings.PredictiveBackExitDirection.FOLLOW_GESTURE -> -1f
+                                }
+                                translationX = dir * p * 24f
+                            }
+                            app.quieta.core.settings.PredictiveBackAnimation.AOSP,
+                            app.quieta.core.settings.PredictiveBackAnimation.MIUIX,
+                            -> {
+                                scaleX = 1f - 0.04f * gestureProgress
+                                scaleY = 1f - 0.04f * gestureProgress
+                                alpha = 1f - 0.25f * gestureProgress
+                                translationX = -gestureProgress * 32f
+                            }
+                            app.quieta.core.settings.PredictiveBackAnimation.NONE -> Unit
+                        }
+                    }
+                },
+        ) {
         androidx.compose.animation.AnimatedContent(
             targetState = secondary,
             transitionSpec = {
@@ -204,6 +251,7 @@ fun QuietaRoot() {
                 )
             }
             }
+        }
         }
         androidx.compose.runtime.LaunchedEffect(secondary) {
             lastSecondary = secondary
