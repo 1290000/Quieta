@@ -41,7 +41,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -204,17 +206,15 @@ fun QuietaRoot() {
         }
     }
 
-    val leaveProgress = driver.leaveProgress
-    val showUnderlay = secondary == null ||
-        leaveProgress > 0f ||
-        driver.phase == PredictiveNavPhase.Push ||
-        driver.phase == PredictiveNavPhase.Pop
-
+    // Subscribe only to discrete phase changes in composition; continuous progress is
+    // read inside graphicsLayer so gesture frames invalidate draw, not full recomposition.
+    val phase = driver.phase
+    val secondaryOpen = secondary != null
+    val showUnderlay = !secondaryOpen || phase != PredictiveNavPhase.Idle
     val widthPx = layoutSize.width.toFloat()
     val heightPx = layoutSize.height.toFloat()
     val roundAll = predictiveRoundAllCorners(pbAnimation)
-    val cardStyle = predictiveCardStyle(pbAnimation) &&
-        (leaveProgress > 0f || driver.phase != PredictiveNavPhase.Idle)
+    val cardStyle = secondaryOpen && predictiveCardStyle(pbAnimation) && phase != PredictiveNavPhase.Idle
 
     Box(
         modifier = Modifier
@@ -222,35 +222,48 @@ fun QuietaRoot() {
             .onSizeChanged { layoutSize = it },
     ) {
         if (showUnderlay) {
-            val underlayTransform = if (secondary != null) {
-                predictiveUnderlayTransform(
-                    animation = driver.animation,
-                    phase = driver.phase,
-                    leaveProgress = leaveProgress,
-                    gestureProgress = driver.gestureProgress,
-                    releaseProgress = driver.releaseProgress,
-                    settleEased = driver.settleEased,
-                    swipeEdge = driver.swipeEdge,
-                    touchY = driver.touchY,
-                    initialTouchY = driver.initialTouchY,
-                    widthPx = widthPx,
-                    heightPx = heightPx,
-                    density = density,
-                    rtl = rtl,
-                )
-            } else {
-                LayerTransform()
-            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    // Observe driver in the draw phase so gesture frames invalidate without
+                    // recomposing the main pager on every progress tick.
+                    .drawBehind {
+                        driver.leaveProgress
+                        driver.phase
+                        driver.settleEased
+                        driver.swipeEdge
+                    }
                     .graphicsLayer {
-                        scaleX = underlayTransform.scaleX
-                        scaleY = underlayTransform.scaleY
-                        translationX = underlayTransform.translationX
-                        translationY = underlayTransform.translationY
-                        alpha = underlayTransform.alpha
-                        transformOrigin = underlayTransform.transformOrigin
+                        if (!secondaryOpen) {
+                            scaleX = 1f
+                            scaleY = 1f
+                            translationX = 0f
+                            translationY = 0f
+                            alpha = 1f
+                            transformOrigin = TransformOrigin.Center
+                        } else {
+                            val underlayTransform = predictiveUnderlayTransform(
+                                animation = driver.animation,
+                                phase = driver.phase,
+                                leaveProgress = driver.leaveProgress,
+                                gestureProgress = driver.gestureProgress,
+                                releaseProgress = driver.releaseProgress,
+                                settleEased = driver.settleEased,
+                                swipeEdge = driver.swipeEdge,
+                                touchY = driver.touchY,
+                                initialTouchY = driver.initialTouchY,
+                                widthPx = widthPx,
+                                heightPx = heightPx,
+                                density = density,
+                                rtl = rtl,
+                            )
+                            scaleX = underlayTransform.scaleX
+                            scaleY = underlayTransform.scaleY
+                            translationX = underlayTransform.translationX
+                            translationY = underlayTransform.translationY
+                            alpha = underlayTransform.alpha
+                            transformOrigin = underlayTransform.transformOrigin
+                        }
                     },
             ) {
                 MainPagerLayer(
@@ -271,43 +284,57 @@ fun QuietaRoot() {
             }
         }
 
-        if (secondary != null) {
-            val scrim = predictiveScrimAlpha(
-                animation = driver.animation,
-                phase = driver.phase,
-                leaveProgress = leaveProgress,
-                settleRaw = driver.settleRaw,
+        if (secondaryOpen) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawBehind {
+                        driver.leaveProgress
+                        driver.phase
+                        driver.settleRaw
+                    }
+                    .graphicsLayer {
+                        // Dim scrim as a layer alpha on a full-bleed black plate.
+                        alpha = predictiveScrimAlpha(
+                            animation = driver.animation,
+                            phase = driver.phase,
+                            leaveProgress = driver.leaveProgress,
+                            settleRaw = driver.settleRaw,
+                        )
+                    }
+                    .background(Color.Black),
             )
-            if (scrim > 0f) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = scrim)),
-                )
-            }
 
-            val outgoing = predictiveOutgoingTransform(
-                animation = driver.animation,
-                exitDirection = driver.exitDirection,
-                phase = driver.phase,
-                leaveProgress = leaveProgress,
-                gestureProgress = driver.gestureProgress,
-                releaseProgress = driver.releaseProgress,
-                settleEased = driver.settleEased,
-                settleRaw = driver.settleRaw,
-                swipeEdge = driver.swipeEdge,
-                touchY = driver.touchY,
-                initialTouchY = driver.initialTouchY,
-                widthPx = widthPx,
-                heightPx = heightPx,
-                density = density,
-                rtl = rtl,
-            )
             val pageBg = MaterialTheme.colorScheme.surfaceContainer
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .drawBehind {
+                        driver.leaveProgress
+                        driver.phase
+                        driver.settleEased
+                        driver.settleRaw
+                        driver.swipeEdge
+                        driver.touchY
+                    }
                     .graphicsLayer {
+                        val outgoing = predictiveOutgoingTransform(
+                            animation = driver.animation,
+                            exitDirection = driver.exitDirection,
+                            phase = driver.phase,
+                            leaveProgress = driver.leaveProgress,
+                            gestureProgress = driver.gestureProgress,
+                            releaseProgress = driver.releaseProgress,
+                            settleEased = driver.settleEased,
+                            settleRaw = driver.settleRaw,
+                            swipeEdge = driver.swipeEdge,
+                            touchY = driver.touchY,
+                            initialTouchY = driver.initialTouchY,
+                            widthPx = widthPx,
+                            heightPx = heightPx,
+                            density = density,
+                            rtl = rtl,
+                        )
                         scaleX = outgoing.scaleX
                         scaleY = outgoing.scaleY
                         translationX = outgoing.translationX

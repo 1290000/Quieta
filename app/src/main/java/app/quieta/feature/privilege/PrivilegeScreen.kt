@@ -46,7 +46,8 @@ fun PrivilegeScreen(
     modifier: Modifier = Modifier,
     blurEnabled: Boolean = true,
 ) {
-    BackHandler(onBack = onBack)
+    // Root QuietaRoot PredictiveBackHandler owns back; do not intercept.
+    BackHandler(enabled = false, onBack = onBack)
     QuietaPage(
         title = stringResource(R.string.home_stat_authorizers),
         modifier = modifier,

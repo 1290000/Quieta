@@ -55,7 +55,8 @@ fun SilentChannelsScreen(
     blurEnabled: Boolean = true,
     mode: QuietMode = QuietMode.SILENT_NO_SOUND,
 ) {
-    BackHandler(onBack = onBack)
+    // Root QuietaRoot PredictiveBackHandler owns back; do not intercept.
+    BackHandler(enabled = false, onBack = onBack)
     val title = when (mode) {
         QuietMode.SILENT_NO_SOUND -> "静默仍开"
         QuietMode.QUIET_WITH_SOUND -> "仅声音·无横幅"

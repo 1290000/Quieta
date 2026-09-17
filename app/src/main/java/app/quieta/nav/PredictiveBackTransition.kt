@@ -10,6 +10,12 @@ import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -100,35 +106,36 @@ enum class PredictiveNavPhase {
 /**
  * Live driver state for secondary-stack predictive back.
  *
+ * Backed by Compose snapshot state so gesture/settle updates invalidate composition/draw.
  * [leaveProgress]: 0 = secondary fully on top, 1 = secondary fully gone.
- * Gesture/commit/cancel use InstallerX depth math; push/pop use programmatic motion.
  */
+@Stable
 class PredictiveBackDriver {
-    var animation: PredictiveBackAnimation = PredictiveBackAnimation.MIUIX
-    var exitDirection: PredictiveBackExitDirection = PredictiveBackExitDirection.ALWAYS_RIGHT
-    var phase: PredictiveNavPhase = PredictiveNavPhase.Idle
+    var animation by mutableStateOf(PredictiveBackAnimation.MIUIX)
+    var exitDirection by mutableStateOf(PredictiveBackExitDirection.ALWAYS_RIGHT)
+    var phase by mutableStateOf(PredictiveNavPhase.Idle)
         private set
-    var leaveProgress: Float = 0f
+    var leaveProgress by mutableFloatStateOf(0f)
         private set
-    var gestureProgress: Float = 0f
+    var gestureProgress by mutableFloatStateOf(0f)
         private set
-    var releaseProgress: Float = 0f
+    var releaseProgress by mutableFloatStateOf(0f)
         private set
-    var swipeEdge: Int = BackEventCompat.EDGE_LEFT
+    var swipeEdge by mutableIntStateOf(BackEventCompat.EDGE_LEFT)
         private set
-    var touchY: Float = 0f
+    var touchY by mutableFloatStateOf(0f)
         private set
-    var initialTouchY: Float = 0f
+    var initialTouchY by mutableFloatStateOf(0f)
         private set
-    var releaseVelocity: Float = 0f
+    var releaseVelocity by mutableFloatStateOf(0f)
         private set
 
     /** Wall-clock 0..1 across the current commit/pop duration (alpha/scrim tracks). */
-    var settleRaw: Float = 0f
+    var settleRaw by mutableFloatStateOf(0f)
         private set
 
     /** Eased 0..1 across the current settle/pop. */
-    var settleEased: Float = 0f
+    var settleEased by mutableFloatStateOf(0f)
         private set
 
     val isActive: Boolean
@@ -183,12 +190,8 @@ class PredictiveBackDriver {
         settleRaw = raw.coerceIn(0f, 1f)
         settleEased = eased.coerceIn(0f, 1f)
         leaveProgress = when (phase) {
-            PredictiveNavPhase.Commit -> {
-                releaseProgress + (1f - releaseProgress) * settleEased
-            }
-            PredictiveNavPhase.Cancel -> {
-                releaseProgress * (1f - settleEased)
-            }
+            PredictiveNavPhase.Commit -> releaseProgress + (1f - releaseProgress) * settleEased
+            PredictiveNavPhase.Cancel -> releaseProgress * (1f - settleEased)
             PredictiveNavPhase.Push -> 1f - settleEased
             PredictiveNavPhase.Pop -> settleEased
             else -> leaveProgress

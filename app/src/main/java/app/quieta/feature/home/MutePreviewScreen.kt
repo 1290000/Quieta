@@ -46,7 +46,8 @@ fun MutePreviewScreen(
     modifier: Modifier = Modifier,
     blurEnabled: Boolean = true,
 ) {
-    BackHandler(onBack = onBack)
+    // Root QuietaRoot PredictiveBackHandler owns back; do not intercept.
+    BackHandler(enabled = false, onBack = onBack)
     QuietaPage(
         title = "静音预览",
         modifier = modifier,
