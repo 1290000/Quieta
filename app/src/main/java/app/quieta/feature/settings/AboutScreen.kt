@@ -205,7 +205,7 @@ fun AboutScreen(
                                 scaleX = 1f - (p * 0.05f)
                                 scaleY = 1f - (p * 0.05f)
                             },
-                        text = stringResource(R.string.app_name),
+                        text = stringResource(R.string.app_name) + " " + stringResource(R.string.app_name_en),
                         fontWeight = FontWeight.Bold,
                         fontSize = 35.sp,
                         color = if (isDark) AboutTitleDark else AboutTitleLight,
