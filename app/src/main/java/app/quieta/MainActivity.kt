@@ -12,6 +12,10 @@ import app.quieta.core.settings.AppSettings
 import app.quieta.core.settings.ThemeMode
 import app.quieta.nav.QuietaRoot
 import app.quieta.ui.theme.QuietaTheme
+import app.quieta.ui.theme.UiPaletteStyle
+import app.quieta.ui.theme.UiThemeColorSpec
+import app.quieta.core.settings.PaletteStyle as CorePalette
+import app.quieta.core.settings.ThemeColorSpec as CoreSpec
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,12 +27,8 @@ class MainActivity : ComponentActivity() {
             val customColors by settings.customColors.collectAsStateWithLifecycle(initialValue = false)
             val dynamicColor by settings.dynamicColor.collectAsStateWithLifecycle(initialValue = true)
             val seedArgb by settings.seedColorInt.collectAsStateWithLifecycle(initialValue = 0xFF6750A4.toInt())
-            val colorSpec by settings.themeColorSpec.collectAsStateWithLifecycle(
-                initialValue = app.quieta.core.settings.ThemeColorSpec.SPEC_2025,
-            )
-            val paletteStyle by settings.paletteStyle.collectAsStateWithLifecycle(
-                initialValue = app.quieta.core.settings.PaletteStyle.TonalSpot,
-            )
+            val coreSpec by settings.themeColorSpec.collectAsStateWithLifecycle(initialValue = CoreSpec.SPEC_2025)
+            val corePalette by settings.paletteStyle.collectAsStateWithLifecycle(initialValue = CorePalette.TonalSpot)
             QuietaTheme(
                 darkTheme = when (mode) {
                     ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -38,6 +38,19 @@ class MainActivity : ComponentActivity() {
                 customColors = customColors,
                 dynamicColor = dynamicColor,
                 seedColor = Color(seedArgb),
+                paletteStyle = when (corePalette) {
+                    CorePalette.TonalSpot -> UiPaletteStyle.TonalSpot
+                    CorePalette.Vibrant -> UiPaletteStyle.Vibrant
+                    CorePalette.Expressive -> UiPaletteStyle.Expressive
+                    CorePalette.Spritz -> UiPaletteStyle.Spritz
+                    CorePalette.FruitSalad -> UiPaletteStyle.FruitSalad
+                    CorePalette.Rainbow -> UiPaletteStyle.Rainbow
+                    CorePalette.Monochrome -> UiPaletteStyle.Monochrome
+                },
+                colorSpec = when (coreSpec) {
+                    CoreSpec.SPEC_2021 -> UiThemeColorSpec.SPEC_2021
+                    CoreSpec.SPEC_2025 -> UiThemeColorSpec.SPEC_2025
+                },
             ) {
                 QuietaRoot()
             }

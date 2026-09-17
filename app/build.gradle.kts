@@ -93,6 +93,8 @@ dependencies {
     implementation(libs.androidx.compose.material.icons)
     implementation(libs.miuix.ui)
     implementation(libs.materialkolor)
+    implementation(libs.androidx.navigationevent)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
     implementation(libs.aboutlibraries.core)
@@ -101,3 +103,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation("junit:junit:4.13.2")
 }
+
+
+

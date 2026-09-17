@@ -38,5 +38,8 @@ dependencies {
     api(libs.miuix.blur)
     api(libs.miuix.shader)
     api(libs.miuix.preference)
+    api(libs.materialkolor)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+

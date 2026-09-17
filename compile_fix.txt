@@ -1,0 +1,467 @@
+Type-safe project accessors is an incubating feature.
+> Task :miuix:build-plugins:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :miuix:build-plugins:generateExternalPluginSpecBuilders UP-TO-DATE
+> Task :miuix:build-plugins:extractPrecompiledScriptPluginPlugins UP-TO-DATE
+> Task :miuix:build-plugins:compilePluginsBlocks UP-TO-DATE
+> Task :miuix:build-plugins:generatePrecompiledScriptPluginAccessors UP-TO-DATE
+> Task :miuix:build-plugins:generateScriptPluginAdapters UP-TO-DATE
+> Task :miuix:build-plugins:compileKotlin UP-TO-DATE
+> Task :miuix:build-plugins:compileJava NO-SOURCE
+> Task :miuix:build-plugins:pluginDescriptors UP-TO-DATE
+> Task :miuix:build-plugins:processResources UP-TO-DATE
+> Task :miuix:build-plugins:classes UP-TO-DATE
+> Task :miuix:build-plugins:jar UP-TO-DATE
+
+> Configure project :miuix:baselineprofile
+WARNING: The option setting 'android.r8.maxWorkers=4' is experimental.
+The current default is '1'.
+Add android.sync.suppressAgpWarnings=UNSUPPORTED_PROJECT_OPTION_USE to the gradle.properties file to suppress this warning.
+
+> Configure project :miuix:miuix-nav
+WARNING: The 'commonTest' source directory exists, but android host tests are not enabled. To enable android host tests, add `withHostTest {}` to your android target configuration in the Gradle build file.
+Add android.sync.suppressAgpWarnings=GENERIC to the gradle.properties file to suppress this warning.
+
+> Configure project :miuix:miuix-ui
+WARNING: The 'commonTest' source directory exists, but android host tests are not enabled. To enable android host tests, add `withHostTest {}` to your android target configuration in the Gradle build file.
+Add android.sync.suppressAgpWarnings=GENERIC to the gradle.properties file to suppress this warning.
+
+> Task :core:preBuild UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :ui:preBuild UP-TO-DATE
+> Task :ui:preDebugBuild UP-TO-DATE
+> Task :core:preDebugBuild UP-TO-DATE
+> Task :miuix:miuix-squircle:bakeSquircleSdf UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :ui:generateDebugResources UP-TO-DATE
+> Task :core:processDebugNavigationResources UP-TO-DATE
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :ui:packageDebugResources UP-TO-DATE
+> Task :ui:processDebugNavigationResources UP-TO-DATE
+> Task :ui:parseDebugLocalResources UP-TO-DATE
+> Task :core:compileDebugAidl UP-TO-DATE
+> Task :ui:generateDebugRFile UP-TO-DATE
+> Task :ui:javaPreCompileDebug UP-TO-DATE
+> Task :core:generateDebugResources UP-TO-DATE
+> Task :core:packageDebugResources UP-TO-DATE
+> Task :core:parseDebugLocalResources UP-TO-DATE
+> Task :core:generateDebugRFile UP-TO-DATE
+> Task :miuix:miuix-core:kmpPartiallyResolvedDependenciesChecker
+> Task :miuix:miuix-shader:kmpPartiallyResolvedDependenciesChecker
+> Task :miuix:miuix-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :miuix:miuix-shader:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :miuix:miuix-core:convertXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-shader:convertXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-core:copyNonXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-shader:copyNonXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-core:prepareComposeResourcesTaskForAndroidMain NO-SOURCE
+> Task :miuix:miuix-shader:prepareComposeResourcesTaskForAndroidMain NO-SOURCE
+> Task :miuix:miuix-shader:generateResourceAccessorsForAndroidMain SKIPPED
+> Task :miuix:miuix-core:generateResourceAccessorsForAndroidMain SKIPPED
+> Task :miuix:miuix-core:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-shader:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-core:copyNonXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-shader:copyNonXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-core:prepareComposeResourcesTaskForCommonMain NO-SOURCE
+> Task :miuix:miuix-core:generateResourceAccessorsForCommonMain SKIPPED
+> Task :miuix:miuix-shader:prepareComposeResourcesTaskForCommonMain NO-SOURCE
+> Task :miuix:miuix-core:generateActualResourceCollectorsForAndroidMain SKIPPED
+> Task :miuix:miuix-shader:generateResourceAccessorsForCommonMain SKIPPED
+> Task :miuix:miuix-core:generateComposeResClass SKIPPED
+> Task :miuix:miuix-shader:generateActualResourceCollectorsForAndroidMain SKIPPED
+> Task :miuix:miuix-core:generateExpectResourceCollectorsForCommonMain SKIPPED
+> Task :miuix:miuix-shader:generateComposeResClass SKIPPED
+> Task :miuix:miuix-shader:generateExpectResourceCollectorsForCommonMain SKIPPED
+> Task :miuix:miuix-shader:compileAndroidMain UP-TO-DATE
+> Task :miuix:miuix-core:compileAndroidMain UP-TO-DATE
+> Task :miuix:miuix-shader:androidPreBuild UP-TO-DATE
+> Task :miuix:miuix-core:androidPreBuild UP-TO-DATE
+> Task :miuix:miuix-shader:preAndroidMainBuild UP-TO-DATE
+> Task :miuix:miuix-core:preAndroidMainBuild UP-TO-DATE
+> Task :miuix:miuix-shader:bundleAndroidMainClassesToCompileJar UP-TO-DATE
+> Task :miuix:miuix-core:bundleAndroidMainClassesToCompileJar UP-TO-DATE
+> Task :miuix:miuix-core:generateAndroidMainEmptyResourceFiles UP-TO-DATE
+> Task :miuix:miuix-shader:generateAndroidMainEmptyResourceFiles UP-TO-DATE
+> Task :miuix:miuix-squircle:kmpPartiallyResolvedDependenciesChecker
+> Task :miuix:miuix-blur:kmpPartiallyResolvedDependenciesChecker
+> Task :miuix:miuix-squircle:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :miuix:miuix-blur:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :miuix:miuix-squircle:convertXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-blur:convertXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-squircle:copyNonXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-blur:copyNonXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-squircle:prepareComposeResourcesTaskForAndroidMain NO-SOURCE
+> Task :miuix:miuix-blur:prepareComposeResourcesTaskForAndroidMain NO-SOURCE
+> Task :miuix:miuix-squircle:generateResourceAccessorsForAndroidMain SKIPPED
+> Task :miuix:miuix-blur:generateResourceAccessorsForAndroidMain SKIPPED
+> Task :miuix:miuix-squircle:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-blur:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-squircle:copyNonXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-blur:copyNonXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-squircle:prepareComposeResourcesTaskForCommonMain NO-SOURCE
+> Task :miuix:miuix-blur:prepareComposeResourcesTaskForCommonMain NO-SOURCE
+> Task :miuix:miuix-squircle:generateResourceAccessorsForCommonMain SKIPPED
+> Task :miuix:miuix-blur:generateResourceAccessorsForCommonMain SKIPPED
+> Task :miuix:miuix-squircle:generateActualResourceCollectorsForAndroidMain SKIPPED
+> Task :miuix:miuix-blur:generateActualResourceCollectorsForAndroidMain SKIPPED
+> Task :miuix:miuix-squircle:generateComposeResClass SKIPPED
+> Task :miuix:miuix-blur:generateComposeResClass SKIPPED
+> Task :miuix:miuix-squircle:generateExpectResourceCollectorsForCommonMain SKIPPED
+> Task :miuix:miuix-blur:generateExpectResourceCollectorsForCommonMain SKIPPED
+> Task :miuix:miuix-blur:compileAndroidMain UP-TO-DATE
+> Task :miuix:miuix-blur:androidPreBuild UP-TO-DATE
+> Task :miuix:miuix-blur:preAndroidMainBuild UP-TO-DATE
+> Task :miuix:miuix-blur:bundleAndroidMainClassesToCompileJar UP-TO-DATE
+> Task :miuix:miuix-blur:generateAndroidMainEmptyResourceFiles UP-TO-DATE
+> Task :miuix:miuix-squircle:compileAndroidMain UP-TO-DATE
+> Task :miuix:miuix-squircle:androidPreBuild UP-TO-DATE
+> Task :miuix:miuix-squircle:preAndroidMainBuild UP-TO-DATE
+> Task :miuix:miuix-squircle:bundleAndroidMainClassesToCompileJar UP-TO-DATE
+> Task :miuix:miuix-squircle:generateAndroidMainEmptyResourceFiles UP-TO-DATE
+> Task :miuix:miuix-ui:kmpPartiallyResolvedDependenciesChecker
+> Task :miuix:miuix-ui:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :miuix:miuix-ui:convertXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-ui:copyNonXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-ui:prepareComposeResourcesTaskForAndroidMain NO-SOURCE
+> Task :miuix:miuix-ui:generateResourceAccessorsForAndroidMain SKIPPED
+> Task :miuix:miuix-ui:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-ui:copyNonXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-ui:prepareComposeResourcesTaskForCommonMain NO-SOURCE
+> Task :miuix:miuix-ui:generateResourceAccessorsForCommonMain SKIPPED
+> Task :miuix:miuix-ui:generateActualResourceCollectorsForAndroidMain SKIPPED
+> Task :miuix:miuix-ui:generateComposeResClass SKIPPED
+> Task :miuix:miuix-ui:generateExpectResourceCollectorsForCommonMain SKIPPED
+> Task :miuix:miuix-ui:compileAndroidMain UP-TO-DATE
+> Task :miuix:miuix-ui:androidPreBuild UP-TO-DATE
+> Task :miuix:miuix-ui:preAndroidMainBuild UP-TO-DATE
+> Task :miuix:miuix-ui:bundleAndroidMainClassesToCompileJar UP-TO-DATE
+> Task :miuix:miuix-ui:generateAndroidMainEmptyResourceFiles UP-TO-DATE
+> Task :core:compileDebugKotlin FROM-CACHE
+> Task :core:javaPreCompileDebug UP-TO-DATE
+> Task :core:compileDebugJavaWithJavac FROM-CACHE
+> Task :miuix:miuix-preference:kmpPartiallyResolvedDependenciesChecker
+> Task :miuix:miuix-preference:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :miuix:miuix-preference:convertXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :core:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :miuix:miuix-preference:copyNonXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :miuix:miuix-preference:prepareComposeResourcesTaskForAndroidMain NO-SOURCE
+> Task :miuix:miuix-preference:generateResourceAccessorsForAndroidMain SKIPPED
+> Task :miuix:miuix-preference:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-preference:copyNonXmlValueResourcesForCommonMain NO-SOURCE
+> Task :miuix:miuix-preference:prepareComposeResourcesTaskForCommonMain NO-SOURCE
+> Task :miuix:miuix-preference:generateResourceAccessorsForCommonMain SKIPPED
+> Task :miuix:miuix-preference:generateActualResourceCollectorsForAndroidMain SKIPPED
+> Task :miuix:miuix-preference:generateComposeResClass SKIPPED
+> Task :miuix:miuix-preference:generateExpectResourceCollectorsForCommonMain SKIPPED
+> Task :app:prepareLibraryDefinitionsDebug
+> Task :miuix:miuix-preference:compileAndroidMain UP-TO-DATE
+> Task :miuix:miuix-preference:androidPreBuild UP-TO-DATE
+> Task :miuix:miuix-preference:preAndroidMainBuild UP-TO-DATE
+> Task :miuix:miuix-preference:bundleAndroidMainClassesToCompileJar UP-TO-DATE
+> Task :miuix:miuix-preference:generateAndroidMainEmptyResourceFiles UP-TO-DATE
+> Task :app:packageDebugResources
+> Task :app:processDebugNavigationResources UP-TO-DATE
+> Task :app:parseDebugLocalResources
+> Task :app:generateDebugRFile UP-TO-DATE
+> Task :ui:compileDebugKotlin
+> Task :ui:compileDebugJavaWithJavac NO-SOURCE
+> Task :ui:bundleLibCompileToJarDebug
+
+> Task :app:compileDebugKotlin
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/QuietaRoute.kt:3:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/QuietaRoute.kt:6:28 Unresolved reference 'NavKey'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:12:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:13:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:14:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:15:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:16:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:17:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:18:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:19:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:20:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:21:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:39:37 Unresolved reference 'NavMotion'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:40:20 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:43:34 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:43:50 Unresolved reference 'navGraphicsTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:46:5 Cannot infer type for value parameter 'scope'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:47:23 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:48:19 Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:48:19 Cannot infer type for type parameter 'R'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:48:30 Unresolved reference 'density'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:48:39 Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:48:60 Unresolved reference 'toPx'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:51:9 Unresolved reference 'translationX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:52:9 Unresolved reference 'alpha'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:52:27 Unresolved reference 'role'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:52:35 Unresolved reference 'NavRole'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:53:32 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:55:26 Unresolved reference 'elapsedMillis'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:64:9 Unresolved reference 'translationX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:68:35 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:68:51 Unresolved reference 'navGraphicsTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:71:5 Cannot infer type for value parameter 'scope'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:72:23 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:73:19 Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:73:19 Cannot infer type for type parameter 'R'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:73:30 Unresolved reference 'density'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:73:39 Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:73:60 Unresolved reference 'toPx'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:76:9 Unresolved reference 'translationX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:77:9 Unresolved reference 'alpha'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:77:27 Unresolved reference 'role'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:77:35 Unresolved reference 'NavRole'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:78:32 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:80:31 Unresolved reference 'elapsedMillis'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:89:9 Unresolved reference 'translationX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:93:38 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:93:54 Unresolved reference 'navGraphicsTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:95:14 Unresolved reference 'NavMotion'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:96:18 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:97:18 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:99:15 Cannot infer type for value parameter 'scope'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:100:28 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:101:29 Unresolved reference 'gesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:103:30 Unresolved reference 'NavSettlePhase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:104:30 Unresolved reference 'elapsedMillis'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:108:27 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:109:39 Unresolved reference 'progress'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:112:27 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:115:5 Cannot infer type for value parameter 'scope'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:116:23 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:117:25 Unresolved reference 'gesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:118:24 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:119:39 Unresolved reference 'NavSettlePhase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:120:25 Unresolved reference 'layoutSize'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:121:26 Unresolved reference 'layoutSize'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:122:19 Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:122:19 Cannot infer type for type parameter 'R'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:122:30 Unresolved reference 'density'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:122:39 Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:122:60 Unresolved reference 'toPx'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:126:13 Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:126:13 Cannot infer type for type parameter 'R'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:126:24 Unresolved reference 'density'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:126:33 Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:126:59 Unresolved reference 'toPx'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:128:38 Unresolved reference 'NavSwipeEdge'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:131:19 Unresolved reference 'role'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:131:27 Unresolved reference 'NavRole'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:132:49 Unresolved reference 'progress'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:138:13 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:139:13 Unresolved reference 'scaleY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:139:22 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:142:13 Unresolved reference 'alpha'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:142:40 Unresolved reference 'elapsedMillis'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:143:13 Unresolved reference 'translationX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:143:59 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:144:13 Unresolved reference 'translationY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:148:29 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:149:37 Unresolved reference 'density'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:151:25 Unresolved reference 'scaleY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:156:13 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:162:13 Unresolved reference 'scaleY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:162:22 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:163:13 Unresolved reference 'translationX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:165:25 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:168:13 Unresolved reference 'alpha'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:169:23 Unresolved reference 'role'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:169:31 Unresolved reference 'NavRole'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:170:57 Unresolved reference 'progress'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:179:13 Unresolved reference 'translationY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:183:29 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:184:37 Unresolved reference 'density'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:186:25 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:193:43 Unresolved reference 'progress'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:204:50 Unresolved reference 'progress'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:208:13 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:212:13 Unresolved reference 'scaleY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:212:22 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:214:9 Unresolved reference 'translationX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:214:68 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:215:9 Unresolved reference 'translationY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:219:25 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:220:33 Unresolved reference 'density'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:222:21 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:228:33 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:228:49 Unresolved reference 'navDirectionalTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:234:33 Unresolved reference 'NavSettle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:234:54 Unresolved reference 'NavGesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:235:34 Unresolved reference 'phase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:235:43 Unresolved reference 'NavSettlePhase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:236:30 Unresolved reference 'swipeEdge'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:236:43 Unresolved reference 'NavSwipeEdge'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:237:33 Unresolved reference 'progress'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:238:28 Unresolved reference 'releaseVelocity'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:243:20 Unresolved reference 'elapsedMillis'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:246:12 Return type mismatch: expected 'Float', actual 'Double'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:246:51 Argument type mismatch: actual type is 'Float', but 'Double' was expected.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:249:57 Unresolved reference 'NavGesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:251:42 Unresolved reference 'NavGesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:253:28 Unresolved reference 'touchY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:253:45 Unresolved reference 'initialTouchY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/AospNavTransition.kt:259:46 'operator' modifier is required on 'fun <T> Comparable<T>.compareTo(other: T): Int'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:9:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:10:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:11:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:12:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:13:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:14:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:16:34 Unresolved reference 'NavMotion'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:17:14 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:21:14 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:22:20 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:28:30 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:28:55 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:31:26 Unresolved reference 'NavMotion'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:33:39 Unresolved reference 'NavTransitionScope'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:33:88 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:35:49 Unresolved reference 'NavTransitionScope'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:36:32 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:38:31 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:39:33 Unresolved reference 'layoutSize'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:40:34 Unresolved reference 'layoutSize'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:59:36 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:59:52 Unresolved reference 'navDirectionalTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ClassicNavTransition.kt:60:12 Unresolved reference 'NavTransitions'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/InstallerNavTransition.kt:7:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/InstallerNavTransition.kt:8:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/InstallerNavTransition.kt:13:4 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/InstallerNavTransition.kt:15:38 Unresolved reference 'NavTransitions'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:8:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:9:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:10:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:11:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:12:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:13:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:14:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:15:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:16:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:17:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:18:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:27:30 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:27:46 Unresolved reference 'navGraphicsTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:29:14 Unresolved reference 'NavMotion'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:30:18 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:32:22 Unresolved reference 'NavProgrammaticEasing'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:34:18 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:36:22 Unresolved reference 'NavProgrammaticEasing'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:39:15 Cannot infer type for value parameter 'scope'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:40:5 Cannot infer type for value parameter 'scope'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:41:5 Unresolved reference 'applyNoPredictiveTransform'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:44:42 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:44:58 Unresolved reference 'navDirectionalTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:45:12 Unresolved reference 'NavTransitions'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:46:11 Unresolved reference 'NavTransitions'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:55:47 Unresolved reference 'NavTransitionScope'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:56:25 Unresolved reference 'gesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:57:32 Unresolved reference 'role'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:58:9 Unresolved reference 'NavRole'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:58:34 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:60:9 Unresolved reference 'NavRole'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:60:30 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:60:47 Unresolved reference 'NavSettlePhase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:61:19 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:63:23 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:66:24 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:67:12 'when' expression must be exhaustive. Add an 'else' branch.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:70:9 Unresolved reference 'NavSettlePhase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:83:9 Unresolved reference 'NavSettlePhase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:94:9 Unresolved reference 'NavSettlePhase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:99:48 Unresolved reference 'NavSettle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:100:28 Unresolved reference 'elapsedMillis'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:101:12 Unresolved reference 'NavProgrammaticEasing'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:104:66 Unresolved reference 'NavTransitionScope'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:105:25 Unresolved reference 'layoutSize'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:106:31 Unresolved reference 'layoutDirection'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:107:30 Unresolved reference 'role'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:107:38 Unresolved reference 'NavRole'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:108:15 Unresolved reference 'role'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:108:23 Unresolved reference 'NavRole'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:108:44 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/NoPredictiveBackTransition.kt:108:61 Unresolved reference 'NavSettlePhase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:10:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:11:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:12:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:13:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:14:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:15:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:16:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:17:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:18:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:19:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:20:30 Unresolved reference 'nav'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:25:31 Unresolved reference 'NavMotion'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:26:14 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:27:14 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:28:20 Unresolved reference 'NavSettleSpec'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:34:78 Unresolved reference 'NavTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:35:15 Unresolved reference 'navGraphicsTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:38:19 Cannot infer type for value parameter 'scope'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:40:23 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:40:40 Unresolved reference 'NavSettlePhase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:41:34 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:43:23 Unresolved reference 'gesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:45:45 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:48:9 Cannot infer type for value parameter 'scope'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:49:27 Unresolved reference 'relativeDepth'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:50:29 Unresolved reference 'layoutSize'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:51:30 Unresolved reference 'layoutSize'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:52:23 Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:52:23 Cannot infer type for type parameter 'R'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:52:34 Unresolved reference 'density'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:52:43 Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:52:60 Unresolved reference 'toPx'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:53:29 Unresolved reference 'gesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:55:32 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:55:49 Unresolved reference 'NavSettlePhase'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:56:36 Unresolved reference 'role'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:56:44 Unresolved reference 'NavRole'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:60:53 Unresolved reference 'progress'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:69:52 Unresolved reference 'NavSwipeEdge'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:71:13 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:72:13 Unresolved reference 'scaleY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:72:22 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:73:13 Unresolved reference 'transformOrigin'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:77:64 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:80:53 Unresolved reference 'progress'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:86:13 Unresolved reference 'translationX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:88:25 Unresolved reference 'scaleX'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:92:13 Unresolved reference 'translationY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:94:25 Unresolved reference 'scaleY'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:99:43 Unresolved reference 'settle'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:100:17 Unresolved reference 'alpha'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:104:12 Unresolved reference 'navDirectionalTransition'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:105:16 Unresolved reference 'NavTransitions'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:111:57 Unresolved reference 'NavGesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:113:78 Unresolved reference 'NavTransitionScope'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:115:19 Unresolved reference 'gesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:115:41 Unresolved reference 'NavSwipeEdge'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:122:36 Unresolved reference 'NavGesture'.
+e: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/app/src/main/java/app/quieta/nav/predictiveback/ScaleNavTransition.kt:123:14 Unresolved reference 'touchY'.
+
+> Task :app:compileDebugKotlin FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/i1290/Documents/ChatGPT/Quieta/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin' (registered by plugin 'com.android.internal.application').
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.btapi.BuildToolsApiCompilationWork
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.6.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 20s
+60 actionable tasks: 12 executed, 2 from cache, 46 up-to-date
