@@ -51,6 +51,7 @@ import app.quieta.core.model.RuleAction
 import app.quieta.ui.component.HyperOsPopup
 import app.quieta.ui.component.HyperOsPopupDivider
 import app.quieta.ui.component.HyperOsPopupRow
+import app.quieta.ui.component.PressableCard
 import app.quieta.ui.component.QuietaPage
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
@@ -338,45 +339,52 @@ private fun RecordAppCard(
     onToggle: () -> Unit,
     onChannelClick: (TimelineItem) -> Unit,
 ) {
-    Card(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onToggle),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (display.showAppIcon) {
-                    AppIcon(packageName = group.packageName)
+    val header: @Composable () -> Unit = {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (display.showAppIcon) {
+                AppIcon(packageName = group.packageName)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                if (display.showAppName) {
+                    MiuixText(group.appLabel, style = MaterialTheme.typography.titleLarge)
                 }
-                Column(modifier = Modifier.weight(1f)) {
-                    if (display.showAppName) {
-                        MiuixText(group.appLabel, style = MaterialTheme.typography.titleLarge)
-                    }
-                    val meta = buildString {
-                        if (display.showPackageName) append(group.packageName)
-                        if (isNotEmpty()) append(" · ")
-                        append(group.channels.sumOf { it.count })
-                        append(" 条")
-                    }
-                    MiuixText(
-                        text = meta,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                val meta = buildString {
+                    if (display.showPackageName) append(group.packageName)
+                    if (isNotEmpty()) append(" · ")
+                    append(group.channels.sumOf { it.count })
+                    append(" 条")
                 }
-                Icon(
-                    imageVector = if (group.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                    contentDescription = if (group.expanded) "收起" else "展开",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                MiuixText(
+                    text = meta,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (group.expanded) {
+            Icon(
+                imageVector = if (group.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                contentDescription = if (group.expanded) "收起" else "展开",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    if (group.expanded) {
+        // Expanded: static surface — no whole-card tilt while reading channels.
+        Card(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onToggle),
+                ) {
+                    header()
+                }
                 group.channels.forEach { row ->
                     TimelineRow(
                         item = row,
@@ -384,6 +392,17 @@ private fun RecordAppCard(
                         onClick = { onChannelClick(row) },
                     )
                 }
+            }
+        }
+    } else {
+        // Collapsed: same InstallerX press feedback as home app cards.
+        PressableCard(
+            onClick = onToggle,
+            cornerRadius = 20.dp,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                header()
             }
         }
     }
