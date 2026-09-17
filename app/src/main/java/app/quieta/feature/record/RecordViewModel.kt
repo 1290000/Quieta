@@ -114,7 +114,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     private val inventoryStore = ChannelInventoryStore.getInstance(application)
     private val prefs = context.getSharedPreferences("record_display", Context.MODE_PRIVATE)
 
-    private val collapsedApps = MutableStateFlow<Set<String>>(emptySet())
+    private val expandedApps = MutableStateFlow<Set<String>>(emptySet())
     private val filtersFlow = MutableStateFlow(RecordFilters())
     private val displayFlow = MutableStateFlow(loadDisplayPrefs())
 
@@ -133,7 +133,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     private val dayGroupsFlow = combine(
         timelineStore.entries,
         inventoryStore.snapshot,
-        collapsedApps,
+        expandedApps,
         filtersFlow,
     ) { args: Array<*> ->
         @Suppress("UNCHECKED_CAST")
@@ -141,10 +141,10 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         @Suppress("UNCHECKED_CAST")
         val inventory = args[1] as List<AppChannels>
         @Suppress("UNCHECKED_CAST")
-        val collapsed = args[2] as Set<String>
+        val expanded = args[2] as Set<String>
         @Suppress("UNCHECKED_CAST")
         val filters = args[3] as RecordFilters
-        buildDayGroups(enrich(entries, inventory), collapsed, filters)
+        buildDayGroups(enrich(entries, inventory), expanded, filters)
     }
 
     val dayGroups: StateFlow<List<TimelineDayGroup>> = dayGroupsFlow
@@ -160,25 +160,18 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         private set
 
     fun toggleApp(packageName: String) {
-        collapsedApps.update { current ->
+        expandedApps.update { current ->
             if (packageName in current) current - packageName else current + packageName
         }
     }
 
     fun expandAll() {
-        viewModelScope.launch {
-            val pkgs = dayGroups.value.flatMap { g -> g.apps.map { it.packageName } }.toSet()
-            collapsedApps.update { pkgs } // all in collapsed → invert below
-            // collapsedApps means collapsed; empty = all expanded. Clear = expand all.
-            collapsedApps.update { emptySet() }
-        }
+        val pkgs = dayGroups.value.flatMap { g -> g.apps.map { it.packageName } }.toSet()
+        expandedApps.update { pkgs }
     }
 
     fun collapseAll() {
-        viewModelScope.launch {
-            val pkgs = dayGroups.value.flatMap { g -> g.apps.map { it.packageName } }.toSet()
-            collapsedApps.update { pkgs }
-        }
+        expandedApps.update { emptySet() }
     }
 
     fun clearAll() {
@@ -349,7 +342,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun buildDayGroups(
         entries: List<NotificationTimelineEntry>,
-        collapsed: Set<String>,
+        expanded: Set<String>,
         filters: RecordFilters,
     ): List<TimelineDayGroup> {
         val filtered = entries.filter { e ->
@@ -396,7 +389,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
                     TimelineAppGroup(
                         packageName = pkg,
                         appLabel = list.first().appLabel.ifBlank { pkg },
-                        expanded = pkg !in collapsed,
+                        expanded = pkg in expanded,
                         channels = list.map { e -> toItem(e, timeFmt) },
                     )
                 }
