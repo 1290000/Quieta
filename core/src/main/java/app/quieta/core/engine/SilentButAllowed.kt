@@ -24,9 +24,9 @@ object SilentButAllowed {
         if (channel.importance == ChannelImportance.HIGH) return false
         return when (mode) {
             QuietMode.SILENT_NO_SOUND ->
-                !channel.soundEnabled && !channel.vibrationEnabled
+                !channel.effectiveSoundEnabled && !channel.vibrationEnabled
             QuietMode.QUIET_WITH_SOUND ->
-                channel.soundEnabled && !channel.vibrationEnabled
+                channel.effectiveSoundEnabled && !channel.vibrationEnabled
         }
     }
 

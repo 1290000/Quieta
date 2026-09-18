@@ -14,6 +14,7 @@ import app.quieta.core.settings.AppSettings
 import app.quieta.core.settings.ThemeMode
 import app.quieta.nav.PendingOpenImport
 import app.quieta.nav.QuietaRoot
+import app.quieta.service.NotificationListenerAccess
 import app.quieta.ui.theme.QuietaTheme
 import app.quieta.ui.theme.UiPaletteStyle
 import app.quieta.ui.theme.UiThemeColorSpec
@@ -25,6 +26,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleOpenWith(intent)
+        NotificationListenerAccess.ensureBound(this, "activity_create")
         val settings = AppSettings(applicationContext)
         setContent {
             val mode by settings.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
@@ -64,6 +66,12 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleOpenWith(intent)
+        NotificationListenerAccess.ensureBound(this, "activity_new_intent")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        NotificationListenerAccess.ensureBound(this, "activity_resume")
     }
 
     private fun handleOpenWith(intent: Intent?) {

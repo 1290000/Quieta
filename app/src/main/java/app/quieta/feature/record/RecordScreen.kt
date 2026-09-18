@@ -81,6 +81,14 @@ fun RecordScreen(
     val filters by viewModel.filters.collectAsStateWithLifecycle()
     val display by viewModel.displayPrefs.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
+    val listenerContext = LocalContext.current
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        app.quieta.service.NotificationListenerAccess.ensureBound(
+            listenerContext,
+            "record_page",
+        )
+    }
 
     var actionTarget by remember { mutableStateOf<TimelineItem?>(null) }
     var showFilterSheet by remember { mutableStateOf(false) }

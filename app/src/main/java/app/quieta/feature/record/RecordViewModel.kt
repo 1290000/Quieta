@@ -504,7 +504,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
                 appLabel = e.appLabel.ifBlank { appLabelOf(e.packageName, inventory) },
                 channelName = e.channelName.ifBlank { ch.name },
                 importance = if (e.importance < 0) ch.importance.toInt() else e.importance,
-                soundEnabled = e.soundEnabled ?: ch.soundEnabled,
+                soundEnabled = e.soundEnabled ?: ch.effectiveSoundEnabled,
                 vibrationEnabled = e.vibrationEnabled ?: ch.vibrationEnabled,
             )
         }
@@ -540,7 +540,10 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
             if (pkg != null && e.packageName != pkg) return@filter false
             if (filters.minImportance >= 0 && e.importance != filters.minImportance) return@filter false
             if (filters.soundOnOnly || filters.soundOffOnly) {
-                val sound = e.soundEnabled
+                val sound = when {
+                    e.importance >= 0 -> e.soundEnabled != false && e.importance >= 3
+                    else -> e.soundEnabled
+                }
                 if (filters.soundOnOnly && sound == false) return@filter false
                 if (filters.soundOffOnly && sound == true) return@filter false
             }

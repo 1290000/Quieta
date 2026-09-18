@@ -47,8 +47,18 @@ class QuietaNotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        isConnected = true
         Log.i(TAG, "listener connected")
         QLog.i(QLog.TAG_TIMELINE, "listener connected")
+    }
+
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        isConnected = false
+        Log.w(TAG, "listener disconnected")
+        QLog.w(QLog.TAG_TIMELINE, "listener disconnected")
+        // HyperOS may unbind after process death / battery restrictions; ask to rebind.
+        NotificationListenerAccess.ensureBound(applicationContext, "onListenerDisconnected")
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -59,7 +69,7 @@ class QuietaNotificationListener : NotificationListenerService() {
         val appLabel = resolveAppLabel(pkg)
         scope.launch {
             val (channelName, channelImportance) = resolveChannel(pkg, channelId)
-            val (soundOn, vibeOn) = resolveSoundVibration(pkg, channelId)
+            val (soundOn, vibeOn) = resolveSoundVibration(pkg, channelId, channelImportance)
             if (timelineEnabled.value) {
                 timeline.append(
                     packageName = pkg,
@@ -116,7 +126,16 @@ class QuietaNotificationListener : NotificationListenerService() {
         return self ?: (channelId to -1)
     }
 
-    private suspend fun resolveSoundVibration(packageName: String, channelId: String): Pair<Boolean?, Boolean?> {
+    /**
+     * Timeline sound flag is the *effective* sound: a channel only audibly alerts
+     * when it still has a sound URI and importance is DEFAULT/HIGH. MIN/LOW/NONE
+     * keep the default URI on HyperOS but do not make sound — report those as off.
+     */
+    private suspend fun resolveSoundVibration(
+        packageName: String,
+        channelId: String,
+        channelImportance: Int,
+    ): Pair<Boolean?, Boolean?> {
         val ch = withContext(Dispatchers.IO) {
             runCatching {
                 inventory.current()
@@ -125,7 +144,13 @@ class QuietaNotificationListener : NotificationListenerService() {
                     ?.firstOrNull { it.id == channelId }
             }.getOrNull()
         } ?: return null to null
-        return ch.soundEnabled to ch.vibrationEnabled
+        val effectiveSound = when {
+            !ch.soundEnabled -> false
+            channelImportance >= 3 -> true
+            channelImportance >= 0 -> false
+            else -> ch.soundEnabled
+        }
+        return effectiveSound to ch.vibrationEnabled
     }
 
     private fun ChannelImportance.toInt(): Int = when (this) {
@@ -138,5 +163,7 @@ class QuietaNotificationListener : NotificationListenerService() {
 
     companion object {
         private const val TAG = "QuietaNLS"
+        @Volatile
+        var isConnected: Boolean = false
     }
 }

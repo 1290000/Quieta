@@ -78,13 +78,26 @@ fun SettingsScreen(
                     title = "通知时间线",
                     subtitle = "仅记录包名、渠道、时间和数量，不保存通知内容",
                     checked = timelineEnabled,
-                    onCheckedChange = { viewModel.setNotificationTimelineEnabled(it) },
+                    onCheckedChange = { enabled ->
+                        viewModel.setNotificationTimelineEnabled(enabled)
+                        if (enabled) {
+                            app.quieta.service.NotificationListenerAccess.ensureBound(
+                                context,
+                                "timeline_enabled",
+                            )
+                        }
+                    },
                 )
                 NavRow(
                     title = "通知使用权",
-                    subtitle = "打开系统设置，允许息匣读取通知",
+                    subtitle = if (app.quieta.service.NotificationListenerAccess.isEnabled(context)) {
+                        "已授权；若时间线无新数据可点此检查或系统会自动重连"
+                    } else {
+                        "打开系统设置，允许息匣读取通知"
+                    },
                     onClick = {
                         runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                        app.quieta.service.NotificationListenerAccess.ensureBound(context, "open_listener_settings")
                     },
                 )
             }

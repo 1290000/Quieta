@@ -1106,7 +1106,7 @@ private fun ChannelRow(
         }
         if (display.showSoundDot) {
             Spacer(modifier = Modifier.width(6.dp))
-            SoundDot(enabled = channel.soundEnabled)
+            SoundDot(enabled = channel.effectiveSoundEnabled)
         }
     }
 }
@@ -1179,7 +1179,7 @@ private fun SelectionCheck(selected: Boolean, partial: Boolean = false) {
     }
 }
 
-/** Sound state on a single channel: gray = on, red = off (before the status pill). */
+/** Effective sound state: gray = will alert, red = silent (URI off or importance too low). */
 @Composable
 private fun SoundDot(enabled: Boolean) {
     Box(

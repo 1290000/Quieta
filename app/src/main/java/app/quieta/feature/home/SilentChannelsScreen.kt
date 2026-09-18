@@ -156,7 +156,7 @@ private fun SilentChannelRow(
                     append(channel.id)
                     append(" · ")
                     append(channel.importance.name)
-                    if (!channel.soundEnabled) append(" · 声音关")
+                    if (!channel.effectiveSoundEnabled) append(" · 声音关")
                     if (!channel.vibrationEnabled) append(" · 无振动")
                     if (channel.lockscreenHidden) append(" · 锁屏不显示")
                     if (planned != RuleAction.KEEP) append(" · 规则将处理")
@@ -170,7 +170,7 @@ private fun SilentChannelRow(
                 modifier = Modifier
                     .size(10.dp)
                     .background(
-                        color = if (channel.soundEnabled) Color(0xFF8E8E93) else Color(0xFFFF3B30),
+                        color = if (channel.effectiveSoundEnabled) Color(0xFF8E8E93) else Color(0xFFFF3B30),
                         shape = CircleShape,
                     ),
             )

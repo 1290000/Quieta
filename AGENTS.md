@@ -39,14 +39,14 @@
 
 **一期明确不做：** 快捷设置 Tile、桌面 Widget、平板/折叠优先布局、应用内静默强更。
 
-**已交付（摘要）：** MVP 盘点/批量静音/可选自动静音；Shizuku 盘点与 setImportance（列表路径 + create/update，K40s 25/25）；本地规则 JSON；弱采集通知时间线（包名/渠道/时间/数量，默认 7 天 / 200 条保留）；四栏 HorizontalPager 壳；关于/许可/检测更新；HyperOS 风格 UI；底栏 InstallerX 移植 + 液态玻璃（K40s/K90 观感已验收）；主页渠道列表搜索 / 筛选（含 HIGH、含 NONE、将静音）/ 排序（渠道数、名称、包名、最高级）/ App 卡折叠与展开收起（派生投影，不触发重扫）；二级页预测性返回动画严格对齐 InstallerX Revived（AOSP / Miuix / 缩放 / 经典 / 无；退出方向仅「缩放」生效，跟随手势按 swipeEdge）。**未创建 GitHub Release / 未打 tag。**
+**已交付（摘要）：** MVP 盘点/批量静音/可选自动静音；Shizuku 盘点与 setImportance（列表路径 + create/update，K40s 25/25）；本地规则 JSON；弱采集通知时间线（包名/渠道/时间/数量，默认 7 天 / 200 条保留）；四栏 HorizontalPager 壳；关于/许可/检测更新；HyperOS 风格 UI；底栏 InstallerX 移植 + 液态玻璃（K40s/K90 观感已验收）；主页渠道列表搜索 / 筛选（含 HIGH、含 NONE、将静音）/ 排序（渠道数、名称、包名、最高级）/ App 卡折叠与展开收起（派生投影，不触发重扫）；二级页预测性返回动画严格对齐 InstallerX Revived（AOSP / Miuix / 缩放 / 经典 / 无；退出方向仅「缩放」生效，跟随手势按 swipeEdge）。**K90 Pro Max（HyperOS）时间线实时采集**：监听器解绑后由 `NotificationListenerAccess.ensureBound` 在 Application/Activity/记录页/设置开启时请求绑定；HyperOS 上仅 `requestRebind` 不足时会 **组件 disable→enable + 再次 rebind**（`QuietaNotificationListener.isConnected` 门闩，避免无意义循环）。**声音展示默认用有效声音**（`Channel.effectiveSoundEnabled`：URI 非空且 importance≥DEFAULT，MIN/LOW/NONE 不算会响），快照导入写入仍用原始 URI 字段。**未创建 GitHub Release / 未打 tag。**
 
 **已约定、尚未完成 / 待验收（后续代理优先做）：**
 
 1. ~~**液态玻璃观感验收**~~ — 已验收（K90 HyperOS）。  
 2. ~~**批量静音真机验收**~~ — K40s / MIUI 14：25/25 成功；其它 ROM（ColorOS / OriginOS / MagicOS / One UI）仍待矩阵覆盖。  
 3. ~~**Root / Dhizuku 后端**~~ — 已完成：`DhizukuBackend` 使用 Binder；`RootBackend` 使用 libsu RootService 独立读写并回读校验，不依赖 Shizuku/Dhizuku。自动选择 Root → Shizuku → Dhizuku；不同管理器与 ROM 的真机覆盖仍需扩展。
-4. ~~**通知时间线页**~~ — 已实现弱采集时间线与本地记录 UI；默认仅保存包名、渠道、时间、数量，支持 7 天 / 200 条滚动保留及设置页关闭。
+4. ~~**通知时间线页**~~ — 已实现弱采集时间线与本地记录 UI；默认仅保存包名、渠道、时间、数量，支持 7 天 / 200 条滚动保留及设置页关闭。HyperOS 上需 `requestRebind` 才能持续收实时事件（见已交付）。
 5. ~~**二级页 Navigation**~~ — 已完成：已增加独立二级路由栈；主题设置、开放源代码许可、可用特权页均支持页面返回和系统返回，主栏状态保持不变。
 6. ~~**AboutLibraries 自动收集**~~ — 已完成：Gradle 插件生成 `aboutlibraries.json`，许可页读取自动依赖元数据；移植代码与架构参考使用补充条目披露。  
 7. **release 签名与首个 Release**：`signing.properties` 流程已约定，未生成正式包、未发 GitHub Release。  
@@ -75,6 +75,7 @@
 | 单渠道「发送」/「连发全部」 | 验证静音后是否投递、降级后是否仍进通知栏 |
 | 「重置渠道」 | 删光 `lab.*` 后按目录重建，用于「新建渠道自动静音」回归 |
 | 「清空通知」 | 清场，避免旧通知干扰观察 |
+| ADB 调试入口 `LabDebugActivity`（优先） | `am start -n app.quieta.notiflab.debug/app.quieta.notiflab.LabDebugActivity --es cmd send_all`；广播 `LabDebugReceiver` 为备选；不改系统通知设置 |
 
 **息匣在测试中的职能：** 治理端——盘点、按规则静音/降级、可选自动拦截、回读校验 importance。
 

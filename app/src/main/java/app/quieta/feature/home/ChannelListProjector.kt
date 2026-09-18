@@ -95,7 +95,7 @@ object ChannelListProjector {
     private fun applySoundChannelFilter(app: AppChannels, sound: SoundFilter): AppChannels {
         if (sound == SoundFilter.ALL) return app
         val kept = app.channels.filter { ch ->
-            if (sound == SoundFilter.ON) ch.soundEnabled else !ch.soundEnabled
+            if (sound == SoundFilter.ON) ch.effectiveSoundEnabled else !ch.effectiveSoundEnabled
         }
         return app.copy(channels = kept)
     }
@@ -156,7 +156,7 @@ object ChannelListProjector {
         }
         if (filters.sound != SoundFilter.ALL) {
             val hit = app.channels.any {
-                if (filters.sound == SoundFilter.ON) it.soundEnabled else !it.soundEnabled
+                if (filters.sound == SoundFilter.ON) it.effectiveSoundEnabled else !it.effectiveSoundEnabled
             }
             if (!hit) return false
         }

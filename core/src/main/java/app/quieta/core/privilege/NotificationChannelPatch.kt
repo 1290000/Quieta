@@ -68,8 +68,19 @@ object NotificationChannelPatch {
         }
     }
 
-    fun soundEnabledOf(channel: NotificationChannel): Boolean =
-        channel.sound?.toString()?.isNotEmpty() == true
+    /**
+     * True when the channel still carries a usable sound URI.
+     * HyperOS keeps the default notification URI even when importance is too low
+     * to audibly alert — callers that mean "will make sound" must also check importance
+     * (see [app.quieta.core.model.Channel.effectiveSoundEnabled]).
+     */
+    fun soundEnabledOf(channel: NotificationChannel): Boolean {
+        val uri = channel.sound ?: return false
+        val value = uri.toString().trim()
+        if (value.isEmpty()) return false
+        if (value.equals("null", ignoreCase = true)) return false
+        return true
+    }
 
     fun vibrationEnabledOf(channel: NotificationChannel): Boolean =
         runCatching { channel.shouldVibrate() }.getOrDefault(false)
