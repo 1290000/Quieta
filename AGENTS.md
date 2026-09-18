@@ -206,68 +206,140 @@ core/rom/
 
 ## 6. UI / 视觉
 
-- 整体风格对齐 InstallerX Revived / 澎湃：浅灰底、白卡片、系统蓝 `#3482FF`、大标题；**绿色仅用于「运行中」状态卡**。
-- 底栏：白色悬浮胶囊 + 弹簧动画选中胶囊；三档：
+真相源：`ui/theme/QuietaTheme.kt`、`QuietaTypography.kt`、`PresetColors.kt`、`ui/component/*`、`ui/glass/*`；默认值以代码为准，本节约定须与实现一致。
 
-| 档位 | 条件 | 含义 |
-|------|------|------|
-| LiquidGlass | 代码已接入 lens；**当前默认关闭**（HyperOS RenderThread SIGSEGV） | 仅 `allowShader=true` 且 API≥33 非模拟器时启用 |
-| Blur / None | 默认 | 实色/半透明胶囊 |
+### 视觉锚点与色板
 
-- 主色为系统蓝；绿色仅状态卡。  
-- 主题默认**跟随系统**；深浅色均须可读。  
-- **控件优先 miuix**（`top.yukonga.miuix.kmp.basic.*`：Card / Switch / Text / TextField / Button / SearchBar / BasicComponent / FAB 等）；**禁止**在业务页混用 Material3 同类控件。仅当 miuix 无对应物（如系统分享、部分 Dialog）时才允许 M3，并在 PR/改动说明原因。字色可继续桥接 `MaterialTheme.colorScheme` / `MiuixTheme.colorScheme`。
-- 字体沿用系统默认及 miuix 文字样式：普通条目标题 17sp Medium、摘要 14sp Normal，状态标题 20sp SemiBold；规则标题 18sp Medium，记录摘要 16sp Normal。不得给所有标题统一加粗或添加负字距。
+- 对齐 InstallerX Revived / 澎湃：浅色浅灰底、白卡片、大标题；一期手机竖屏优先。
+- **出厂默认**（自定义色关闭）：primary `#3482FF`（`HyperBlue`）；浅色 `background #F5F5F6` / `surface` 白；深色 `background #242424` / `surface #2C2C2C` / primary `#7EB0FF`。深浅色均须可读。
+- 主题默认**跟随系统**；开启「自定义颜色」后 primary、surface 等角色跟种子方案（Monet / materialkolor + miuix `ThemeController`），**不再锁死系统蓝**。自定义色默认种子为 Material 紫 `#6750A4`，可换 `PresetColors`。
+- 实现为 `MaterialTheme(QuietaTypography)` + `MiuixTheme(ThemeController)` 双轨；业务色走 `MaterialTheme.colorScheme` / `MiuixTheme.colorScheme`，禁止散落硬编码（语义色例外见下表）。
+
+### 语义色（强制）
+
+| 用途 | 约定 |
+|------|------|
+| 特权状态卡·可用 | 浅色容器 `#DFFAE4`、图标 `#34C759`；深色 `QuietaColors.StatusGreenDark` `#163D25` |
+| 特权状态卡·检测中 | 浅色 `#F0F0F1`、图标 `#8E8E93`；深色用 `surface` |
+| 特权状态卡·未就绪 | 浅色 `#FAEEEE`、图标 `#FF3B30`；深色用 `errorContainer` |
+| 说明 / 提示卡 | `primary.copy(alpha = 0.2f)`，文字 `primary`（跟主题，不写死蓝） |
+| 规则过宽等警告文案 | 琥珀字 `#B45309` 等，不占用状态绿 |
+| 多选圆点 | 当前实现固定 `#3482FF`（选中）/ 同色 35%（半选）——品牌固定色，不声称已跟主题 primary |
+| 关于页标题/版本 | 浅 `#7A4A6E` / 深 `#E8C4DC`；版本浅 `#6B5A72` 等，属 aurora 页特例 |
+| 应用图标绿色 | 品牌资产，**不是** UI 强调色；绿色语义仅限特权「可用」状态卡 |
+
+禁止把状态绿挪作通用成功色，或把状态红/灰挪作普通卡片底。
+
+### 页面骨架
+
+- 主导航四栏 `HorizontalPager` + 底栏浮层；二级页独立栈，底色 `MaterialTheme.colorScheme.surfaceContainer`。
+- 通用列表页使用 `ui/component/QuietaPage`：miuix `TopAppBar` + `MiuixScrollBehavior`（大标题收拢为居中小标题）；`overScrollVertical`、关系统 overscroll；状态栏 inset 仅由顶栏处理。
+- `QuietaPage` 默认：水平 **12dp**、顶 12dp、底 **110dp**（给浮层让位）、条目间距 12dp；设置/主题/规则编辑常设 `itemSpacing = 0` 自管分区。
+- **间距（强制）**：已在 `QuietaPage` 内的分组卡**不得再叠** `padding(horizontal = 12.dp)`。**特权页**为范本：`QuietaPage` 水平/顶部 padding 置 0，卡片自行 `horizontal = 12.dp`。配置/静音预览等 Tip 若仍叠边距，属待收敛例外，**新代码一律贴页边距**。
+- 预测性返回默认动画 **Miuix**、退出方向默认 **始终向右**；仅「缩放」消费退出方向；卡片式返回可出现 **32dp** 圆角裁切（`QuietaRoot`）。
+- 独立可点卡：`PressableCard`（miuix `addSquircleRect` + Tilt + 按压着色，避免首帧 SDF 解码）；分组内选项整行反馈，不缩放单行文字；**展开后的信息卡用静态 Card，不要整卡 Tilt**。
+- 状态卡刷新保留上次结果，检测期间禁写，检测结果一次提交；状态文案区和操作区预留稳定尺寸。
 - 配置页规则卡提供编辑入口；修改保留规则 ID、顺序、启用状态及未编辑字段，通过共享仓库实时通知主页。
-- 液态玻璃实现放在 `ui/glass`，不散落在业务页。  
-- 底栏默认：支持则 LiquidGlass，否则 Blur；用户可在设置改为 None。  
-- **底部操作浮层（多选等）与主底栏同构**：使用 `ui/glass/FloatingSelectionBar`，共用 `FloatingBottomBarMode` + 页面 `Backdrop`；图标+文字动作，禁止业务页另写普通 Card 操作条。多选时隐藏主 `FloatingBottomBar`。  
-- **设置 / 关于等二级页视觉（InstallerX Revived，强制）**：设置分组卡圆角 20dp、`surface`；分区标题灰 `#8E8E93` `titleSmall`；行标题 `titleLarge`、摘要 `bodySmall`、尾部 `ChevronRight`。关于页：`SmallTopAppBar`（首屏仅返回，标题随滚动）；AGSL `ui/effect/bg/BgEffectBackground` + 卡片 `textureBlur`（16dp 圆角、水平 12dp）；hero 应用名 35sp Bold、版本 14sp；调试区 `SmallTitle` + 同构玻璃卡 + miuix Switch/`ArrowPreference`；**许可页等列表二级页不用 aurora**，仅标准 `QuietaPage` 表面。图标须透明底品牌标（`ic_about_logo`），禁止 adaptive 白底方块。  
-- 一期手机竖屏优先。
-- 顶栏统一使用 miuix `TopAppBar` + `MiuixScrollBehavior`（大标题收拢为居中小标题）；滚动容器使用 `overScrollVertical`，关闭系统 overscroll，触顶/触底按 InstallerX Revived 回弹。状态栏 inset 仅由顶栏处理。
-- 可点击的独立卡片使用 miuix `PressFeedbackType.Tilt` + 按压着色；分组内选项保持整行反馈，不缩放单行文字。miuix 与 Material 共用息匣深浅色主题。
-- 首屏独立卡片使用 miuix `addSquircleRect` 路径轮廓，保留 Tilt 与着色，避免首帧 SDF 贴图解码；状态卡刷新保留上次结果，检测期间禁写，检测结果一次提交；状态文案区和操作区预留稳定尺寸。
-- 可用特权页采用两块蓝色说明区 + 单组圆形勾选项；保留无特权 / ROOT / Shizuku / Dhizuku / 自动选择，不显示未实现的自定义提权命令。
 
-### 按钮与列表动作（强制，长期）
+### 控件体系（目标态 + 现状）
+
+- **目标（长期）**：控件优先 miuix（`top.yukonga.miuix.kmp.basic.*`：Card / Switch / Text / TextField / Button / SearchBar / BasicComponent / FAB 等）；新代码能 miuix 不扩 M3。miuix 无对应物时才用 M3（系统分享、部分 Dialog、既有列表壳等），并在改动说明原因。
+- **现状（允许保留，勿倒退）**：设置/主题分组壳、主页权限动作条、列表静态卡、搜索 `OutlinedTextField`、部分 `IconButton`/`Text` 仍为 Material3 + 主题 token。收敛时优先改交互控件，不把已稳定列表整页重写成半成品。
+- 公共组件（强制复用，业务页禁止另写一套）：
+
+| 组件 | 职责 |
+|------|------|
+| `QuietaPage` | 二级/主栏列表页骨架 |
+| `PressableCard` | 可点独立卡（squircle + Tilt） |
+| `QuietaSwitch` | miuix Switch 包装（设置/配置/主页开关） |
+| `HyperOsPopup` | 轻量弹出菜单 |
+| `FloatingBottomBar` / `FloatingSelectionBar` | 底栏与多选操作条 |
+
+- 字号/字色只走主题 token；硬编码仅限上表语义色。
+
+### 字体（以 token 为准）
+
+真相源：`QuietaTypography` + `QuietaTextStyles`。不得给所有标题统一加粗或添加负字距。
+
+| 角色 | 样式 |
+|------|------|
+| 页头 / TopAppBar 大标题体系 | `displaySmall` 32sp Normal |
+| 状态卡主标题 | `headlineSmall` 20sp SemiBold |
+| 状态卡明细 | `QuietaTextStyles.statusDetail` 14sp Medium |
+| 统计卡标签 / 数值 | `statLabel` 15sp Medium / `headlineMedium` 26sp SemiBold |
+| 列表与设置行标题 | `titleLarge` 17sp Medium |
+| 分区标题 | `titleSmall` / miuix `SmallTitle`，灰 `#8E8E93` |
+| 描述 / 设置摘要 | `bodyMedium`·`bodySmall` 14sp Normal |
+| 记录副文案 | `bodyLarge` 16sp Normal |
+| 规则标题 | `QuietaTextStyles.ruleTitle` 18sp Medium |
+| 弹层菜单行 | `bodyLarge` 16sp |
+| 底栏 tab | `labelSmall` 11sp Medium |
+| 关于 hero / 版本 | 35sp Bold / 14sp（页内特例） |
+
+### 底栏与浮层
+
+- 实现集中在 `ui/glass`（含 `liquid/*`，参考 Kyant0/AndroidLiquidGlass），**不散落在业务页**。
+- 档位由 `resolveBottomBarMode(blurEnabled, liquidGlassSupported)` 决定，**无**单独 `allowShader` 用户开关：
+
+| 档位 | 条件 | 观感 |
+|------|------|------|
+| LiquidGlass | `blurEnabled` 且 API≥33 且 `isLiquidGlassSafe()`（非模拟器 + RuntimeShader 可用） | 悬浮胶囊 + lens/vibrancy；容器 `surfaceContainer` 约 40% 透明 |
+| Blur | `blurEnabled` 但玻璃不安全/不支持 | 半透明模糊胶囊，容器约 65% 透明 |
+| None | 用户关闭「使用模糊」 | 实色胶囊 |
+
+- `blurEnabled` 默认 **true**。HyperOS/模拟器上 RuntimeShader 或 LayerBackdrop 可能 HWUI SIGSEGV——按 `isLiquidGlassSafe()` **回退到 Blur**，不是把产品默认改成「玻璃关闭」。About 页等内容层 LayerBackdrop 另有规避，勿随意包全页。
+- 视觉：选中 pill 弹簧/阻尼滑动 + InstallerX 高光（可随设备倾角旋转）；tab 单元 `minWidth 76.dp`；底栏距导航条约 14dp；选中色 `primary`。
+- **多选操作条**与主底栏同构：`FloatingSelectionBar`，共用 `FloatingBottomBarMode` + 页面 `Backdrop`；高度约 64dp，图标+文字，可用 `emphasized`；多选时隐藏主 `FloatingBottomBar`。禁止业务页另写普通 Card 操作条。
+
+### 圆角刻度
+
+| 场景 | 圆角 |
+|------|------|
+| 应用图标 / 小图 | 8dp |
+| 搜索框 | 14dp |
+| `PressableCard` 默认、多数信息卡 / M3 Card | 16dp |
+| 状态大卡、App/记录折叠卡、设置/主题分组壳 | 20dp（调用方指定或 SettingsGroup） |
+| `HyperOsPopup` | 22dp |
+| 关于玻璃卡 | 16dp |
+| 预测返回卡片式裁切 | 32dp（导航层，非列表卡） |
+
+「二级页分组 20dp」指设置/主题等分组壳；独立可点卡默认 16dp，列表/状态卡可显式 20dp。
+
+### 按钮与列表动作（强制）
 
 | 层级 | 用途 | 实现 |
 |------|------|------|
 | 主操作 | 确认静音、完成、整应用静音、保存 | miuix `Button` 实心，一屏优先一个主钮 |
-| 次要文字 | 取消、关闭、整应用恢复、重置筛选 | miuix `TextButton` 灰字，无边框大胶囊 |
+| 主页门禁动作 | 请求授权、按规则静音、刷新、撤销 | 主页动作卡内图标 +（当前）M3 Button；刷新/撤销用图标，静音为主按钮 |
+| 次要文字 | 整应用恢复等 | 灰字次级按钮；关闭/重置优先图标 |
 | 行内信息/可点计数 | 命中 N、匹配摘要 | pill 或副文案；**不要**做成 TextButton |
-| 行内多动作 | 单渠道静音/降级/恢复 | **收进底部 Sheet**，列表行只留状态 + 可点 |
-| 图标操作 | 编辑、删除 | 行内 24–28dp 图标，与行高居中 |
+| 行内多动作 | 单渠道静音/降级/恢复 | **收进弹层或底部浮层**，列表行只留状态 + 可点 |
+| 图标操作 | 编辑、删除、筛选、更多、关闭 | 行内 24–28dp 图标；顶栏动作最多 1–2 个 |
 
-- **二级页卡片与屏幕间距（强制）**：`QuietaPage` 已有 **12dp** 水平页边距；页面内分组卡**不得再叠一层 12dp**（禁止 `padding(horizontal = 12.dp)` 加在已包在 `QuietaPage` 里的 `Card` 上）。主题设置、配置、设置等所有二级页与主页列表卡同构：贴页边距即可，圆角 20dp。  
+- 分组规则/选项：一张 Card 多行 + `HorizontalDivider`（特权/配置/规则编辑同构），不要一行一张孤立卡。
+- 弹层/表单关闭：右上角 `Close` 或 `Check`（保存）；**不要**底部「取消+确定」双文字钮并排。
 
-- 分组规则/选项：一张 Card 多行 + `HorizontalDivider`（特权页同构），不要一行一张孤立卡。  
-- 独立可点卡用 `PressableCard`（squircle + Tilt）；**展开后的信息卡用静态 `Card`，不要整卡 Tilt**。  
-- 弹层底部：左「取消/重置」TextButton，右「完成/确认」Button；避免两个同权 TextButton 并排。
-
-### 二级页 / Sheet 图标化（InstallerX，强制）
+### 二级页 / 弹层形态（InstallerX，强制）
 
 | 场景 | 约定 |
 |------|------|
-| 可发现操作入口 | 用图标：筛选 `Tune`、更多 `MoreVert`、刷新 `Refresh`、撤销 `Undo`、关闭 `Close` |
-| 弹层/Sheet 关闭 | 右上角 `Close`；**不要**底部「取消」文字钮 |
-| 次要重置 | 标题旁 `Undo` 图标，不用「重置」文字钮 |
-| Sheet 内容行 | miuix `BasicComponent`（title + summary + startAction 图标 + endActions） |
-| 单选写入范围 | 与特权页相同：`BasicComponent` + 圆形 `Checkbox` + `selectableGroup` |
-| 主 CTA | Sheet/二级页底部全宽 `Button`（确认静音/完成） |
-| 顶栏返回 | `ArrowBack`；动作图标最多 1–2 个，不堆文字 |
+| 可发现操作入口 | 图标：筛选 `Tune`、更多 `MoreVert`、刷新 `Refresh`、撤销 `Undo`、多选 `Checklist`、关闭 `Close` |
+| 轻量选择（筛选/排序/显示/渠道动作） | `HyperOsPopup`：`IntrinsicSize.Max` + `widthIn(max=280)`，**禁止**写死满宽；圆角 22dp；行 bodyLarge 16sp、垂直 12dp；Check 右缘对齐；点外/返回关闭；弹层内不放 Switch、不放底部主按钮 |
+| 全屏/长表单（规则新增·编辑） | `QuietaPage` + 大标题；导航 `Close`、动作 `Check`（可用时 primary）；字段独立 miuix `TextField`（垂直 6dp，**不要**再套 Card）；`SmallTitle` 分区 + 一张 Card 多行；单选动作用 Check，不用 Switch |
+| 静音预览等确认页 | 顶部说明卡 + 写入范围单选组（`BasicComponent` + 圆形 `Checkbox`）+ 底部全宽 miuix `Button` |
+| 对话框（规则包导入等） | 右上 `Close`；选项用 `BasicComponent`；危险操作二次点击确认，不用双 TextButton |
 
-禁止：在列表头并排「展开/收起」文字钮；在 Sheet 底部并排「取消」+主按钮。
+禁止：列表头并排「展开/收起」文字钮；HyperOsPopup 内放 Switch；表单底部「取消/确定」文字钮。
 
-### 弹层与表单（HyperOS / InstallerX，强制）
+### 设置 / 特权 / 关于 / 主题页
 
-| 场景 | 约定 |
-|------|------|
-| 轻量选择（筛选/排序/整应用/渠道动作） | `HyperOsPopup`：**宽高随最长行自适应**（`IntrinsicSize.Max` + `widthIn(max=280)`），**禁止**写死满宽；行 **bodyLarge 16sp**、垂直 **12dp**；勾选右缘对齐；点外/返回关闭 |
-| 全屏/长表单（规则新增·编辑） | **InstallerX `MiuixEditPage`**：miuix `QuietaPage`/`TopAppBar`（`Close` 导航 + `Ok` 动作 + 大标题）；字段为独立 `TextField`（垂直 6dp，**不要**再套一层 Card）；`SmallTitle` 分区 + 一张 `Card` 多行 |
-| 勾选行 | 多选可保持勾选态；单选排序/动作用 Check，不用 Switch |
+**设置列表：** `QuietaPage` + 分区标题灰 `#8E8E93` `titleSmall` + 分组卡 **20dp**、`surface`（当前为 M3 Card）；行标题 `titleLarge`、摘要 `bodySmall`、尾部 `ChevronRight` 或 `QuietaSwitch`；分组卡贴页边距，不再叠 12dp。
 
-禁止：HyperOS 弹出列表里放 Switch 或底部主按钮；表单用底部「取消/确定」文字钮。
+**特权页：** 两块 **primary 半透明**说明卡（非写死纯蓝）+ 单组圆形勾选（`BasicComponent` + miuix `Checkbox` + `selectableGroup`）；保留无特权 / ROOT / Shizuku / Dhizuku / 自动选择，不显示未实现的自定义提权命令。
+
+**关于页（InstallerX，特例，不走 QuietaPage）：** `SmallTopAppBar`（首屏仅返回，标题随滚动）；AGSL `ui/effect/bg/BgEffectBackground` + 卡片 `textureBlur`（16dp，水平 12dp 页边距，卡片不叠边距）；hero 应用名 35sp Bold、版本 14sp；调试区 `SmallTitle` + 同构玻璃卡 + miuix Switch / `ArrowPreference`；hero 标志可点切换 aurora 填充 ↔ 品牌原色。**许可页等列表二级页不用 aurora**，仅标准 `QuietaPage` 表面。图标须透明底品牌标（`ic_about_logo`），禁止 adaptive 白底方块。
+
+**主题设置页：** InstallerX 主题页子集；默认模式跟随系统。分组卡同设置页（20dp + 贴边距）；项用 miuix `WindowSpinnerPreference` / `BasicComponent` + `QuietaSwitch`：主题模式、使用模糊、自定义颜色、动态取色、调色板、Color Spec、种子色板（`PresetColors`）、预测性返回动画与退出方向。自定义色关闭时产品视觉保持出厂 HyperBlue 色板。
 
 ### 应用图标（已选定，强制）
 
