@@ -1,6 +1,7 @@
 package app.quieta.feature.settings
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -18,19 +19,26 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.BuildConfig
 import app.quieta.R
+import app.quieta.service.NotificationListenerAccess
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.QuietaSwitch
 import app.quieta.ui.glass.FloatingBottomBarMode
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 fun SettingsScreen(
@@ -48,6 +56,20 @@ fun SettingsScreen(
     val context = LocalContext.current
     val autoMute by viewModel.autoMuteNewChannels.collectAsStateWithLifecycle()
     val timelineEnabled by viewModel.notificationTimelineEnabled.collectAsStateWithLifecycle()
+    val healthCheck by viewModel.timelineHealthCheckEnabled.collectAsStateWithLifecycle()
+    val keepAlive by viewModel.timelineKeepAliveEnabled.collectAsStateWithLifecycle()
+    val diagnostics by viewModel.timelineDiagnostics.collectAsStateWithLifecycle()
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshTimelineDiagnostics()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     QuietaPage(
         title = stringResource(R.string.settings_title),
@@ -81,23 +103,53 @@ fun SettingsScreen(
                     onCheckedChange = { enabled ->
                         viewModel.setNotificationTimelineEnabled(enabled)
                         if (enabled) {
-                            app.quieta.service.NotificationListenerAccess.ensureBound(
-                                context,
-                                "timeline_enabled",
-                            )
+                            NotificationListenerAccess.ensureBound(context, "timeline_enabled")
                         }
                     },
                 )
                 NavRow(
                     title = "通知使用权",
-                    subtitle = if (app.quieta.service.NotificationListenerAccess.isEnabled(context)) {
-                        "已授权；若时间线无新数据可点此检查或系统会自动重连"
+                    subtitle = if (diagnostics.listenerEnabled) {
+                        "已授权"
                     } else {
                         "打开系统设置，允许息匣读取通知"
                     },
                     onClick = {
                         runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-                        app.quieta.service.NotificationListenerAccess.ensureBound(context, "open_listener_settings")
+                        NotificationListenerAccess.ensureBound(context, "open_listener_settings")
+                    },
+                )
+            }
+        }
+        item(key = "timeline_recovery") {
+            SectionTitle("时间线后台采集")
+            SettingsGroup {
+                TimelineDiagnosticsCard(
+                    diagnostics = diagnostics,
+                    onRebind = { viewModel.rebindListener() },
+                )
+                SwitchRow(
+                    title = "低频监听健康检查",
+                    subtitle = "默认关。约 20 分钟检查一次绑定，无前台通知；划掉后台后更易恢复采集",
+                    checked = healthCheck,
+                    onCheckedChange = { viewModel.setTimelineHealthCheckEnabled(it) },
+                )
+                SwitchRow(
+                    title = "后台持续采集",
+                    subtitle = "默认关。会显示低优先级通知并常驻监听进程，更耗电；适合必须不间断记录时",
+                    checked = keepAlive,
+                    onCheckedChange = { viewModel.setTimelineKeepAliveEnabled(it) },
+                )
+                NavRow(
+                    title = "系统后台与锁定",
+                    subtitle = "在最近任务锁定息匣；电池设为无限制；允许自启动（如系统提供）",
+                    onClick = {
+                        runCatching { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+                        runCatching {
+                            context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            })
+                        }
                     },
                 )
             }
@@ -133,6 +185,71 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun TimelineDiagnosticsCard(
+    diagnostics: TimelineDiagnosticsUiState,
+    onRebind: () -> Unit,
+) {
+    val accessText = if (diagnostics.listenerEnabled) "已授权" else "未授权"
+    val connectText = when {
+        diagnostics.listenerConnected -> "已连接"
+        diagnostics.listenerEnabled -> "未连接（可能已被最近任务结束，可点重新绑定）"
+        else -> "未连接"
+    }
+    val lastText = if (diagnostics.lastEventAt > 0L) {
+        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(diagnostics.lastEventAt))
+    } else {
+        "尚无数据"
+    }
+    val healthText = if (diagnostics.healthCheckEnabled) {
+        if (diagnostics.healthJobScheduled) "已开启" else "已开启（等待系统调度）"
+    } else {
+        "关闭"
+    }
+    val keepAliveText = if (diagnostics.keepAliveEnabled) "开启（前台通知常驻）" else "关闭"
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Text("采集状态", style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(6.dp))
+        DiagnosticsLine("通知使用权", accessText)
+        DiagnosticsLine("监听连接", connectText)
+        DiagnosticsLine("上次采集", lastText)
+        DiagnosticsLine("健康检查", healthText)
+        DiagnosticsLine("持续采集", keepAliveText)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "重新绑定",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clickable(onClick = onRebind)
+                .padding(vertical = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun DiagnosticsLine(label: String, value: String) {
+    Row(modifier = Modifier.padding(vertical = 2.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(end = 8.dp),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

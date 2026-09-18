@@ -3,6 +3,8 @@ package app.quieta.core.engine
 import android.content.Context
 import app.quieta.core.repo.AsyncLocalState
 import java.io.File
+import java.io.FileOutputStream
+import java.nio.channels.FileLock
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,7 +12,9 @@ import org.json.JSONObject
 /** Process-wide local notification summary store. Notification content is never persisted. */
 class NotificationTimelineStore private constructor(context: Context) {
 
-    private val file by lazy { File(context.applicationContext.filesDir, "notification_timeline.json") }
+    private val appContext = context.applicationContext
+    private val file by lazy { File(appContext.filesDir, "notification_timeline.json") }
+    private val lockFile by lazy { File(appContext.filesDir, "notification_timeline.lock") }
     private val storage = AsyncLocalState(emptyList(), ::load, ::write)
     val entries: StateFlow<List<NotificationTimelineEntry>> = storage.state
 
@@ -42,6 +46,9 @@ class NotificationTimelineStore private constructor(context: Context) {
 
     suspend fun clear() = storage.update { emptyList() }
 
+    /** Re-read after listener process may have appended while UI was dead. */
+    suspend fun reloadFromDisk() = storage.reload()
+
     private fun write(list: List<NotificationTimelineEntry>) {
         val array = JSONArray()
         list.forEach { entry ->
@@ -60,14 +67,24 @@ class NotificationTimelineStore private constructor(context: Context) {
                     .putOpt("vibrationEnabled", entry.vibrationEnabled),
             )
         }
-        file.writeText(array.toString())
+        withFileLock {
+            val tmp = File(file.parentFile, file.name + ".tmp")
+            tmp.writeText(array.toString())
+            if (!tmp.renameTo(file)) {
+                file.writeText(tmp.readText())
+                tmp.delete()
+            }
+        }
     }
 
     private fun load(): List<NotificationTimelineEntry> {
-        if (!file.exists()) return emptyList()
+        val text = withFileLock {
+            if (!file.exists()) return@withFileLock null
+            runCatching { file.readText() }.getOrNull()
+        } ?: return emptyList()
         val now = System.currentTimeMillis()
         return runCatching {
-            val array = JSONArray(file.readText())
+            val array = JSONArray(text)
             val seen = HashSet<String>()
             buildList {
                 for (index in 0 until array.length()) {
@@ -101,6 +118,18 @@ class NotificationTimelineStore private constructor(context: Context) {
                 }
             }.sortedByDescending { it.lastAt }.take(NotificationTimelineReducer.MAX_ENTRIES)
         }.getOrDefault(emptyList())
+    }
+
+    private inline fun <T> withFileLock(block: () -> T): T {
+        var lock: FileLock? = null
+        return try {
+            FileOutputStream(lockFile).use { fos ->
+                lock = fos.channel.lock()
+                block()
+            }
+        } finally {
+            runCatching { lock?.release() }
+        }
     }
 
     companion object {

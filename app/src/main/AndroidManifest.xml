@@ -10,6 +10,13 @@
     <!-- Shizuku API permission (must match Shizuku). -->
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
+    <!-- T1 boot rebind + T3 persisted JobScheduler health check. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- T5 opt-in timeline keep-alive FGS (default off). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
     </queries>
@@ -65,14 +72,43 @@
             </intent-filter>
         </activity>
 
+        <!-- T2: NLS + recovery services live in :listener so recents-swipe of UI is less fatal. -->
         <service
             android:name=".service.QuietaNotificationListener"
             android:exported="true"
             android:label="@string/app_name"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:process=":listener">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <service
+            android:name=".service.TimelineKeepAliveJobService"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:process=":listener" />
+
+        <service
+            android:name=".service.TimelineKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:process=":listener">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="notification_listener_timeline_keepalive" />
+        </service>
+
+        <receiver
+            android:name=".service.TimelineBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

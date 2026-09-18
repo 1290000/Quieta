@@ -83,4 +83,7 @@
     <string name="privilege_root_write_pending">读取可用；写入将在实际操作后回读验证</string>
     <string name="privilege_root_write_verified">最近一次写入已通过回读验证</string>
     <string name="privilege_root_write_failed">最近一次写入未全部通过验证，请查看操作结果</string>
+    <string name="timeline_keepalive_channel">时间线持续采集</string>
+    <string name="timeline_keepalive_title">息匣正在记录通知</string>
+    <string name="timeline_keepalive_text">弱采集时间线运行中；可在设置中关闭后台持续采集</string>
 </resources>

@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 /** Shared local state: asynchronous hydration, then serialized read-modify-write operations. */
 internal class AsyncLocalState<T>(
     initialValue: T,
-    load: () -> T,
+    private val load: () -> T,
     private val write: (T) -> Unit,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
@@ -42,6 +42,14 @@ internal class AsyncLocalState<T>(
                 mutableState.value = previous
                 throw error
             }
+        }
+    }
+
+    /** Re-read from disk (listener may have written from another process). */
+    suspend fun reload() = withContext(Dispatchers.IO) {
+        initialized.await()
+        mutex.withLock {
+            mutableState.value = load()
         }
     }
 }

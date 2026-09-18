@@ -4,19 +4,25 @@ import android.app.Application
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.quieta.core.engine.NotificationTimelineStore
 import app.quieta.core.repo.ChannelInventoryStore
 import app.quieta.core.settings.AppSettings
+import app.quieta.core.settings.ListenerFlagStore
 import app.quieta.core.settings.PaletteStyle
 import app.quieta.core.settings.PredictiveBackAnimation
 import app.quieta.core.settings.PredictiveBackExitDirection
 import app.quieta.core.settings.ThemeColorSpec
 import app.quieta.core.settings.ThemeMode
+import app.quieta.service.NotificationListenerAccess
+import app.quieta.service.TimelineRecovery
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,13 +32,27 @@ sealed interface SettingsUiEvent {
     data class ShowMessage(val message: String) : SettingsUiEvent
 }
 
+data class TimelineDiagnosticsUiState(
+    val listenerEnabled: Boolean = false,
+    val listenerConnected: Boolean = false,
+    val lastEventAt: Long = 0L,
+    val timelineEnabled: Boolean = true,
+    val healthCheckEnabled: Boolean = false,
+    val keepAliveEnabled: Boolean = false,
+    val healthJobScheduled: Boolean = false,
+)
+
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settings = AppSettings(application)
     private val inventory = ChannelInventoryStore.getInstance(application)
+    private val timelineStore = NotificationTimelineStore.getInstance(application)
 
     private val _events = MutableSharedFlow<SettingsUiEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<SettingsUiEvent> = _events.asSharedFlow()
+
+    private val _timelineDiagnostics = MutableStateFlow(TimelineDiagnosticsUiState())
+    val timelineDiagnostics: StateFlow<TimelineDiagnosticsUiState> = _timelineDiagnostics.asStateFlow()
 
     val themeMode: StateFlow<ThemeMode> = settings.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
@@ -67,6 +87,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val notificationTimelineEnabled: StateFlow<Boolean> = settings.notificationTimelineEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
+    val timelineHealthCheckEnabled: StateFlow<Boolean> = settings.timelineHealthCheckEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val timelineKeepAliveEnabled: StateFlow<Boolean> = settings.timelineKeepAliveEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    init {
+        refreshTimelineDiagnostics()
+    }
+
     fun setThemeMode(mode: ThemeMode) { viewModelScope.launch { settings.setThemeMode(mode) } }
     fun setBlurEnabled(enabled: Boolean) { viewModelScope.launch { settings.setBlurEnabled(enabled) } }
     fun setCustomColors(enabled: Boolean) { viewModelScope.launch { settings.setCustomColors(enabled) } }
@@ -88,11 +118,86 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setAutoMuteNewChannels(enabled: Boolean) {
-        viewModelScope.launch { settings.setAutoMuteNewChannels(enabled) }
+        viewModelScope.launch {
+            settings.setAutoMuteNewChannels(enabled)
+            applyRecoveryFromSettings()
+            refreshTimelineDiagnostics()
+        }
     }
 
     fun setNotificationTimelineEnabled(enabled: Boolean) {
-        viewModelScope.launch { settings.setNotificationTimelineEnabled(enabled) }
+        viewModelScope.launch {
+            settings.setNotificationTimelineEnabled(enabled)
+            applyRecoveryFromSettings()
+            refreshTimelineDiagnostics()
+        }
+    }
+
+    fun setTimelineHealthCheckEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settings.setTimelineHealthCheckEnabled(enabled)
+            applyRecoveryFromSettings()
+            val msg = if (enabled) {
+                "已开启低频监听健康检查（约 20 分钟一次，无前台通知）"
+            } else {
+                "已关闭监听健康检查"
+            }
+            _events.emit(SettingsUiEvent.ShowMessage(msg))
+            refreshTimelineDiagnostics()
+        }
+    }
+
+    fun setTimelineKeepAliveEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settings.setTimelineKeepAliveEnabled(enabled)
+            applyRecoveryFromSettings()
+            if (enabled) {
+                NotificationListenerAccess.ensureBound(getApplication(), "keep_alive_on")
+                _events.emit(
+                    SettingsUiEvent.ShowMessage(
+                        "已开启后台持续采集：会显示低优先级通知并常驻监听进程，更耗电",
+                    ),
+                )
+            } else {
+                _events.emit(SettingsUiEvent.ShowMessage("已关闭后台持续采集"))
+            }
+            refreshTimelineDiagnostics()
+        }
+    }
+
+    fun rebindListener() {
+        val app = getApplication<Application>()
+        NotificationListenerAccess.ensureBound(app, "settings_rebind")
+        viewModelScope.launch {
+            timelineStore.reloadFromDisk()
+            refreshTimelineDiagnostics()
+        }
+    }
+
+    fun refreshTimelineDiagnostics() {
+        val app = getApplication<Application>()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                TimelineRecovery.syncFromSettings(app)
+            }
+            val flags = ListenerFlagStore.readFlags(app)
+            _timelineDiagnostics.value = TimelineDiagnosticsUiState(
+                listenerEnabled = NotificationListenerAccess.isEnabled(app),
+                listenerConnected = NotificationListenerAccess.isConnected(app),
+                lastEventAt = NotificationListenerAccess.lastEventAt(app),
+                timelineEnabled = flags.timelineEnabled,
+                healthCheckEnabled = flags.healthCheckEnabled,
+                keepAliveEnabled = flags.keepAliveEnabled,
+                healthJobScheduled = TimelineRecovery.isHealthJobScheduled(app),
+            )
+        }
+    }
+
+    private suspend fun applyRecoveryFromSettings() {
+        val app = getApplication<Application>()
+        withContext(Dispatchers.IO) {
+            TimelineRecovery.syncFromSettings(app)
+        }
     }
 
     /** Export full channel inventory cache as snapshot JSON (cross-device import later). */

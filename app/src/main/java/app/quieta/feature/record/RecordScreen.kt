@@ -84,6 +84,7 @@ fun RecordScreen(
     val listenerContext = LocalContext.current
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.reloadTimelineFromDisk()
         app.quieta.service.NotificationListenerAccess.ensureBound(
             listenerContext,
             "record_page",

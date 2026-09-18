@@ -10,6 +10,7 @@ import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
+import app.quieta.core.settings.ListenerFlagStore
 import app.quieta.util.log.QLog
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -20,6 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * Plain requestRebind() is not enough on HyperOS after reinstall/force-stop;
  * we also cycle the component so NotificationManagerService binds again.
+ * Component cycle is rate-limited — it is a PackageManager write, not free.
  */
 object NotificationListenerAccess {
 
@@ -35,8 +37,17 @@ object NotificationListenerAccess {
         }.getOrDefault(false)
     }
 
-    /** True when this process currently holds a live NLS binder callback. */
-    fun isConnected(): Boolean = QuietaNotificationListener.isConnected
+    /**
+     * True when a live NLS binder callback exists.
+     * Listener process writes [ListenerFlagStore.NlsState]; UI may be another process.
+     */
+    fun isConnected(context: Context? = null): Boolean {
+        if (QuietaNotificationListener.isConnected) return true
+        val app = context?.applicationContext ?: return false
+        return ListenerFlagStore.readState(app).connected
+    }
+
+    fun lastEventAt(context: Context): Long = ListenerFlagStore.readState(context).lastEventAt
 
     /** Ask the system to rebind if the listener is enabled but not live. */
     fun ensureBound(context: Context, reason: String = "manual") {
@@ -46,7 +57,7 @@ object NotificationListenerAccess {
             QLog.d(QLog.TAG_TIMELINE, "rebind skipped ($reason): listener not enabled")
             return
         }
-        if (isConnected()) {
+        if (isConnected(app)) {
             QLog.d(QLog.TAG_TIMELINE, "rebind skipped ($reason): already connected")
             return
         }
@@ -60,7 +71,14 @@ object NotificationListenerAccess {
         }
         Handler(Looper.getMainLooper()).postDelayed({
             try {
-                if (!isConnected()) cycleComponent(app, cn, reason)
+                if (!isConnected(app)) {
+                    if (TimelineRecovery.canCycleComponent(app)) {
+                        cycleComponent(app, cn, reason)
+                    } else {
+                        runCatching { NotificationListenerService.requestRebind(cn) }
+                        QLog.i(QLog.TAG_TIMELINE, "rebind retry only (cycle rate-limited) reason=$reason")
+                    }
+                }
             } finally {
                 rebinding.set(false)
             }
@@ -86,6 +104,7 @@ object NotificationListenerAccess {
                 PackageManager.DONT_KILL_APP,
             )
             NotificationListenerService.requestRebind(cn)
+            ListenerFlagStore.markCycle(context)
             QLog.i(QLog.TAG_TIMELINE, "component cycle + rebind reason=$reason")
         }.onFailure {
             Log.w(TAG, "component cycle failed reason=$reason", it)

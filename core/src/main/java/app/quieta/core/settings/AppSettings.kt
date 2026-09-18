@@ -138,6 +138,16 @@ class AppSettings(private val context: Context) {
         prefs[KEY_TIMELINE_ENABLED] ?: true
     }
 
+    /** T3: opt-in rare JobScheduler rebind health check. Default off. */
+    val timelineHealthCheckEnabled: Flow<Boolean> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_TIMELINE_HEALTH_CHECK] ?: false
+    }
+
+    /** T5: opt-in FGS keep-alive for continuous collection. Default off. */
+    val timelineKeepAliveEnabled: Flow<Boolean> = context.settingsStore.data.map { prefs ->
+        prefs[KEY_TIMELINE_KEEP_ALIVE] ?: false
+    }
+
     val enableFileLogging: Flow<Boolean> = context.settingsStore.data.map { prefs ->
         prefs[KEY_FILE_LOGGING] ?: false
     }
@@ -152,12 +162,33 @@ class AppSettings(private val context: Context) {
         context.settingsStore.edit { prefs ->
             prefs[KEY_TIMELINE_ENABLED] = enabled
         }
+        writeListenerFlags { it.copy(timelineEnabled = enabled) }
     }
 
     suspend fun setAutoMuteNewChannels(enabled: Boolean) {
         context.settingsStore.edit { prefs ->
             prefs[KEY_AUTO_MUTE] = enabled
         }
+        writeListenerFlags { it.copy(autoMuteEnabled = enabled) }
+    }
+
+    suspend fun setTimelineHealthCheckEnabled(enabled: Boolean) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_TIMELINE_HEALTH_CHECK] = enabled
+        }
+        writeListenerFlags { it.copy(healthCheckEnabled = enabled) }
+    }
+
+    suspend fun setTimelineKeepAliveEnabled(enabled: Boolean) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_TIMELINE_KEEP_ALIVE] = enabled
+        }
+        writeListenerFlags { it.copy(keepAliveEnabled = enabled) }
+    }
+
+    /** Mirror listener-facing toggles into the cross-process flag file. */
+    private fun writeListenerFlags(transform: (ListenerFlagStore.Flags) -> ListenerFlagStore.Flags) {
+        ListenerFlagStore.writeFlags(context, transform(ListenerFlagStore.readFlags(context)))
     }
 
     val preferredAuthorizer: Flow<PreferredAuthorizer> = context.settingsStore.data.map { prefs ->
@@ -247,6 +278,8 @@ class AppSettings(private val context: Context) {
     companion object {
         private val KEY_AUTO_MUTE = booleanPreferencesKey("auto_mute_new_channels")
         private val KEY_TIMELINE_ENABLED = booleanPreferencesKey("notification_timeline_enabled")
+        private val KEY_TIMELINE_HEALTH_CHECK = booleanPreferencesKey("timeline_health_check_enabled")
+        private val KEY_TIMELINE_KEEP_ALIVE = booleanPreferencesKey("timeline_keep_alive_enabled")
         private val KEY_FILE_LOGGING = booleanPreferencesKey("enable_file_logging")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_BLUR_ENABLED = booleanPreferencesKey("blur_enabled")

@@ -9,37 +9,30 @@ import app.quieta.core.engine.NotificationTimelineStore
 import app.quieta.core.model.ChannelImportance
 import app.quieta.core.repo.ChannelInventoryStore
 import app.quieta.core.repo.RuleRepository
-import app.quieta.core.settings.AppSettings
+import app.quieta.core.settings.ListenerFlagStore
 import app.quieta.util.log.QLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
  * Lightweight listener: timeline identity fields + auto-mute hook.
  * Never persists notification content.
+ *
+ * Runs in `:listener` so recents-swipe of the UI task is less likely to stop
+ * collection while the system still holds the NLS binder.
  */
 class QuietaNotificationListener : NotificationListenerService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private lateinit var settings: AppSettings
     private lateinit var rules: RuleRepository
     private lateinit var timeline: NotificationTimelineStore
     private lateinit var inventory: ChannelInventoryStore
-    private val timelineEnabled by lazy {
-        settings.notificationTimelineEnabled.stateIn(scope, SharingStarted.Eagerly, true)
-    }
-    private val autoMuteEnabled by lazy {
-        settings.autoMuteNewChannels.stateIn(scope, SharingStarted.Eagerly, false)
-    }
 
     override fun onCreate() {
         super.onCreate()
-        settings = AppSettings(this)
         rules = RuleRepository.getInstance(this)
         timeline = NotificationTimelineStore.getInstance(this)
         inventory = ChannelInventoryStore.getInstance(this)
@@ -48,13 +41,15 @@ class QuietaNotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         isConnected = true
-        Log.i(TAG, "listener connected")
-        QLog.i(QLog.TAG_TIMELINE, "listener connected")
+        ListenerFlagStore.markConnected(applicationContext, true)
+        Log.i(TAG, "listener connected process=${TimelineRecovery.currentProcessName(this)}")
+        QLog.i(QLog.TAG_TIMELINE, "listener connected process=${TimelineRecovery.currentProcessName(this)}")
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         isConnected = false
+        ListenerFlagStore.markConnected(applicationContext, false)
         Log.w(TAG, "listener disconnected")
         QLog.w(QLog.TAG_TIMELINE, "listener disconnected")
         // HyperOS may unbind after process death / battery restrictions; ask to rebind.
@@ -66,11 +61,14 @@ class QuietaNotificationListener : NotificationListenerService() {
         val pkg = sbn.packageName ?: return
         val channelId = notification.channelId ?: return
         QLog.d(QLog.TAG_TIMELINE, "posted pkg=$pkg channel=$channelId")
+        val flags = ListenerFlagStore.readFlags(this)
+        if (!flags.timelineEnabled && !flags.autoMuteEnabled) return
+        ListenerFlagStore.markEvent(applicationContext)
         val appLabel = resolveAppLabel(pkg)
         scope.launch {
             val (channelName, channelImportance) = resolveChannel(pkg, channelId)
             val (soundOn, vibeOn) = resolveSoundVibration(pkg, channelId, channelImportance)
-            if (timelineEnabled.value) {
+            if (flags.timelineEnabled) {
                 timeline.append(
                     packageName = pkg,
                     appLabel = appLabel,
@@ -88,7 +86,7 @@ class QuietaNotificationListener : NotificationListenerService() {
                 channelName = channelName,
                 importance = if (channelImportance >= 0) channelImportance else notification.priority,
                 repository = rules,
-                autoMuteEnabled = autoMuteEnabled.value,
+                autoMuteEnabled = flags.autoMuteEnabled,
             )
         }
     }

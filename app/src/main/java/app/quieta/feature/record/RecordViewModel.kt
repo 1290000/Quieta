@@ -170,6 +170,11 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     var actionMessage: String? = null
         private set
 
+    /** Pick up timeline rows written by the :listener process while UI was dead. */
+    fun reloadTimelineFromDisk() {
+        viewModelScope.launch { timelineStore.reloadFromDisk() }
+    }
+
     fun toggleApp(packageName: String) {
         expandedApps.update { current ->
             if (packageName in current) current - packageName else current + packageName
