@@ -197,10 +197,13 @@ fun AboutScreen(
             )
         },
     ) { innerPadding ->
+        // Match QuietaPage / InstallerX MiuixAboutPage: 12dp horizontal page margin.
+        // Cards stay full-width inside this padding (do not stack another 12dp on cards).
+        val pageHorizontal = 12.dp
         val listContentPadding = PaddingValues(
-            start = safeInsets.calculateStartPadding(layoutDirection),
+            start = safeInsets.calculateStartPadding(layoutDirection) + pageHorizontal,
             top = innerPadding.calculateTopPadding(),
-            end = safeInsets.calculateEndPadding(layoutDirection),
+            end = safeInsets.calculateEndPadding(layoutDirection) + pageHorizontal,
             bottom = 28.dp,
         )
         val logoTop = innerPadding.calculateTopPadding() + 40.dp
@@ -453,6 +456,7 @@ private fun AboutGlassCard(
     MiuixCard(
         modifier = Modifier
             .fillMaxWidth()
+            // Horizontal edge inset comes from the list contentPadding (QuietaPage 12dp).
             .padding(bottom = 12.dp)
             .then(
                 if (backdrop != null && blurOk) {
