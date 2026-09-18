@@ -183,6 +183,9 @@ fun QuietaRoot() {
         }
     }
 
+    val channelImportViewModel: app.quieta.feature.backup.ChannelImportViewModel = viewModel()
+    val pendingOpen by PendingOpenImport.pending.collectAsStateWithLifecycle()
+
     val driver = remember { PredictiveBackDriver() }
     var layoutSize by remember { mutableStateOf(IntSize.Zero) }
     val density = LocalDensity.current
@@ -208,6 +211,31 @@ fun QuietaRoot() {
         coroutineScope.launch {
             animatePredictiveSettle(driver, driver.animation, PredictiveNavPhase.Push)
             driver.reset()
+        }
+    }
+
+    LaunchedEffect(pendingOpen) {
+        val payload = pendingOpen ?: return@LaunchedEffect
+        PendingOpenImport.consume()
+        val uri = payload.uri
+        val raw = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+        }.getOrNull()
+        when {
+            raw == null -> {
+                android.widget.Toast.makeText(context, "无法读取打开的文件", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            raw.contains("quieta-channel-snapshot") -> {
+                openSecondary("channel_import")
+                channelImportViewModel.previewFromUri(uri)
+            }
+            raw.contains("\"rules\"") -> {
+                selectedRoute = QuietaRoutes.CONFIG
+                configViewModel.previewImportRaw(raw, sourceLabel = uri.lastPathSegment ?: "规则文件")
+            }
+            else -> {
+                android.widget.Toast.makeText(context, "无法识别的 JSON（非规则或渠道快照）", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -340,6 +368,7 @@ fun QuietaRoot() {
                         onOpenSecondary = { },
                         homeViewModel = homeViewModel,
                         settingsViewModel = settingsViewModel,
+                        channelImportViewModel = channelImportViewModel,
                         homeState = homeState,
                         blurEnabled = blurEnabled,
                         quietMode = quietMode,
@@ -421,6 +450,7 @@ fun QuietaRoot() {
                     onOpenSecondary = openSecondary,
                     homeViewModel = homeViewModel,
                     settingsViewModel = settingsViewModel,
+                    channelImportViewModel = channelImportViewModel,
                     homeState = homeState,
                     blurEnabled = blurEnabled,
                     quietMode = quietMode,
@@ -678,6 +708,7 @@ private fun SecondaryPageLayer(
     onOpenSecondary: (String) -> Unit,
     homeViewModel: HomeViewModel,
     settingsViewModel: SettingsViewModel,
+    channelImportViewModel: app.quieta.feature.backup.ChannelImportViewModel,
     homeState: app.quieta.feature.home.HomeUiState,
     blurEnabled: Boolean,
     quietMode: String,
@@ -743,17 +774,16 @@ private fun SecondaryPageLayer(
             }.getOrDefault(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND),
         )
         "channel_import" -> {
-            val importViewModel: app.quieta.feature.backup.ChannelImportViewModel = viewModel()
             app.quieta.feature.backup.ChannelImportScreen(
                 privilegeReady = homeState.gate == app.quieta.feature.home.PrivilegeGate.READY &&
                     !homeState.checkingPrivilege,
                 privilegeLabel = homeState.privilege.label,
                 onBack = onBack,
                 onRequestApply = {
-                    importViewModel.applyWithBackend(homeViewModel.privilegeBackendOrNull())
+                    channelImportViewModel.applyWithBackend(homeViewModel.privilegeBackendOrNull())
                 },
                 blurEnabled = blurEnabled,
-                viewModel = importViewModel,
+                viewModel = channelImportViewModel,
             )
         }
     }

@@ -1,5 +1,7 @@
 package app.quieta
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.quieta.core.settings.AppSettings
 import app.quieta.core.settings.ThemeMode
+import app.quieta.nav.PendingOpenImport
 import app.quieta.nav.QuietaRoot
 import app.quieta.ui.theme.QuietaTheme
 import app.quieta.ui.theme.UiPaletteStyle
@@ -21,6 +24,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleOpenWith(intent)
         val settings = AppSettings(applicationContext)
         setContent {
             val mode by settings.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
@@ -55,5 +59,16 @@ class MainActivity : ComponentActivity() {
                 QuietaRoot()
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleOpenWith(intent)
+    }
+
+    private fun handleOpenWith(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val uri: Uri = intent.data ?: return
+        PendingOpenImport.offer(uri)
     }
 }
