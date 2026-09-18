@@ -15,6 +15,8 @@ import app.quieta.core.model.ChannelImportance
 import app.quieta.core.model.RuleAction
 import app.quieta.core.privilege.PrivilegeBackends
 import app.quieta.core.repo.ChannelInventoryStore
+import app.quieta.core.settings.ListenerFlagStore
+import app.quieta.service.NotificationListenerAccess
 import app.quieta.util.log.QLog
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -113,6 +115,18 @@ data class RecordSelectionUiState(
     val busy: Boolean = false,
 )
 
+data class RecordListenerHealthUiState(
+    val timelineEnabled: Boolean = false,
+    val listenerEnabled: Boolean = false,
+    val listenerConnected: Boolean = false,
+    val lastEventAt: Long = 0L,
+    val keepAliveEnabled: Boolean = false,
+) {
+    /** Soft tip when collection should run but the system binder is not live. */
+    val showGapTip: Boolean
+        get() = timelineEnabled && listenerEnabled && !listenerConnected
+}
+
 class RecordViewModel(application: Application) : AndroidViewModel(application) {
 
     private val context = application
@@ -128,6 +142,9 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     private val selectionFlow = MutableStateFlow(RecordSelectionUiState())
 
     val selection: StateFlow<RecordSelectionUiState> = selectionFlow
+
+    private val listenerHealthFlow = MutableStateFlow(RecordListenerHealthUiState())
+    val listenerHealth: StateFlow<RecordListenerHealthUiState> = listenerHealthFlow
 
     val filters: StateFlow<RecordFilters> = filtersFlow
     val displayPrefs: StateFlow<RecordDisplayPrefs> = displayFlow
@@ -173,6 +190,31 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     /** Pick up timeline rows written by the :listener process while UI was dead. */
     fun reloadTimelineFromDisk() {
         viewModelScope.launch { timelineStore.reloadFromDisk() }
+        refreshListenerHealth()
+    }
+
+    fun refreshListenerHealth() {
+        val app = context
+        val flags = ListenerFlagStore.readFlags(app)
+        val connected = NotificationListenerAccess.isConnected(app)
+        listenerHealthFlow.value = RecordListenerHealthUiState(
+            timelineEnabled = flags.timelineEnabled,
+            listenerEnabled = NotificationListenerAccess.isEnabled(app),
+            listenerConnected = connected,
+            lastEventAt = NotificationListenerAccess.lastEventAt(app),
+            keepAliveEnabled = flags.keepAliveEnabled,
+        )
+        if (!connected && flags.timelineEnabled) {
+            NotificationListenerAccess.ensureBound(app, "record_health")
+        }
+    }
+
+    fun rebindListener() {
+        NotificationListenerAccess.ensureBound(context, "record_rebind")
+        viewModelScope.launch {
+            timelineStore.reloadFromDisk()
+            refreshListenerHealth()
+        }
     }
 
     fun toggleApp(packageName: String) {

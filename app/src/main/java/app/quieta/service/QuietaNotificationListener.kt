@@ -33,6 +33,10 @@ class QuietaNotificationListener : NotificationListenerService() {
 
     override fun onCreate() {
         super.onCreate()
+        // Process cold start / re-bind: static is false until onListenerConnected.
+        // Clear the cross-process flag so UI does not trust a pre-force-stop leftover.
+        isConnected = false
+        ListenerFlagStore.markConnected(applicationContext, false)
         rules = RuleRepository.getInstance(this)
         timeline = NotificationTimelineStore.getInstance(this)
         inventory = ChannelInventoryStore.getInstance(this)
@@ -44,6 +48,7 @@ class QuietaNotificationListener : NotificationListenerService() {
         ListenerFlagStore.markConnected(applicationContext, true)
         Log.i(TAG, "listener connected process=${TimelineRecovery.currentProcessName(this)}")
         QLog.i(QLog.TAG_TIMELINE, "listener connected process=${TimelineRecovery.currentProcessName(this)}")
+        TimelineKeepAliveService.refreshStatusNotification(applicationContext)
     }
 
     override fun onListenerDisconnected() {
@@ -52,6 +57,7 @@ class QuietaNotificationListener : NotificationListenerService() {
         ListenerFlagStore.markConnected(applicationContext, false)
         Log.w(TAG, "listener disconnected")
         QLog.w(QLog.TAG_TIMELINE, "listener disconnected")
+        TimelineKeepAliveService.refreshStatusNotification(applicationContext)
         // HyperOS may unbind after process death / battery restrictions; ask to rebind.
         NotificationListenerAccess.ensureBound(applicationContext, "onListenerDisconnected")
     }
@@ -64,6 +70,9 @@ class QuietaNotificationListener : NotificationListenerService() {
         val flags = ListenerFlagStore.readFlags(this)
         if (!flags.timelineEnabled && !flags.autoMuteEnabled) return
         ListenerFlagStore.markEvent(applicationContext)
+        if (flags.keepAliveEnabled) {
+            TimelineKeepAliveService.refreshStatusNotification(applicationContext)
+        }
         val appLabel = resolveAppLabel(pkg)
         scope.launch {
             val (channelName, channelImportance) = resolveChannel(pkg, channelId)

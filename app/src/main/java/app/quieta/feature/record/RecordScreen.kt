@@ -81,6 +81,7 @@ fun RecordScreen(
     val filters by viewModel.filters.collectAsStateWithLifecycle()
     val display by viewModel.displayPrefs.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
+    val listenerHealth by viewModel.listenerHealth.collectAsStateWithLifecycle()
     val listenerContext = LocalContext.current
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -89,6 +90,18 @@ fun RecordScreen(
             listenerContext,
             "record_page",
         )
+        viewModel.refreshListenerHealth()
+    }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshListenerHealth()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     var actionTarget by remember { mutableStateOf<TimelineItem?>(null) }
@@ -146,6 +159,20 @@ fun RecordScreen(
             }
         },
     ) {
+        if (listenerHealth.showGapTip) {
+            item(key = "listener-gap-tip") {
+                Text(
+                    text = stringResource(R.string.timeline_listener_gap_tip),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.rebindListener() }
+                        .padding(vertical = 4.dp),
+                )
+            }
+        }
+
         if (display.showPrivacyNote) {
             item(key = "privacy-note") {
                 Text(

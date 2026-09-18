@@ -25,6 +25,8 @@ object ListenerFlagStore {
         val connectedAt: Long = 0L,
         val lastEventAt: Long = 0L,
         val lastCycleAt: Long = 0L,
+        /** Wall-clock when keep-alive FGS last entered foreground; 0 when not running. */
+        val keepAliveStartedAt: Long = 0L,
     )
 
     private fun flagsFile(context: Context) =
@@ -76,6 +78,7 @@ object ListenerFlagStore {
                 connectedAt = o.optLong("connectedAt", 0L),
                 lastEventAt = o.optLong("lastEventAt", 0L),
                 lastCycleAt = o.optLong("lastCycleAt", 0L),
+                keepAliveStartedAt = o.optLong("keepAliveStartedAt", 0L),
             )
         }.getOrDefault(NlsState())
     }
@@ -90,6 +93,7 @@ object ListenerFlagStore {
                     .put("connectedAt", state.connectedAt)
                     .put("lastEventAt", state.lastEventAt)
                     .put("lastCycleAt", state.lastCycleAt)
+                    .put("keepAliveStartedAt", state.keepAliveStartedAt)
                     .toString(),
             )
             if (!tmp.renameTo(file)) {
@@ -118,5 +122,15 @@ object ListenerFlagStore {
     fun markCycle(context: Context) {
         val current = readState(context)
         writeState(context, current.copy(lastCycleAt = System.currentTimeMillis()))
+    }
+
+    fun markKeepAlive(context: Context, started: Boolean) {
+        val current = readState(context)
+        writeState(
+            context,
+            current.copy(
+                keepAliveStartedAt = if (started) System.currentTimeMillis() else 0L,
+            ),
+        )
     }
 }

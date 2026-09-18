@@ -40,6 +40,8 @@ data class TimelineDiagnosticsUiState(
     val healthCheckEnabled: Boolean = false,
     val keepAliveEnabled: Boolean = false,
     val healthJobScheduled: Boolean = false,
+    val keepAliveRunning: Boolean = false,
+    val notificationsEnabled: Boolean = false,
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -153,11 +155,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             applyRecoveryFromSettings()
             if (enabled) {
                 NotificationListenerAccess.ensureBound(getApplication(), "keep_alive_on")
-                _events.emit(
-                    SettingsUiEvent.ShowMessage(
-                        "已开启后台持续采集：会显示低优先级通知并常驻监听进程，更耗电",
-                    ),
-                )
+                val app = getApplication<Application>()
+                val notificationsOn = androidx.core.app.NotificationManagerCompat.from(app).areNotificationsEnabled()
+                val listenerOn = NotificationListenerAccess.isEnabled(app)
+                val warnings = buildList {
+                    if (!listenerOn) add("尚未授予通知使用权")
+                    if (!notificationsOn) add("系统通知被关闭，前台通知可能无法显示")
+                }
+                val base = "已开启后台持续采集：会显示低优先级通知并常驻监听进程，更耗电"
+                val message = if (warnings.isEmpty()) {
+                    base + "。建议在最近任务中锁定息匣，并将电池设为无限制"
+                } else {
+                    base + "。" + warnings.joinToString("；")
+                }
+                _events.emit(SettingsUiEvent.ShowMessage(message))
             } else {
                 _events.emit(SettingsUiEvent.ShowMessage("已关闭后台持续采集"))
             }
@@ -181,6 +192,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 TimelineRecovery.syncFromSettings(app)
             }
             val flags = ListenerFlagStore.readFlags(app)
+            val state = ListenerFlagStore.readState(app)
+            val keepAliveRunning = flags.keepAliveEnabled &&
+                state.keepAliveStartedAt > 0L &&
+                TimelineRecovery.isListenerProcessAlive(app)
             _timelineDiagnostics.value = TimelineDiagnosticsUiState(
                 listenerEnabled = NotificationListenerAccess.isEnabled(app),
                 listenerConnected = NotificationListenerAccess.isConnected(app),
@@ -189,6 +204,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 healthCheckEnabled = flags.healthCheckEnabled,
                 keepAliveEnabled = flags.keepAliveEnabled,
                 healthJobScheduled = TimelineRecovery.isHealthJobScheduled(app),
+                keepAliveRunning = keepAliveRunning,
+                notificationsEnabled = androidx.core.app.NotificationManagerCompat.from(app)
+                    .areNotificationsEnabled(),
             )
         }
     }

@@ -209,7 +209,12 @@ private fun TimelineDiagnosticsCard(
     } else {
         "关闭"
     }
-    val keepAliveText = if (diagnostics.keepAliveEnabled) "开启（前台通知常驻）" else "关闭"
+    val keepAliveText = when {
+        diagnostics.keepAliveEnabled && diagnostics.keepAliveRunning -> "开启 · 监听进程运行中"
+        diagnostics.keepAliveEnabled && !diagnostics.notificationsEnabled -> "开启 · 系统通知关闭，前台通知可能不显示"
+        diagnostics.keepAliveEnabled -> "开启 · 等待系统拉起前台服务"
+        else -> "关闭"
+    }
 
     Column(
         modifier = Modifier
@@ -223,6 +228,14 @@ private fun TimelineDiagnosticsCard(
         DiagnosticsLine("上次采集", lastText)
         DiagnosticsLine("健康检查", healthText)
         DiagnosticsLine("持续采集", keepAliveText)
+        if (diagnostics.keepAliveEnabled) {
+            Text(
+                text = "建议：最近任务锁定息匣 · 电池无限制 · 允许自启动。系统仍可能结束后台，掉线时请点重新绑定。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "重新绑定",

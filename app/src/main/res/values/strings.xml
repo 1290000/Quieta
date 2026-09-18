@@ -86,4 +86,7 @@
     <string name="timeline_keepalive_channel">时间线持续采集</string>
     <string name="timeline_keepalive_title">息匣正在记录通知</string>
     <string name="timeline_keepalive_text">弱采集时间线运行中；可在设置中关闭后台持续采集</string>
+    <string name="timeline_keepalive_text_connected">监听连接中；弱采集时间线运行中</string>
+    <string name="timeline_keepalive_text_waiting">系统未连接监听，正在尝试恢复；上次采集 %1$s</string>
+    <string name="timeline_listener_gap_tip">监听未连接，最近任务可能已结束本应用，部分通知记录会缺失。</string>
 </resources>

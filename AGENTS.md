@@ -39,7 +39,7 @@
 
 **一期明确不做：** 快捷设置 Tile、桌面 Widget、平板/折叠优先布局、应用内静默强更。
 
-**已交付（摘要）：** MVP 盘点/批量静音/可选自动静音；Shizuku 盘点与 setImportance（列表路径 + create/update，K40s 25/25）；本地规则 JSON；弱采集通知时间线（包名/渠道/时间/数量，默认 7 天 / 200 条保留）；四栏 HorizontalPager 壳；关于/许可/检测更新；HyperOS 风格 UI；底栏 InstallerX 移植 + 液态玻璃（K40s/K90 观感已验收）；主页渠道列表搜索 / 筛选（含 HIGH、含 NONE、将静音）/ 排序（渠道数、名称、包名、最高级）/ App 卡折叠与展开收起（派生投影，不触发重扫）；二级页预测性返回动画严格对齐 InstallerX Revived（AOSP / Miuix / 缩放 / 经典 / 无；退出方向仅「缩放」生效，跟随手势按 swipeEdge）。**K90 Pro Max（HyperOS）时间线实时采集**：监听器解绑后由 `NotificationListenerAccess.ensureBound` 在 Application/Activity/记录页/设置开启时请求绑定；HyperOS 上仅 `requestRebind` 不足时会 **组件 disable→enable + 再次 rebind**（`QuietaNotificationListener.isConnected` 门闩，避免无意义循环）。**声音展示默认用有效声音**（`Channel.effectiveSoundEnabled`：URI 非空且 importance≥DEFAULT，MIN/LOW/NONE 不算会响），快照导入写入仍用原始 URI 字段。**未创建 GitHub Release / 未打 tag。**
+**已交付（摘要）：** MVP 盘点/批量静音/可选自动静音；Shizuku 盘点与 setImportance（列表路径 + create/update，K40s 25/25）；本地规则 JSON；弱采集通知时间线（包名/渠道/时间/数量，默认 7 天 / 200 条保留）；四栏 HorizontalPager 壳；关于/许可/检测更新；HyperOS 风格 UI；底栏 InstallerX 移植 + 液态玻璃（K40s/K90 观感已验收）；主页渠道列表搜索 / 筛选（含 HIGH、含 NONE、将静音）/ 排序（渠道数、名称、包名、最高级）/ App 卡折叠与展开收起（派生投影，不触发重扫）；二级页预测性返回动画严格对齐 InstallerX Revived（AOSP / Miuix / 缩放 / 经典 / 无；退出方向仅「缩放」生效，跟随手势按 swipeEdge）。**K90 Pro Max（HyperOS）时间线实时采集**：监听器解绑后由 `NotificationListenerAccess.ensureBound` 在 Application/Activity/记录页/设置开启时请求绑定；HyperOS 上仅 `requestRebind` 不足时会 **组件 disable→enable + 再次 rebind**（`QuietaNotificationListener.isConnected` 门闩，避免无意义循环）。**声音展示默认用有效声音**（`Channel.effectiveSoundEnabled`：URI 非空且 importance≥DEFAULT，MIN/LOW/NONE 不算会响），快照导入写入仍用原始 URI 字段。**时间线后台恢复分层（代码已交付）**：默认无常驻 + 打开/开机补绑；可选健康检查 Job（~20min，默认关）；可选「后台持续采集」FGS（`TimelineKeepAliveService`，`:listener`，specialUse，默认关，状态通知随连接刷新）；设置采集状态卡 + 重新绑定 + ROM 生存引导；记录页掉线弱提示可点补绑。**未创建 GitHub Release / 未打 tag。**
 
 **已约定、尚未完成 / 待验收（后续代理优先做）：**
 
@@ -51,6 +51,7 @@
 6. ~~**AboutLibraries 自动收集**~~ — 已完成：Gradle 插件生成 `aboutlibraries.json`，许可页读取自动依赖元数据；移植代码与架构参考使用补充条目披露。  
 7. **release 签名与首个 Release**：`signing.properties` 流程已约定，未生成正式包、未发 GitHub Release。  
 8. ~~**记录页筛选**~~ 以外的备份边界：**规则**配置页勾选/全部导出 JSON，文件导入可**合并**或**替换**；**渠道设置快照**导出/导入（`kind: "quieta-channel-snapshot"`；dry-run 后写入 **importance + 声音 + 震动 + 锁屏可见性** 并回读；系统应用默认不改；声音开启用系统默认提示音）；系统 **打开方式** 可打开规则/快照 JSON。**K40s / KernelSU** 已验收 importance 导入；**全字段写入**已实现，ROM 上 extras 未生效时报告记「仅部分字段」。其它 ROM 矩阵未覆盖。
+9. **持续采集真机验收（K40s / HyperOS）**：代码分层已交付。K40s（22021211RC，V816）已验：`pm clear` 后默认关、无 FGS；设置开启「后台持续采集」→ `:listener` FGS `isForeground=true`（id 7102）+ 诊断「开启 · 监听进程运行中」；force-stop 后进程全灭，打开 App 恢复 `keepAlive` FGS 与 NLS（`ensureBound` 不得信任 `nls_state` 残留 `connected=true`）；关闭开关后 FGS 停止、弱采集仍写时间线。**Notiflab debug 在本机被 HyperOS 置整包 `importance=NONE`**，需用户在系统通知设置打开后才能作噪音源；验收以 dumpsys/回读 flags 为准。其它 ROM 未覆盖。不宣称 LSP 级「杀不死」。
 
 **一期关于页必做：** 展示应用名与作者；「查看源代码」跳转本应用仓库；「检测更新」手动检查 GitHub Release（可打开最新页，不做静默下载/强制安装）。
 
@@ -195,7 +196,7 @@ core/rom/
 
 | ROM | 注意点 |
 |-----|--------|
-| HyperOS / MIUI | 纯净模式、未知来源；引导安装与风险拦截。**时间线**：force-stop/最近任务划掉后系统 Live listener 掉线且不自动 rebind；打开 App 的 `requestRebind` + 进程已死时的 component cycle 可恢复。侧载 debug 可能被 ROM 置 `importance=NONE`（Notiflab/息匣通知均需用户在系统里打开）。**specialUse FGS** 后台 `startForeground` 可能被拒，须用户在设置中开启且应用通知权限可用 |
+| HyperOS / MIUI | 纯净模式、未知来源；引导安装与风险拦截。**时间线**：force-stop/最近任务划掉后系统 Live listener 掉线且不自动 rebind；打开 App 的 `requestRebind` + 进程已死时的 component cycle 可恢复；`ensureBound` 跳过条件只认进程内 `QuietaNotificationListener.isConnected`，**不得**因 `nls_state.json` 残留 `connected=true` + 新起 `:listener` 进程而跳过。侧载 debug 可能被 ROM 置 `importance=NONE`（Notiflab/息匣通知均需用户在系统里打开）。**specialUse FGS** 后台 `startForeground` 可能被拒，须用户在设置中开启且应用通知权限可用 |
 | OPPO / 一加 ColorOS | 自启动、关联启动；系统级通知类别可能覆盖渠道设置 |
 | vivo OriginOS | 后台限制严；采集降频、前台服务约束 |
 | 荣耀 MagicOS | 权限偏紧；不可用则明确仅引导模式 |
@@ -367,6 +368,7 @@ core/rom/
 | 自动拦截可选 | 「新渠道自动静音」默认关；开启后才加强监听逻辑 |
 | 时间线弱采集 | 默认只记包名/渠道/时间/条数，不记正文；滚动保留（如 7 天或上限 N 条） |
 | 时间线后台恢复 | 默认打开 App 补绑 + 开机/覆盖安装一次性 rebind；健康检查 Job 与持续采集 FGS **默认关**，仅用户显式开启；HyperOS `cycleComponent` 限频 ≥30min，**但 listener 进程已死（force-stop/划掉）时允许立刻 cycle**；`isConnected` 不得只信 `nls_state.json` 残留，须校验 `:listener` 进程存活；监听在 `:listener` 进程，跨进程状态用文件而非 DataStore/静态变量 |
+| 持续采集 FGS | 仅用户显式开启；跑在 `:listener`；specialUse + IMPORTANCE_MIN 低优先级通知；状态通知随 NLS 连接/掉线刷新；`startForeground` 失败必须 `stopSelf`（HyperOS 可能拒绝）；`onTaskRemoved` 后尝试 rebind/再拉起；FGS 内禁止轮询扫描渠道/通知正文；关闭开关后停 Job/停 FGS |
 | Shizuku 生命周期 | 用时绑定，不用可断开；不在 Application 常连接 |
 | 批量操作 | 协程限流分批调 Binder；可取消；失败记日志不无限重试 |
 | UI | 列表稳定 key、Paging、避免 item 内 IO；玻璃 shader 尺寸不变不重编译 |

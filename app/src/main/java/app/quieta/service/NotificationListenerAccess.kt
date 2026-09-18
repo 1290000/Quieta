@@ -42,6 +42,10 @@ object NotificationListenerAccess {
      * Listener process writes [ListenerFlagStore.NlsState]; UI may be another process.
      * Force-stop/swipe-kill never runs onListenerDisconnected — a stale `connected=true`
      * file must not skip rebind, so also require the `:listener` process to be alive.
+     *
+     * Display-only: [ensureBound] treats the in-process static as authoritative for
+     * skip decisions because a newly spawned `:listener` can outlive a stale file
+     * without yet holding the system NLS binder.
      */
     fun isConnected(context: Context? = null): Boolean {
         if (QuietaNotificationListener.isConnected) return true
@@ -60,7 +64,10 @@ object NotificationListenerAccess {
             QLog.d(QLog.TAG_TIMELINE, "rebind skipped ($reason): listener not enabled")
             return
         }
-        if (isConnected(app)) {
+        // Skip only on a live binder callback in this process. After force-stop the
+        // nls_state.json file stays `connected=true` while the new :listener process
+        // has not been bound yet — trusting that file freezes the timeline on HyperOS.
+        if (QuietaNotificationListener.isConnected) {
             QLog.d(QLog.TAG_TIMELINE, "rebind skipped ($reason): already connected")
             return
         }
@@ -74,7 +81,7 @@ object NotificationListenerAccess {
         }
         Handler(Looper.getMainLooper()).postDelayed({
             try {
-                if (!isConnected(app)) {
+                if (!QuietaNotificationListener.isConnected) {
                     if (TimelineRecovery.canCycleComponent(app)) {
                         cycleComponent(app, cn, reason)
                     } else {
