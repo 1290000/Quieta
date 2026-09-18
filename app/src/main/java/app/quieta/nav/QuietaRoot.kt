@@ -430,10 +430,14 @@ private fun MainPagerLayer(
         }
         LaunchedEffect(pagerState) {
             snapshotFlow { pagerState.currentPage }.collect { page ->
-                mainPagerState.syncPage()
-                val route = tabRoutes.getOrNull(page)
-                if (route != null && route != selectedRoute) {
-                    onSelectedRouteChange(route)
+                // InstallerX: sync MainPagerState from pager page, but never while
+                // animateToPage owns the selection — mid-scroll updates desync the bar.
+                if (!mainPagerState.isNavigating) {
+                    mainPagerState.syncPage()
+                    val route = tabRoutes.getOrNull(page)
+                    if (route != null && route != selectedRoute) {
+                        onSelectedRouteChange(route)
+                    }
                 }
             }
         }
@@ -495,7 +499,11 @@ private fun MainPagerLayer(
             if (!multiSelect) {
                 FloatingBottomBar(
                     tabs = tabs,
-                    selectedRoute = tabRoutes[pagerState.currentPage.coerceIn(0, tabRoutes.lastIndex)],
+                    // InstallerX: bind the bar to MainPagerState.selectedPage (target), not
+                    // pager.currentPage (mid-scroll), so the pill never lags or double-jumps.
+                    selectedRoute = tabRoutes[
+                        mainPagerState.selectedPage.coerceIn(0, tabRoutes.lastIndex),
+                    ],
                     onTabSelected = { route ->
                         onSelectedRouteChange(route)
                         mainPagerState.animateToPage(tabRoutes.indexOf(route).coerceAtLeast(0))
