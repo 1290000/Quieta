@@ -46,7 +46,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
@@ -54,6 +53,7 @@ import app.quieta.core.model.Rule
 import app.quieta.core.model.RuleAction
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.QuietaSwitch
+import app.quieta.ui.component.QuietaWindowDialog
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -232,53 +232,33 @@ private fun PackImportDialog(
     onReplace: () -> Unit,
 ) {
     var confirmReplace by remember { mutableStateOf(false) }
-    Dialog(onDismissRequest = onDismiss) {
+    // InstallerX MiuixDialog: miuix WindowDialog + option Card + bottom cancel.
+    QuietaWindowDialog(
+        show = true,
+        onDismissRequest = onDismiss,
+        title = preview.packTitle,
+        summary = "新增 ${preview.addCount} · 跳过 ${preview.skipCount} · 保留现有 ${preview.keepCount}",
+        cancelText = "取消",
+    ) {
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 4.dp, top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(vertical = 8.dp),
-                    ) {
-                        Text(preview.packTitle, style = MiuixTheme.textStyles.title4)
-                        Text(
-                            text = "新增 ${preview.addCount} · 跳过 ${preview.skipCount} · 保留现有 ${preview.keepCount}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Outlined.Close, contentDescription = "关闭")
-                    }
-                }
-                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                    Column {
-                        BasicComponent(
-                            title = "合并导入",
-                            summary = "只追加新规则，不删除现有规则（推荐）",
-                            onClick = onMerge,
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            thickness = 0.5.dp,
-                            color = MiuixTheme.colorScheme.dividerLine,
-                        )
-                        BasicComponent(
-                            title = if (confirmReplace) "再次点击确认替换" else "替换全部（危险）",
-                            summary = "删除全部现有规则，仅保留本规则包",
-                            onClick = {
-                                if (confirmReplace) onReplace() else confirmReplace = true
-                            },
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
+                BasicComponent(
+                    title = "合并导入",
+                    summary = "只追加新规则，不删除现有规则（推荐）",
+                    onClick = onMerge,
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    thickness = 0.5.dp,
+                    color = MiuixTheme.colorScheme.dividerLine,
+                )
+                BasicComponent(
+                    title = if (confirmReplace) "再次点击确认替换" else "替换全部（危险）",
+                    summary = "删除全部现有规则，仅保留本规则包",
+                    onClick = {
+                        if (confirmReplace) onReplace() else confirmReplace = true
+                    },
+                )
             }
         }
     }
@@ -580,52 +560,41 @@ private fun RuleRow(
     }
 
     if (showSamples && hitStat != null) {
-        Dialog(onDismissRequest = { showSamples = false }) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 4.dp, top = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "命中样本 ${hitStat.samples.size} 条",
-                            style = MiuixTheme.textStyles.title4,
-                            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
-                        )
-                        IconButton(onClick = { showSamples = false }) {
-                            Icon(Icons.Outlined.Close, contentDescription = "关闭")
-                        }
-                    }
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (hitStat.broadKeyword && rule.action != RuleAction.KEEP) {
+        QuietaWindowDialog(
+            show = true,
+            onDismissRequest = { showSamples = false },
+            title = "命中样本 ${hitStat.samples.size} 条",
+            cancelText = "关闭",
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (hitStat.broadKeyword && rule.action != RuleAction.KEEP) {
+                    Text(
+                        text = "关键词过宽，可能误伤物流/客服/系统渠道。",
+                        style = MiuixTheme.textStyles.body2,
+                        color = Color(0xFFB45309),
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    hitStat.samples.forEach { sample ->
+                        Column {
+                            Text(sample.appLabel, style = MiuixTheme.textStyles.body2)
                             Text(
-                                text = "关键词过宽，可能误伤物流/客服/系统渠道。",
-                                style = MiuixTheme.textStyles.body2,
-                                color = Color(0xFFB45309),
+                                text = sample.channelName + " (" + sample.channelId + ")",
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 360.dp)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            hitStat.samples.forEach { sample ->
-                                Column {
-                                    Text(sample.appLabel, style = MiuixTheme.textStyles.body2)
-                                    Text(
-                                        text = sample.channelName + " (" + sample.channelId + ")",
-                                        style = MiuixTheme.textStyles.footnote2,
-                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                    )
-                                }
-                            }
-                        }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }

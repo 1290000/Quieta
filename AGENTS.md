@@ -326,6 +326,7 @@ core/rom/
 | 可发现操作入口 | 图标：筛选 `Tune`、更多 `MoreVert`、刷新 `Refresh`、撤销 `Undo`、多选 `Checklist`、关闭 `Close` |
 | 轻量选择（筛选/排序/显示/渠道动作） | `HyperOsPopup`：`IntrinsicSize.Max` + `widthIn(max=280)`，**禁止**写死满宽；圆角 22dp；行 bodyLarge 16sp、垂直 12dp；Check 右缘对齐；点外/返回关闭；弹层内不放 Switch、不放底部主按钮 |
 | 全屏/长表单（规则新增·编辑） | `QuietaPage` + 大标题；导航 `Close`、动作 `Check`（可用时 primary）；字段独立 miuix `TextField`（垂直 6dp，**不要**再套 Card）；`SmallTitle` 分区 + 一张 Card 多行；单选动作用 Check，不用 Switch |
+| 确认 / 选项 / 样本列表 | miuix `WindowDialog`（`ui/component/QuietaWindowDialog`，InstallerX `MiuixDialog`）：标题 + summary + 内容 Card/列表 + 底部 `TextButton`；**禁止**裸 `androidx.compose.ui.window.Dialog` + 自绘 Close 标题栏 |
 | 静音预览等确认页 | 顶部说明卡 + 写入范围单选组（`BasicComponent` + 圆形 `Checkbox`）+ 底部全宽 miuix `Button` |
 | 对话框（规则包导入等） | 右上 `Close`；选项用 `BasicComponent`；危险操作二次点击确认，不用双 TextButton |
 
