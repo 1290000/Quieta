@@ -195,7 +195,7 @@ core/rom/
 
 | ROM | 注意点 |
 |-----|--------|
-| 小米 HyperOS / MIUI | 纯净模式、未知来源；引导安装与风险拦截 |
+| HyperOS / MIUI | 纯净模式、未知来源；引导安装与风险拦截。**时间线**：force-stop/最近任务划掉后系统 Live listener 掉线且不自动 rebind；打开 App 的 `requestRebind` + 进程已死时的 component cycle 可恢复。侧载 debug 可能被 ROM 置 `importance=NONE`（Notiflab/息匣通知均需用户在系统里打开）。**specialUse FGS** 后台 `startForeground` 可能被拒，须用户在设置中开启且应用通知权限可用 |
 | OPPO / 一加 ColorOS | 自启动、关联启动；系统级通知类别可能覆盖渠道设置 |
 | vivo OriginOS | 后台限制严；采集降频、前台服务约束 |
 | 荣耀 MagicOS | 权限偏紧；不可用则明确仅引导模式 |
@@ -366,7 +366,7 @@ core/rom/
 | Binder 限流 | 盘点并发 ≤ 6；每 20 个包渐进刷新 UI，禁止数百路并行 Shizuku 调用 |
 | 自动拦截可选 | 「新渠道自动静音」默认关；开启后才加强监听逻辑 |
 | 时间线弱采集 | 默认只记包名/渠道/时间/条数，不记正文；滚动保留（如 7 天或上限 N 条） |
-| 时间线后台恢复 | 默认打开 App 补绑 + 开机/覆盖安装一次性 rebind；健康检查 Job 与持续采集 FGS **默认关**，仅用户显式开启；HyperOS `cycleComponent` 限频 ≥30min，禁止每次 disconnect 都 cycle；监听在 `:listener` 进程，跨进程状态用文件而非 DataStore/静态变量 |
+| 时间线后台恢复 | 默认打开 App 补绑 + 开机/覆盖安装一次性 rebind；健康检查 Job 与持续采集 FGS **默认关**，仅用户显式开启；HyperOS `cycleComponent` 限频 ≥30min，**但 listener 进程已死（force-stop/划掉）时允许立刻 cycle**；`isConnected` 不得只信 `nls_state.json` 残留，须校验 `:listener` 进程存活；监听在 `:listener` 进程，跨进程状态用文件而非 DataStore/静态变量 |
 | Shizuku 生命周期 | 用时绑定，不用可断开；不在 Application 常连接 |
 | 批量操作 | 协程限流分批调 Binder；可取消；失败记日志不无限重试 |
 | UI | 列表稳定 key、Paging、避免 item 内 IO；玻璃 shader 尺寸不变不重编译 |

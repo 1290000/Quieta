@@ -40,11 +40,14 @@ object NotificationListenerAccess {
     /**
      * True when a live NLS binder callback exists.
      * Listener process writes [ListenerFlagStore.NlsState]; UI may be another process.
+     * Force-stop/swipe-kill never runs onListenerDisconnected — a stale `connected=true`
+     * file must not skip rebind, so also require the `:listener` process to be alive.
      */
     fun isConnected(context: Context? = null): Boolean {
         if (QuietaNotificationListener.isConnected) return true
         val app = context?.applicationContext ?: return false
-        return ListenerFlagStore.readState(app).connected
+        if (!ListenerFlagStore.readState(app).connected) return false
+        return TimelineRecovery.isListenerProcessAlive(app)
     }
 
     fun lastEventAt(context: Context): Long = ListenerFlagStore.readState(context).lastEventAt

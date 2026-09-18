@@ -37,6 +37,13 @@ object TimelineRecovery {
     fun isListenerProcess(context: Context): Boolean =
         currentProcessName(context).endsWith(LISTENER_PROCESS_SUFFIX)
 
+    /** Own package `:listener` process must be running for a stale NLS flag to count. */
+    fun isListenerProcessAlive(context: Context): Boolean {
+        val target = context.applicationContext.packageName + LISTENER_PROCESS_SUFFIX
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
+        return am.runningAppProcesses?.any { it.processName == target } == true
+    }
+
     fun currentProcessName(context: Context): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             return ApplicationProcessName.get()
@@ -51,6 +58,9 @@ object TimelineRecovery {
     }
 
     fun canCycleComponent(context: Context): Boolean {
+        // Force-stop/swipe-kill leaves no listener process; HyperOS often needs a
+        // component cycle immediately — do not rate-limit that case.
+        if (!isListenerProcessAlive(context)) return true
         val last = ListenerFlagStore.readState(context).lastCycleAt
         return last <= 0L || System.currentTimeMillis() - last >= CYCLE_MIN_INTERVAL_MS
     }
