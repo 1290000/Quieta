@@ -8,9 +8,11 @@ import org.json.JSONObject
 object RuleJson {
     const val SCHEMA_VERSION = 2
 
-    fun encode(rules: List<Rule>): String {
+    fun encode(rules: List<Rule>, exportedAt: String? = null): String {
         val root = JSONObject()
         root.put("schemaVersion", SCHEMA_VERSION)
+        root.put("kind", "rules")
+        if (exportedAt != null) root.put("exportedAt", exportedAt)
         val arr = JSONArray()
         rules.forEach { rule ->
             arr.put(

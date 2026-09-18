@@ -28,10 +28,43 @@ class RuleRepository private constructor(context: Context) {
 
     suspend fun update(transform: (List<Rule>) -> List<Rule>) = storage.update(transform)
 
-    suspend fun importFrom(raw: String): List<Rule> = withContext(Dispatchers.IO) {
-        val rules = RuleJson.decode(raw)
-        replaceAll(rules)
-        rules
+    /** Decode without writing; UI previews merge/replace before commit. */
+    suspend fun decodeRules(raw: String): List<Rule> = withContext(Dispatchers.IO) {
+        RuleJson.decode(raw)
+    }
+
+    /**
+     * MERGE: append ids not already present (default recommended path).
+     * REPLACE: wipe local rules and load the incoming list only.
+     */
+    suspend fun importFrom(raw: String, mode: RuleImportMode = RuleImportMode.REPLACE): List<Rule> =
+        withContext(Dispatchers.IO) {
+            val incoming = RuleJson.decode(raw)
+            when (mode) {
+                RuleImportMode.REPLACE -> {
+                    replaceAll(incoming)
+                    incoming
+                }
+                RuleImportMode.MERGE -> {
+                    val before = current()
+                    val merged = RuleImportPlanner.merge(before, incoming)
+                    replaceAll(merged)
+                    // Newly appended rules (present after merge, not before).
+                    val existing = before.map { it.id }.toSet()
+                    merged.filterNot { it.id in existing }
+                }
+            }
+        }
+
+    suspend fun importMerge(incoming: List<Rule>): Int {
+        val before = current()
+        val merged = RuleImportPlanner.merge(before, incoming)
+        replaceAll(merged)
+        return merged.size - before.size
+    }
+
+    suspend fun importReplace(incoming: List<Rule>) {
+        replaceAll(incoming)
     }
 
     suspend fun exportTo(): String = withContext(Dispatchers.IO) {

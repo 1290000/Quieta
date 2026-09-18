@@ -92,9 +92,9 @@ fun SettingsScreen(
             SectionTitle("备份与还原")
             SettingsGroup {
                 NavRow(
-                    title = "导出规则",
-                    subtitle = "在配置页分享 JSON 备份",
-                    onClick = { /* config tab */ },
+                    title = "导出 / 导入规则",
+                    subtitle = "配置页：勾选导出 JSON；导入支持合并或替换",
+                    onClick = { /* config tab owns the real entry */ },
                 )
             }
         }

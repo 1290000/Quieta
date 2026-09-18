@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.South
 import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +60,7 @@ import app.quieta.R
 import app.quieta.core.settings.PredictiveBackAnimation
 import app.quieta.feature.config.ConfigRuleEditorScreen
 import app.quieta.feature.config.ConfigScreen
+import app.quieta.feature.config.ConfigUiEvent
 import app.quieta.feature.config.ConfigViewModel
 import app.quieta.feature.home.HomeScreen
 import app.quieta.feature.home.HomeViewModel
@@ -109,6 +111,7 @@ fun QuietaRoot() {
     val homeViewModel: HomeViewModel = viewModel()
     val recordViewModel: RecordViewModel = viewModel()
     val settingsViewModel: SettingsViewModel = viewModel()
+    val configViewModel: ConfigViewModel = viewModel()
     val context = LocalContext.current
     val pageStateHolder = rememberSaveableStateHolder()
     val coroutineScope = rememberCoroutineScope()
@@ -139,6 +142,20 @@ fun QuietaRoot() {
     val secondary = secondaryStack.lastOrNull()
     val homeState by homeViewModel.state.collectAsStateWithLifecycle()
     val recordSelection by recordViewModel.selection.collectAsStateWithLifecycle()
+    val configState by configViewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(configViewModel) {
+        configViewModel.events.collect { event ->
+            when (event) {
+                is ConfigUiEvent.ShareRules -> {
+                    runCatching { context.startActivity(event.intent) }
+                }
+                is ConfigUiEvent.ShowError -> {
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     val driver = remember { PredictiveBackDriver() }
     var layoutSize by remember { mutableStateOf(IntSize.Zero) }
@@ -280,8 +297,10 @@ fun QuietaRoot() {
                         homeViewModel = homeViewModel,
                         recordViewModel = recordViewModel,
                         settingsViewModel = settingsViewModel,
+                        configViewModel = configViewModel,
                         homeState = homeState,
                         recordSelection = recordSelection,
+                        configState = configState,
                         blurEnabled = blurEnabled,
                         quietMode = quietMode,
                         onQuietModeChange = { quietMode = it },
@@ -393,8 +412,10 @@ private fun MainPagerLayer(
     homeViewModel: HomeViewModel,
     recordViewModel: RecordViewModel,
     settingsViewModel: SettingsViewModel,
+    configViewModel: ConfigViewModel,
     homeState: app.quieta.feature.home.HomeUiState,
     recordSelection: app.quieta.feature.record.RecordSelectionUiState,
+    configState: app.quieta.feature.config.ConfigUiState,
     blurEnabled: Boolean,
     quietMode: String,
     onQuietModeChange: (String) -> Unit,
@@ -441,7 +462,7 @@ private fun MainPagerLayer(
                 }
             }
         }
-        val multiSelect = homeState.selectionMode || recordSelection.mode
+        val multiSelect = homeState.selectionMode || recordSelection.mode || configState.selectionMode
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
@@ -467,7 +488,6 @@ private fun MainPagerLayer(
                             blurEnabled = blurEnabled,
                         )
                         QuietaRoutes.CONFIG -> {
-                            val configViewModel: ConfigViewModel = viewModel()
                             ConfigScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 blurEnabled = blurEnabled,
@@ -551,6 +571,25 @@ private fun MainPagerLayer(
                             onClick = {
                                 homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.KEEP)
                             },
+                        ),
+                    ),
+                )
+            } else if (configState.selectionMode) {
+                val selectionEnabled = configState.selectedRuleIds.isNotEmpty()
+                FloatingSelectionBar(
+                    countLabel = "已选 ${configState.selectedRuleIds.size}",
+                    busy = false,
+                    mode = mode,
+                    backdrop = pageBackdrop,
+                    modifier = bottomBarModifier,
+                    actions = listOf(
+                        FloatingSelectionAction(
+                            id = "export",
+                            label = "导出",
+                            icon = Icons.Outlined.Share,
+                            enabled = selectionEnabled,
+                            emphasized = true,
+                            onClick = { configViewModel.exportAndShare(onlySelected = true) },
                         ),
                     ),
                 )

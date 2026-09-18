@@ -1,20 +1,30 @@
 package app.quieta.feature.config
 
 import android.app.Application
+import android.content.Intent
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import app.quieta.core.engine.RuleHitStat
 import app.quieta.core.engine.RuleHitAnalyzer
-import app.quieta.core.model.AppChannels
+import app.quieta.core.engine.RuleHitStat
 import app.quieta.core.model.Rule
 import app.quieta.core.model.RuleAction
 import app.quieta.core.repo.ChannelInventoryStore
+import app.quieta.core.repo.RuleImportPlanner
+import app.quieta.core.repo.RuleJson
 import app.quieta.core.repo.RuleRepository
 import app.quieta.core.repo.editRule
+import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
@@ -32,14 +42,16 @@ data class RuleDraft(
     val action: RuleAction = RuleAction.MUTE,
 )
 
-data class PackImportPreview(
-    val packId: String,
-    val packTitle: String,
+/** Shared preview for preset packs and user-selected rule JSON files. */
+data class RuleImportPreview(
+    val title: String,
     val addCount: Int,
     val skipCount: Int,
     val keepCount: Int,
-    /** Pack rules that will be appended on merge. */
+    /** Ids not present locally — what merge will append. */
     val pendingRules: List<Rule>,
+    /** Full decoded list — what replace will install. */
+    val incomingRules: List<Rule>,
 )
 
 data class ConfigUiState(
@@ -50,8 +62,15 @@ data class ConfigUiState(
     val editorOpen: Boolean = false,
     val editingRuleId: String? = null,
     val draft: RuleDraft = RuleDraft(),
-    val packPreview: PackImportPreview? = null,
+    val importPreview: RuleImportPreview? = null,
+    val selectionMode: Boolean = false,
+    val selectedRuleIds: Set<String> = emptySet(),
 )
+
+sealed interface ConfigUiEvent {
+    data class ShareRules(val intent: Intent) : ConfigUiEvent
+    data class ShowError(val message: String) : ConfigUiEvent
+}
 
 class ConfigViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -60,6 +79,9 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _state = MutableStateFlow(ConfigUiState())
     val state: StateFlow<ConfigUiState> = _state.asStateFlow()
+
+    private val _events = MutableSharedFlow<ConfigUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<ConfigUiEvent> = _events.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -75,6 +97,7 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
                         rules = rules,
                         hitStats = stats,
                         inventoryReady = apps.isNotEmpty(),
+                        selectedRuleIds = it.selectedRuleIds.filter { id -> rules.any { r -> r.id == id } }.toSet(),
                     )
                 }
             }
@@ -93,12 +116,14 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
     )
 
     fun openAddRule() {
+        exitSelection()
         _state.update {
             it.copy(editorOpen = true, editingRuleId = null, draft = RuleDraft(), message = null)
         }
     }
 
     fun openEditRule(rule: Rule) {
+        exitSelection()
         _state.update {
             it.copy(editorOpen = true, editingRuleId = rule.id, draft = draftOf(rule), message = null)
         }
@@ -155,46 +180,102 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun enterSelection() {
+        _state.update { it.copy(selectionMode = true, selectedRuleIds = emptySet()) }
+    }
+
+    fun exitSelection() {
+        _state.update { it.copy(selectionMode = false, selectedRuleIds = emptySet()) }
+    }
+
+    fun toggleRuleSelection(id: String) {
+        _state.update { state ->
+            if (!state.selectionMode) state
+            else {
+                val next = if (id in state.selectedRuleIds) {
+                    state.selectedRuleIds - id
+                } else {
+                    state.selectedRuleIds + id
+                }
+                state.copy(selectedRuleIds = next)
+            }
+        }
+    }
+
+    fun selectAllRules() {
+        _state.update { state ->
+            if (!state.selectionMode) state
+            else state.copy(selectedRuleIds = state.rules.map { it.id }.toSet())
+        }
+    }
+
+    fun clearSelection() {
+        _state.update { it.copy(selectedRuleIds = emptySet()) }
+    }
+
     fun previewPresetPack(packId: String) {
         viewModelScope.launch {
             runCatching {
                 val pack = app.quieta.core.repo.RulePresetPacks.requirePack(packId)
-                val packRules = app.quieta.core.repo.RulePresetPacks.decodeRules(pack)
-                val existingIds = _state.value.rules.map { it.id }.toSet()
-                val pending = packRules.filterNot { it.id in existingIds }
-                val skip = packRules.size - pending.size
-                _state.update {
-                    it.copy(
-                        packPreview = PackImportPreview(
-                            packId = pack.id,
-                            packTitle = pack.title,
-                            addCount = pending.size,
-                            skipCount = skip,
-                            keepCount = _state.value.rules.size,
-                            pendingRules = pending,
-                        ),
-                    )
-                }
+                val incoming = app.quieta.core.repo.RulePresetPacks.decodeRules(pack)
+                presentImportPreview(title = pack.title, incoming = incoming)
             }.onFailure { e ->
                 _state.update { it.copy(message = "读取规则包失败：${e.message}") }
             }
         }
     }
 
-    fun dismissPackPreview() {
-        _state.update { it.copy(packPreview = null) }
-    }
-
-    /** Default: merge — keep all current rules, append only new pack ids. */
-    fun confirmMergePresetPack() {
-        val preview = _state.value.packPreview ?: return
+    /** Open file-chosen rules JSON (subset export or full backup) into merge/replace dialog. */
+    fun previewImportRaw(raw: String, sourceLabel: String = "规则文件") {
         viewModelScope.launch {
             runCatching {
-                repo.update { current -> current + preview.pendingRules }
+                val incoming = repo.decodeRules(raw)
+                if (incoming.isEmpty()) {
+                    _state.update { it.copy(message = "文件中没有可导入的规则") }
+                    return@runCatching
+                }
+                presentImportPreview(title = sourceLabel, incoming = incoming)
+            }.onFailure { e ->
+                _state.update { it.copy(message = "读取规则失败：${e.message}") }
+            }
+        }
+    }
+
+    private suspend fun presentImportPreview(title: String, incoming: List<Rule>) {
+        val existing = repo.current()
+        val snapshot = RuleImportPlanner.snapshot(
+            existingIds = existing.map { it.id }.toSet(),
+            existingCount = existing.size,
+            incoming = incoming,
+        )
+        _state.update {
+            it.copy(
+                importPreview = RuleImportPreview(
+                    title = title,
+                    addCount = snapshot.addCount,
+                    skipCount = snapshot.skipCount,
+                    keepCount = snapshot.keepCount,
+                    pendingRules = snapshot.pending,
+                    incomingRules = snapshot.incoming,
+                ),
+            )
+        }
+    }
+
+    fun dismissImportPreview() {
+        _state.update { it.copy(importPreview = null) }
+    }
+
+    /** Default: merge — keep current rules, append only new ids. */
+    fun confirmMergeImport() {
+        val preview = _state.value.importPreview ?: return
+        viewModelScope.launch {
+            runCatching {
+                val added = repo.importMerge(preview.incomingRules)
                 _state.update {
                     it.copy(
-                        packPreview = null,
-                        message = "已合并导入「${preview.packTitle}」：新增 ${preview.addCount}，跳过 ${preview.skipCount}",
+                        importPreview = null,
+                        message = "已合并导入「${preview.title}」：新增 $added，跳过 ${preview.incomingRules.size - added}",
                     )
                 }
             }.onFailure { e ->
@@ -203,18 +284,17 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /** Dangerous: wipe user rules and load pack only. UI must confirm twice. */
-    fun confirmReplacePresetPack() {
-        val preview = _state.value.packPreview ?: return
+    /** Dangerous: wipe local rules and keep only the incoming list. UI must confirm twice. */
+    fun confirmReplaceImport() {
+        val preview = _state.value.importPreview ?: return
         viewModelScope.launch {
             runCatching {
-                val pack = app.quieta.core.repo.RulePresetPacks.requirePack(preview.packId)
-                val rules = app.quieta.core.repo.RulePresetPacks.decodeRules(pack)
-                repo.replaceAll(rules)
+                repo.importReplace(preview.incomingRules)
+                exitSelection()
                 _state.update {
                     it.copy(
-                        packPreview = null,
-                        message = "已替换为规则包「${preview.packTitle}」（${rules.size} 条）",
+                        importPreview = null,
+                        message = "已替换为「${preview.title}」（${preview.incomingRules.size} 条）",
                     )
                 }
             }.onFailure { e ->
@@ -237,25 +317,80 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun exportJson(): String = RuleJsonSafe.encode(_state.value.rules)
+    /** Encode selected subset, or all rules when [onlySelected] is false. */
+    fun exportJson(onlySelected: Boolean = false): String {
+        val state = _state.value
+        val payload = if (onlySelected && state.selectionMode) {
+            state.rules.filter { it.id in state.selectedRuleIds }
+        } else {
+            state.rules
+        }
+        return RuleJson.encode(
+            payload,
+            exportedAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now()),
+        )
+    }
 
-    fun importJson(raw: String) {
+    /**
+     * Write export JSON to cache and emit a share sheet Intent.
+     * [onlySelected] uses multi-select ids; otherwise exports every rule.
+     */
+    fun exportAndShare(onlySelected: Boolean) {
         viewModelScope.launch {
             runCatching {
-                val rules = repo.importFrom(raw)
-                _state.update { it.copy(message = "已导入 ${rules.size} 条规则") }
+                val state = _state.value
+                val payload = if (onlySelected && state.selectionMode) {
+                    state.rules.filter { it.id in state.selectedRuleIds }
+                } else {
+                    state.rules
+                }
+                if (payload.isEmpty()) {
+                    _state.update { it.copy(message = "没有可导出的规则") }
+                    return@runCatching
+                }
+                val json = RuleJson.encode(
+                    payload,
+                    exportedAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now()),
+                )
+                val file = withContext(Dispatchers.IO) {
+                    val dir = File(getApplication<Application>().cacheDir, "rule_exports").apply { mkdirs() }
+                    val stamp = DateTimeFormatter.ofPattern("yyMMdd-HHmm")
+                        .withZone(ZoneId.systemDefault())
+                        .format(Instant.now())
+                    val target = File(dir, "quieta-rules-$stamp-${payload.size}.json")
+                    target.writeText(json)
+                    target
+                }
+                val app = getApplication<Application>()
+                val uri = FileProvider.getUriForFile(
+                    app,
+                    app.packageName + ".fileprovider",
+                    file,
+                )
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/json"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_SUBJECT, "Quieta rules x${payload.size}")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                _events.emit(ConfigUiEvent.ShareRules(Intent.createChooser(intent, "导出规则")))
+                if (onlySelected && state.selectionMode) {
+                    _state.update {
+                        it.copy(message = "已导出 ${payload.size} 条规则", selectionMode = false, selectedRuleIds = emptySet())
+                    }
+                } else {
+                    _state.update { it.copy(message = "已导出 ${payload.size} 条规则") }
+                }
             }.onFailure { e ->
-                _state.update { it.copy(message = "导入失败：${e.message}") }
+                _events.emit(ConfigUiEvent.ShowError(e.message ?: "导出失败"))
             }
         }
     }
 
+    /** Kept for tests / non-UI callers that only need the JSON string. */
+    fun exportSelectedIds(): Set<String> = _state.value.selectedRuleIds
+
     fun clearMessage() {
         _state.update { it.copy(message = null) }
     }
-}
-
-/** Thin wrapper so UI does not depend on org.json types directly. */
-private object RuleJsonSafe {
-    fun encode(rules: List<Rule>): String = app.quieta.core.repo.RuleJson.encode(rules)
 }

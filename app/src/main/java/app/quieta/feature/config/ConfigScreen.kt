@@ -1,5 +1,8 @@
 package app.quieta.feature.config
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +14,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
@@ -25,25 +27,28 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,10 +56,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.quieta.R
 import app.quieta.core.model.Rule
 import app.quieta.core.model.RuleAction
+import app.quieta.ui.component.HyperOsPopup
+import app.quieta.ui.component.HyperOsPopupRow
 import app.quieta.ui.component.QuietaPage
 import app.quieta.ui.component.QuietaSwitch
 import app.quieta.ui.component.QuietaWindowDialog
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -75,15 +81,74 @@ fun ConfigScreen(
     onOpenEditor: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var showMoreMenu by rememberSaveable { mutableStateOf(false) }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            val raw = context.contentResolver.openInputStream(uri)
+                ?.use { stream -> stream.readBytes().decodeToString() }
+            if (raw.isNullOrBlank()) {
+                return@runCatching
+            }
+            val label = uri.lastPathSegment?.substringAfterLast('/') ?: "规则文件"
+            viewModel.previewImportRaw(raw, sourceLabel = label)
+        }.onFailure {
+            // Message handled below when preview fails; catch decode path in ViewModel.
+        }
+    }
+
+    if (state.selectionMode) {
+        BackHandler { viewModel.exitSelection() }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         QuietaPage(
-            title = stringResource(R.string.config_title),
+            title = if (state.selectionMode) {
+                if (state.selectedRuleIds.isEmpty()) "多选规则" else "已选择 ${state.selectedRuleIds.size} 项"
+            } else {
+                stringResource(R.string.config_title)
+            },
             blurEnabled = blurEnabled,
+            navigationIcon = if (state.selectionMode) {
+                {
+                    IconButton(onClick = viewModel::exitSelection) {
+                        Icon(Icons.Outlined.Close, contentDescription = "退出多选")
+                    }
+                }
+            } else {
+                {}
+            },
+            actions = {
+                if (state.selectionMode) {
+                    TextButton(text = "全选", onClick = viewModel::selectAllRules)
+                    TextButton(text = "清空", onClick = viewModel::clearSelection)
+                } else {
+                    if (state.rules.isNotEmpty()) {
+                        IconButton(onClick = viewModel::enterSelection) {
+                            Icon(
+                                Icons.Outlined.Checklist,
+                                contentDescription = "多选",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                    IconButton(onClick = { showMoreMenu = true }) {
+                        Icon(
+                            Icons.Outlined.MoreVert,
+                            contentDescription = "更多",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            },
         ) {
             item {
                 TipCard(
-                    text = "白名单（保留）优先于静音/降级；其余按更精确的规则优先。可匹配包名/包前缀/渠道id/名称。主页可先预览再静音。",
+                    text = "白名单（保留）优先于静音/降级；其余按更精确的规则优先。可匹配包名/包前缀/渠道id/名称。主页可先预览再静音。顶栏可导出/导入 JSON（合并或替换）。",
                 )
             }
 
@@ -98,6 +163,8 @@ fun ConfigScreen(
                 }
             }
 
+            val selectionMode = state.selectionMode
+            val selectedIds = state.selectedRuleIds
             val whitelistRules = state.rules.filter { it.action == RuleAction.KEEP }
             val actionRules = state.rules.filterNot { it.action == RuleAction.KEEP }
 
@@ -107,11 +174,10 @@ fun ConfigScreen(
                         text = "永不静音（白名单）",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                     )
-                    // InstallerX MiuixPrivPage: one Card hosts all option rows.
                     Card(modifier = Modifier.fillMaxWidth()) {
                         whitelistRules.forEachIndexed { index, rule ->
                             if (index > 0) {
-                                top.yukonga.miuix.kmp.basic.HorizontalDivider(
+                                HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
                                     thickness = 0.5.dp,
                                     color = MiuixTheme.colorScheme.dividerLine,
@@ -120,6 +186,9 @@ fun ConfigScreen(
                             RuleRow(
                                 rule = rule,
                                 hitStat = state.hitStats[rule.id],
+                                selectionMode = selectionMode,
+                                selected = rule.id in selectedIds,
+                                onSelectToggle = { viewModel.toggleRuleSelection(rule.id) },
                                 onToggle = { viewModel.toggle(rule.id) },
                                 onRemove = { viewModel.remove(rule.id) },
                                 onEdit = {
@@ -141,7 +210,7 @@ fun ConfigScreen(
                     Card(modifier = Modifier.fillMaxWidth()) {
                         actionRules.forEachIndexed { index, rule ->
                             if (index > 0) {
-                                top.yukonga.miuix.kmp.basic.HorizontalDivider(
+                                HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
                                     thickness = 0.5.dp,
                                     color = MiuixTheme.colorScheme.dividerLine,
@@ -150,6 +219,9 @@ fun ConfigScreen(
                             RuleRow(
                                 rule = rule,
                                 hitStat = state.hitStats[rule.id],
+                                selectionMode = selectionMode,
+                                selected = rule.id in selectedIds,
+                                onSelectToggle = { viewModel.toggleRuleSelection(rule.id) },
                                 onToggle = { viewModel.toggle(rule.id) },
                                 onRemove = { viewModel.remove(rule.id) },
                                 onEdit = {
@@ -184,13 +256,13 @@ fun ConfigScreen(
                     val packs = app.quieta.core.repo.RulePresetPacks.all
                     packs.forEachIndexed { index, pack ->
                         if (index > 0) {
-                            top.yukonga.miuix.kmp.basic.HorizontalDivider(
+                            HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 16.dp),
                                 thickness = 0.5.dp,
                                 color = MiuixTheme.colorScheme.dividerLine,
                             )
                         }
-                        top.yukonga.miuix.kmp.basic.BasicComponent(
+                        BasicComponent(
                             title = pack.title,
                             summary = pack.description,
                             onClick = { viewModel.previewPresetPack(pack.id) },
@@ -200,43 +272,76 @@ fun ConfigScreen(
             }
         }
 
-        FloatingActionButton(
-            onClick = {
-                viewModel.openAddRule()
-                onOpenEditor()
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 108.dp)
-                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
-        ) {
-            Icon(Icons.Outlined.Add, contentDescription = "添加规则", tint = Color.White)
+        if (!state.selectionMode) {
+            FloatingActionButton(
+                onClick = {
+                    viewModel.openAddRule()
+                    onOpenEditor()
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = 108.dp)
+                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)),
+            ) {
+                Icon(Icons.Outlined.Add, contentDescription = "添加规则", tint = Color.White)
+            }
         }
     }
 
-    state.packPreview?.let { preview ->
-        PackImportDialog(
+    if (showMoreMenu) {
+        HyperOsPopup(onDismissRequest = { showMoreMenu = false }) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                HyperOsPopupRow(
+                    title = "导出全部规则",
+                    subtitle = "分享 JSON（含 schemaVersion）",
+                    selected = false,
+                    showCheck = false,
+                    onClick = {
+                        showMoreMenu = false
+                        viewModel.exportAndShare(onlySelected = false)
+                    },
+                )
+                HyperOsPopupRow(
+                    title = "导入规则文件",
+                    subtitle = "合并导入（推荐）或替换全部",
+                    selected = false,
+                    showCheck = false,
+                    onClick = {
+                        showMoreMenu = false
+                        importLauncher.launch(
+                            arrayOf("application/json", "text/plain", "text/*", "*/*"),
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    state.importPreview?.let { preview ->
+        RuleImportDialog(
             preview = preview,
-            onDismiss = viewModel::dismissPackPreview,
-            onMerge = viewModel::confirmMergePresetPack,
-            onReplace = viewModel::confirmReplacePresetPack,
+            onDismiss = viewModel::dismissImportPreview,
+            onMerge = viewModel::confirmMergeImport,
+            onReplace = viewModel::confirmReplaceImport,
         )
     }
 }
 
 @Composable
-private fun PackImportDialog(
-    preview: PackImportPreview,
+private fun RuleImportDialog(
+    preview: RuleImportPreview,
     onDismiss: () -> Unit,
     onMerge: () -> Unit,
     onReplace: () -> Unit,
 ) {
     var confirmReplace by remember { mutableStateOf(false) }
-    // InstallerX MiuixDialog: miuix WindowDialog + option Card + bottom cancel.
     QuietaWindowDialog(
         show = true,
-        onDismissRequest = onDismiss,
-        title = preview.packTitle,
+        onDismissRequest = {
+            confirmReplace = false
+            onDismiss()
+        },
+        title = preview.title,
         summary = "新增 ${preview.addCount} · 跳过 ${preview.skipCount} · 保留现有 ${preview.keepCount}",
         cancelText = "取消",
     ) {
@@ -254,7 +359,7 @@ private fun PackImportDialog(
                 )
                 BasicComponent(
                     title = if (confirmReplace) "再次点击确认替换" else "替换全部（危险）",
-                    summary = "删除全部现有规则，仅保留本规则包",
+                    summary = "删除全部现有规则，仅保留本文件/规则包",
                     onClick = {
                         if (confirmReplace) onReplace() else confirmReplace = true
                     },
@@ -306,6 +411,7 @@ fun ConfigRuleEditorScreen(
         blurEnabled = blurEnabled,
     )
 }
+
 /** InstallerX Revived: miuix TopAppBar (Close/Ok + large title), field cards, grouped rows. */
 @Composable
 private fun RuleEditorScreen(
@@ -332,7 +438,6 @@ private fun RuleEditorScreen(
     onSave: () -> Unit,
     blurEnabled: Boolean = true,
 ) {
-    // Same chrome as other Quieta secondary pages / InstallerX edit: TopAppBar large title.
     app.quieta.ui.component.QuietaPage(
         title = title,
         blurEnabled = blurEnabled,
@@ -430,7 +535,6 @@ private fun RuleEditorScreen(
 
 @Composable
 private fun FieldCard(value: String, onValueChange: (String) -> Unit, placeholder: String) {
-    // InstallerX MiuixHintTextField: standalone field with side padding, no nested card chrome.
     TextField(
         value = value,
         onValueChange = onValueChange,
@@ -445,7 +549,7 @@ private fun FieldCard(value: String, onValueChange: (String) -> Unit, placeholde
 
 @Composable
 private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    top.yukonga.miuix.kmp.basic.BasicComponent(
+    BasicComponent(
         title = title,
         summary = subtitle,
         endActions = {
@@ -456,10 +560,10 @@ private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onCheck
 
 @Composable
 private fun ActionSelectRow(title: String, selected: Boolean, onClick: () -> Unit) {
-    top.yukonga.miuix.kmp.basic.BasicComponent(
+    BasicComponent(
         modifier = Modifier.semantics { this.selected = selected },
         title = title,
-        role = androidx.compose.ui.semantics.Role.RadioButton,
+        role = Role.RadioButton,
         onClick = onClick,
         endActions = {
             if (selected) {
@@ -495,14 +599,28 @@ private fun TipCard(text: String) {
 private fun RuleRow(
     rule: Rule,
     hitStat: app.quieta.core.engine.RuleHitStat?,
+    selectionMode: Boolean,
+    selected: Boolean,
+    onSelectToggle: () -> Unit,
     onToggle: () -> Unit,
     onRemove: () -> Unit,
     onEdit: () -> Unit,
 ) {
     var showSamples by rememberSaveable(rule.id) { mutableStateOf(false) }
-    Column(modifier = Modifier.fillMaxWidth()) {
+    val rowModifier = if (selectionMode) {
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelectToggle)
+            .semantics { this.selected = selected }
+    } else {
+        Modifier.fillMaxWidth()
+    }
+    Column(modifier = rowModifier) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (selectionMode) {
+                    SelectionDot(selected = selected)
+                }
                 Text(
                     text = ruleSummary(rule),
                     style = MiuixTheme.textStyles.title4,
@@ -521,40 +639,48 @@ private fun RuleRow(
                     },
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                QuietaSwitch(checked = rule.enabled, onCheckedChange = { onToggle() })
-                if (hitStat != null) {
-                    val hitLabel = if (hitStat.effectiveCount == hitStat.matchCount) {
-                        "命中 ${hitStat.matchCount}"
-                    } else {
-                        "匹配 ${hitStat.matchCount} · 生效 ${hitStat.effectiveCount}"
-                    }
-                    val canOpen = hitStat.samples.isNotEmpty()
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                if (canOpen) MiuixTheme.colorScheme.primary.copy(alpha = 0.10f)
-                                else MiuixTheme.colorScheme.secondaryVariant.copy(alpha = 0.35f),
-                                CircleShape,
+            if (!selectionMode) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuietaSwitch(checked = rule.enabled, onCheckedChange = { onToggle() })
+                    if (hitStat != null) {
+                        val hitLabel = if (hitStat.effectiveCount == hitStat.matchCount) {
+                            "命中 ${hitStat.matchCount}"
+                        } else {
+                            "匹配 ${hitStat.matchCount} · 生效 ${hitStat.effectiveCount}"
+                        }
+                        val canOpen = hitStat.samples.isNotEmpty()
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    if (canOpen) MiuixTheme.colorScheme.primary.copy(alpha = 0.10f)
+                                    else MiuixTheme.colorScheme.secondaryVariant.copy(alpha = 0.35f),
+                                    CircleShape,
+                                )
+                                .clickable(enabled = canOpen) { showSamples = true }
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = hitLabel,
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = if (canOpen) MiuixTheme.colorScheme.primary
+                                else MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
-                            .clickable(enabled = canOpen) { showSamples = true }
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
-                    ) {
-                        Text(
-                            text = hitLabel,
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = if (canOpen) MiuixTheme.colorScheme.primary
-                            else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
+                        }
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.rule_edit))
+                    }
+                    IconButton(onClick = onRemove) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "删除")
                     }
                 }
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.rule_edit))
-                }
-                IconButton(onClick = onRemove) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "删除")
-                }
+            } else if (hitStat != null && hitStat.samples.isNotEmpty()) {
+                Text(
+                    text = "命中 ${hitStat.samples.size} 条样本",
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
             }
         }
     }
@@ -597,6 +723,30 @@ private fun RuleRow(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SelectionDot(selected: Boolean) {
+    // Brand fixed blue for multi-select (see AGENTS semantic-color table).
+    val stroke = Color(0xFF3482FF)
+    Box(
+        modifier = Modifier
+            .size(22.dp)
+            .background(
+                color = if (selected) stroke else stroke.copy(alpha = 0.18f),
+                shape = CircleShape,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) {
+            Icon(
+                imageVector = Icons.Outlined.Check,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp),
+            )
         }
     }
 }
