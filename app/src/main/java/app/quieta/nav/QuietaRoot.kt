@@ -533,6 +533,7 @@ private fun MainPagerLayer(
                             onOpenLicenses = { onOpenSecondary("licenses") },
                             onOpenTheme = { onOpenSecondary("theme") },
                             onOpenAbout = { onOpenSecondary("about") },
+                            onOpenChannelImport = { onOpenSecondary("channel_import") },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -741,5 +742,19 @@ private fun SecondaryPageLayer(
                 app.quieta.core.engine.QuietMode.valueOf(quietMode)
             }.getOrDefault(app.quieta.core.engine.QuietMode.SILENT_NO_SOUND),
         )
+        "channel_import" -> {
+            val importViewModel: app.quieta.feature.backup.ChannelImportViewModel = viewModel()
+            app.quieta.feature.backup.ChannelImportScreen(
+                privilegeReady = homeState.gate == app.quieta.feature.home.PrivilegeGate.READY &&
+                    !homeState.checkingPrivilege,
+                privilegeLabel = homeState.privilege.label,
+                onBack = onBack,
+                onRequestApply = {
+                    importViewModel.applyWithBackend(homeViewModel.privilegeBackendOrNull())
+                },
+                blurEnabled = blurEnabled,
+                viewModel = importViewModel,
+            )
+        }
     }
 }

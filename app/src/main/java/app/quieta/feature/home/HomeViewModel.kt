@@ -542,6 +542,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(selectedChannelKeys = emptySet()) }
     }
 
+    /** Active backend when gate is READY; null so import UI can show "preview only". */
+    fun privilegeBackendOrNull(): app.quieta.core.privilege.PrivilegeBackend? {
+        val s = _state.value
+        return if (s.gate == PrivilegeGate.READY && s.privilege.available && !s.checkingPrivilege) {
+            backend
+        } else {
+            null
+        }
+    }
+
     /**
      * Export currently selected channels as a channel-snapshot JSON (no privilege write).
      * Uses inventory in memory; selection keys are `packageName|channelId`.

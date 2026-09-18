@@ -43,6 +43,7 @@ fun SettingsScreen(
     aboutViewModel: AboutViewModel = viewModel(),
     onOpenTheme: () -> Unit = {},
     onOpenAbout: () -> Unit = {},
+    onOpenChannelImport: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val autoMute by viewModel.autoMuteNewChannels.collectAsStateWithLifecycle()
@@ -100,6 +101,11 @@ fun SettingsScreen(
                     title = "导出渠道设置",
                     subtitle = "按当前盘点导出 importance 等 JSON（主页可按选中渠道导出）",
                     onClick = { viewModel.exportChannelSnapshot() },
+                )
+                NavRow(
+                    title = "导入渠道设置",
+                    subtitle = "预览快照差异，确认后写入 importance 并回读校验",
+                    onClick = onOpenChannelImport,
                 )
             }
         }
