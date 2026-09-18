@@ -96,6 +96,11 @@ fun SettingsScreen(
                     subtitle = "配置页：勾选导出 JSON；导入支持合并或替换",
                     onClick = { /* config tab owns the real entry */ },
                 )
+                NavRow(
+                    title = "导出渠道设置",
+                    subtitle = "按当前盘点导出 importance 等 JSON（主页可按选中渠道导出）",
+                    onClick = { viewModel.exportChannelSnapshot() },
+                )
             }
         }
         // InstallerX: settings only shows a single About entry; actions live on the secondary page.

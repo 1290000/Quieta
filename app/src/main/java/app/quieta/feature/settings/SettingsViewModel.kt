@@ -1,22 +1,38 @@
 package app.quieta.feature.settings
 
 import android.app.Application
+import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.quieta.core.repo.ChannelInventoryStore
 import app.quieta.core.settings.AppSettings
 import app.quieta.core.settings.PaletteStyle
-import app.quieta.core.settings.ThemeColorSpec
 import app.quieta.core.settings.PredictiveBackAnimation
 import app.quieta.core.settings.PredictiveBackExitDirection
+import app.quieta.core.settings.ThemeColorSpec
 import app.quieta.core.settings.ThemeMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+sealed interface SettingsUiEvent {
+    data class ShareSnapshot(val intent: Intent) : SettingsUiEvent
+    data class ShowMessage(val message: String) : SettingsUiEvent
+}
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settings = AppSettings(application)
+    private val inventory = ChannelInventoryStore.getInstance(application)
+
+    private val _events = MutableSharedFlow<SettingsUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<SettingsUiEvent> = _events.asSharedFlow()
 
     val themeMode: StateFlow<ThemeMode> = settings.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
@@ -77,5 +93,29 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setNotificationTimelineEnabled(enabled: Boolean) {
         viewModelScope.launch { settings.setNotificationTimelineEnabled(enabled) }
+    }
+
+    /** Export full channel inventory cache as snapshot JSON (cross-device import later). */
+    fun exportChannelSnapshot() {
+        viewModelScope.launch {
+            val apps = inventory.current()
+            if (apps.isEmpty()) {
+                _events.emit(SettingsUiEvent.ShowMessage("暂无盘点缓存，请先在主页完成渠道盘点"))
+                return@launch
+            }
+            runCatching {
+                val intent = withContext(Dispatchers.IO) {
+                    app.quieta.feature.backup.ChannelSnapshotExport.buildShareIntent(
+                        getApplication(),
+                        apps,
+                    )
+                }
+                val summary = app.quieta.feature.backup.ChannelSnapshotExport.summarize(apps)
+                _events.emit(SettingsUiEvent.ShowMessage("已导出 $summary（importance 等渠道设置）"))
+                _events.emit(SettingsUiEvent.ShareSnapshot(intent))
+            }.onFailure { e ->
+                _events.emit(SettingsUiEvent.ShowMessage(e.message ?: "导出失败"))
+            }
+        }
     }
 }

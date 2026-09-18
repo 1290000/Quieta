@@ -157,6 +157,32 @@ fun QuietaRoot() {
         }
     }
 
+    LaunchedEffect(homeViewModel) {
+        homeViewModel.events.collect { event ->
+            when (event) {
+                is app.quieta.feature.home.HomeUiEvent.ShareSnapshot -> {
+                    runCatching { context.startActivity(event.intent) }
+                }
+                is app.quieta.feature.home.HomeUiEvent.ShowMessage -> {
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(settingsViewModel) {
+        settingsViewModel.events.collect { event ->
+            when (event) {
+                is app.quieta.feature.settings.SettingsUiEvent.ShareSnapshot -> {
+                    runCatching { context.startActivity(event.intent) }
+                }
+                is app.quieta.feature.settings.SettingsUiEvent.ShowMessage -> {
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     val driver = remember { PredictiveBackDriver() }
     var layoutSize by remember { mutableStateOf(IntSize.Zero) }
     val density = LocalDensity.current
@@ -571,6 +597,13 @@ private fun MainPagerLayer(
                             onClick = {
                                 homeViewModel.applySelectionAction(app.quieta.core.model.RuleAction.KEEP)
                             },
+                        ),
+                        FloatingSelectionAction(
+                            id = "export",
+                            label = "导出",
+                            icon = Icons.Outlined.Share,
+                            enabled = homeState.selectedChannelKeys.isNotEmpty() && homeState.progress == null,
+                            onClick = { homeViewModel.exportSelectionSnapshot() },
                         ),
                     ),
                 )

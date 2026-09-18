@@ -33,8 +33,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
@@ -97,6 +100,11 @@ data class HomeUiState(
     val selectedChannelKeys: Set<String> = emptySet(),
 )
 
+sealed interface HomeUiEvent {
+    data class ShareSnapshot(val intent: android.content.Intent) : HomeUiEvent
+    data class ShowMessage(val message: String) : HomeUiEvent
+}
+
 enum class MuteScope {
     ALL,
     FILTERED,
@@ -158,6 +166,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _state = MutableStateFlow(seedHomeState(appSettings))
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
+
+    private val _events = MutableSharedFlow<HomeUiEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<HomeUiEvent> = _events.asSharedFlow()
 
     private var inventoryJob: Job? = null
     private var refreshJob: Job? = null
@@ -529,6 +540,38 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearSelection() {
         _state.update { it.copy(selectedChannelKeys = emptySet()) }
+    }
+
+    /**
+     * Export currently selected channels as a channel-snapshot JSON (no privilege write).
+     * Uses inventory in memory; selection keys are `packageName|channelId`.
+     */
+    fun exportSelectionSnapshot() {
+        viewModelScope.launch {
+            val state = _state.value
+            if (!state.selectionMode || state.selectedChannelKeys.isEmpty()) {
+                _events.emit(HomeUiEvent.ShowMessage("请先选择要导出的渠道"))
+                return@launch
+            }
+            val apps = app.quieta.core.repo.ChannelSnapshotJson.project(
+                apps = state.apps,
+                selectedKeys = state.selectedChannelKeys,
+            )
+            if (apps.isEmpty()) {
+                _events.emit(HomeUiEvent.ShowMessage("选中项不在当前盘点中，请先刷新"))
+                return@launch
+            }
+            runCatching {
+                val intent = withContext(Dispatchers.IO) {
+                    app.quieta.feature.backup.ChannelSnapshotExport.buildShareIntent(appContext, apps)
+                }
+                val summary = app.quieta.feature.backup.ChannelSnapshotExport.summarize(apps)
+                _events.emit(HomeUiEvent.ShowMessage("已导出 $summary"))
+                _events.emit(HomeUiEvent.ShareSnapshot(intent))
+            }.onFailure { e ->
+                _events.emit(HomeUiEvent.ShowMessage(e.message ?: "导出失败"))
+            }
+        }
     }
 
     fun applySelectionAction(action: RuleAction) {
