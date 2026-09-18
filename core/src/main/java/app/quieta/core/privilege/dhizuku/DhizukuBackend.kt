@@ -6,6 +6,8 @@ import android.util.Log
 import app.quieta.core.model.Channel
 import app.quieta.core.model.ChannelImportance
 import app.quieta.core.model.PrivilegeId
+import app.quieta.core.privilege.ChannelSettingsPatch
+import app.quieta.core.privilege.NotificationChannelPatch
 import app.quieta.core.privilege.PrivilegeBackend
 import com.rosan.dhizuku.api.Dhizuku
 import com.rosan.dhizuku.api.DhizukuRequestPermissionListener
@@ -74,17 +76,7 @@ class DhizukuBackend(
         if (!isAvailable()) return emptyList()
         return try {
             queryNotificationChannels(packageName).map { raw ->
-                Channel(
-                    packageName = packageName,
-                    id = raw.id,
-                    name = raw.name?.toString().orEmpty().ifEmpty { raw.id },
-                    importance = raw.importance.toDomain(),
-                    soundEnabled = raw.sound?.toString()?.isNotEmpty() == true,
-                    vibrationEnabled = runCatching { raw.shouldVibrate() }.getOrDefault(false),
-                    lockscreenHidden = runCatching {
-                        raw.lockscreenVisibility == -1 || raw.lockscreenVisibility == 0
-                    }.getOrDefault(false),
-                )
+                NotificationChannelPatch.toDomain(packageName, raw)
             }
         } catch (t: Throwable) {
             Log.w(TAG, "listChannels failed for $packageName", t)
@@ -97,28 +89,35 @@ class DhizukuBackend(
         channelId: String,
         importance: Int,
     ) {
+        applyChannelSettings(
+            ChannelSettingsPatch(
+                packageName = packageName,
+                channelId = channelId,
+                importance = importance,
+            ),
+        )
+    }
+
+    override suspend fun applyChannelSettings(patch: ChannelSettingsPatch) {
         if (!isAvailable()) error("Dhizuku 未授权")
         val nm = notificationManager()
         val iface = Class.forName("android.app.INotificationManager")
-        val uid = uidOf(packageName)
-        if (uid == 0) error("uid not found for $packageName")
+        val uid = uidOf(patch.packageName)
+        if (uid == 0) error("uid not found for ${patch.packageName}")
 
-        val existing = queryNotificationChannels(packageName).find { it.id == channelId }
-            ?: error("channel not found: $packageName/$channelId")
+        val existing = queryNotificationChannels(patch.packageName).find { it.id == patch.channelId }
+            ?: error("channel not found: ${patch.packageName}/${patch.channelId}")
 
-        val setImportance = existing.javaClass.methods.firstOrNull {
-            it.name == "setImportance" && it.parameterCount == 1
-        } ?: error("setImportance not found")
-        setImportance.invoke(existing, importance)
+        NotificationChannelPatch.applyToChannel(existing, patch)
 
-        val updated = invokeUpdateChannel(nm, iface, packageName, uid, existing) ||
-            invokeCreateChannel(nm, iface, packageName, uid, existing)
+        val updated = invokeUpdateChannel(nm, iface, patch.packageName, uid, existing) ||
+            invokeCreateChannel(nm, iface, patch.packageName, uid, existing)
         if (!updated) error("updateNotificationChannelForPackage failed uid=$uid")
-        val actual = queryNotificationChannels(packageName).find { it.id == channelId }?.importance
-        if (actual != importance) {
-            error("importance mismatch after write: expected=$importance actual=$actual")
-        }
-        Log.d(TAG, "setImportance $packageName/$channelId -> $importance uid=$uid verified")
+        val live = queryNotificationChannels(patch.packageName).find { it.id == patch.channelId }
+            ?: error("channel missing after write: ${patch.channelId}")
+        val issues = NotificationChannelPatch.matches(live, patch)
+        if (issues.isNotEmpty()) error(issues.joinToString("; "))
+        Log.d(TAG, "applyChannelSettings ${patch.packageName}/${patch.channelId} uid=$uid verified")
     }
 
     /**

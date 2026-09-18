@@ -67,6 +67,18 @@ class RootChannelService : RootService() {
             channels.setImportance(packageName, uid, channelId, importance)
             putBoolean("verified", true)
         }
+
+        override fun applyChannelSettings(
+            packageName: String,
+            uid: Int,
+            channelId: String,
+            settings: Bundle,
+        ): Bundle = reply {
+            validate(packageName, uid)
+            val patch = NotificationChannelAccess.parsePatch(packageName, channelId, settings)
+            channels.applySettings(packageName, uid, patch)
+            putBoolean("verified", true)
+        }
     }
 
     override fun onBind(intent: Intent): IBinder = binder

@@ -11,8 +11,24 @@ data class SnapshotImportItem(
     val channelName: String,
     val currentImportance: ChannelImportance,
     val targetImportance: ChannelImportance,
+    val targetSoundEnabled: Boolean,
+    val targetVibrationEnabled: Boolean,
+    val targetLockscreenHidden: Boolean,
+    val importanceDiffers: Boolean,
+    val extrasDiffer: Boolean,
     val isSystem: Boolean,
-)
+) {
+    /** Short UI suffix for non-importance fields that will be written. */
+    fun extrasSummary(): String {
+        if (!extrasDiffer) return ""
+        val parts = buildList {
+            add("声音" + if (targetSoundEnabled) "开" else "关")
+            add("震动" + if (targetVibrationEnabled) "开" else "关")
+            add("锁屏" + if (targetLockscreenHidden) "隐藏" else "显示")
+        }
+        return " · " + parts.joinToString("/")
+    }
+}
 
 data class SnapshotSkipItem(
     val packageName: String,
@@ -33,11 +49,13 @@ data class SnapshotImportPlan(
     val systemHeldCount: Int = 0,
 ) {
     val applyCount: Int get() = apply.size
+    val extrasApplyCount: Int get() = apply.count { it.extrasDiffer }
 }
 
 /**
  * Dry-run comparator: package + channel id only. No name fuzzy matching.
  * System apps are held by default unless [includeSystem] is true.
+ * Diffs cover importance + sound + vibration + lockscreen.
  */
 object ChannelSnapshotImportPlanner {
 
@@ -97,19 +115,29 @@ object ChannelSnapshotImportPlanner {
                             reason = "系统应用（默认不改）",
                         )
                     }
-                    localCh.importance == ch.importance -> {
-                        same++
-                    }
                     else -> {
-                        apply += SnapshotImportItem(
-                            packageName = snapApp.packageName,
-                            appLabel = label,
-                            channelId = ch.id,
-                            channelName = localCh.name.ifEmpty { ch.name },
-                            currentImportance = localCh.importance,
-                            targetImportance = ch.importance,
-                            isSystem = localApp.isSystem,
-                        )
+                        val importanceDiffers = localCh.importance != ch.importance
+                        val extrasDiffer = localCh.soundEnabled != ch.soundEnabled ||
+                            localCh.vibrationEnabled != ch.vibrationEnabled ||
+                            localCh.lockscreenHidden != ch.lockscreenHidden
+                        if (!importanceDiffers && !extrasDiffer) {
+                            same++
+                        } else {
+                            apply += SnapshotImportItem(
+                                packageName = snapApp.packageName,
+                                appLabel = label,
+                                channelId = ch.id,
+                                channelName = localCh.name.ifEmpty { ch.name },
+                                currentImportance = localCh.importance,
+                                targetImportance = ch.importance,
+                                targetSoundEnabled = ch.soundEnabled,
+                                targetVibrationEnabled = ch.vibrationEnabled,
+                                targetLockscreenHidden = ch.lockscreenHidden,
+                                importanceDiffers = importanceDiffers,
+                                extrasDiffer = extrasDiffer,
+                                isSystem = localApp.isSystem,
+                            )
+                        }
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package app.quieta.core.engine
 
+import app.quieta.core.privilege.ChannelSettingsPatch
 import app.quieta.core.privilege.PrivilegeBackend
 import kotlinx.coroutines.delay
 
@@ -10,6 +11,7 @@ data class SnapshotApplyReport(
     val verified: Int = 0,
     val unconfirmed: Int = 0,
     val mismatch: Int = 0,
+    val extrasOnly: Int = 0,
     val errors: List<String> = emptyList(),
     val verifyNotes: List<String> = emptyList(),
 ) {
@@ -17,8 +19,8 @@ data class SnapshotApplyReport(
 }
 
 /**
- * Writes snapshot importance targets with Binder throttle, then reads back
- * live channel importance per package to classify verified / unconfirmed / mismatch.
+ * Writes snapshot channel settings (importance + sound + vibration + lockscreen)
+ * with Binder throttle, then reads back live channels to verify.
  */
 class ApplyChannelSnapshotUseCase(
     private val backend: PrivilegeBackend,
@@ -42,10 +44,15 @@ class ApplyChannelSnapshotUseCase(
         items.chunked(batchSize).forEach { batch ->
             batch.forEach { item ->
                 runCatching {
-                    backend.setImportance(
-                        item.packageName,
-                        item.channelId,
-                        MuteUndoStore.importanceToInt(item.targetImportance),
+                    backend.applyChannelSettings(
+                        ChannelSettingsPatch(
+                            packageName = item.packageName,
+                            channelId = item.channelId,
+                            importance = MuteUndoStore.importanceToInt(item.targetImportance),
+                            soundEnabled = item.targetSoundEnabled,
+                            vibrationEnabled = item.targetVibrationEnabled,
+                            lockscreenHidden = item.targetLockscreenHidden,
+                        ),
                     )
                     writeOk++
                     written += item
@@ -64,24 +71,42 @@ class ApplyChannelSnapshotUseCase(
         var verified = 0
         var unconfirmed = 0
         var mismatch = 0
+        var extrasOnly = 0
         val verifyNotes = mutableListOf<String>()
         written.groupBy { it.packageName }.forEach { (pkg, chans) ->
             runCatching {
                 val live = backend.listChannels(pkg).associateBy { it.id }
                 chans.forEach { item ->
-                    val actual = live[item.channelId]?.importance
+                    val channel = live[item.channelId]
+                    if (channel == null) {
+                        unconfirmed++
+                        if (verifyNotes.size < 8) {
+                            verifyNotes += "$pkg/${item.channelId}: 回读无此渠道"
+                        }
+                        return@forEach
+                    }
+                    val impOk = channel.importance == item.targetImportance
+                    val soundOk = channel.soundEnabled == item.targetSoundEnabled
+                    val vibOk = channel.vibrationEnabled == item.targetVibrationEnabled
+                    val lockOk = channel.lockscreenHidden == item.targetLockscreenHidden
                     when {
-                        actual == item.targetImportance -> verified++
-                        actual == null -> {
-                            unconfirmed++
+                        impOk && soundOk && vibOk && lockOk -> verified++
+                        impOk && !(soundOk && vibOk && lockOk) -> {
+                            // Importance took; extras may be ignored by ROM or importance NONE suppresses vibration.
+                            extrasOnly++
                             if (verifyNotes.size < 8) {
-                                verifyNotes += "$pkg/${item.channelId}: 回读无此渠道"
+                                val bits = buildList {
+                                    if (!soundOk) add("声音")
+                                    if (!vibOk) add("震动")
+                                    if (!lockOk) add("锁屏")
+                                }
+                                verifyNotes += "$pkg/${item.channelId}: importance 已写入，${bits.joinToString("/")} 未完全生效"
                             }
                         }
                         else -> {
                             mismatch++
                             if (verifyNotes.size < 8) {
-                                verifyNotes += "$pkg/${item.channelId}: 期望 ${item.targetImportance} 实际 $actual"
+                                verifyNotes += "$pkg/${item.channelId}: 期望 ${item.targetImportance} 实际 ${channel.importance}"
                             }
                         }
                     }
@@ -101,6 +126,7 @@ class ApplyChannelSnapshotUseCase(
             verified = verified,
             unconfirmed = unconfirmed,
             mismatch = mismatch,
+            extrasOnly = extrasOnly,
             errors = errors,
             verifyNotes = verifyNotes,
         )

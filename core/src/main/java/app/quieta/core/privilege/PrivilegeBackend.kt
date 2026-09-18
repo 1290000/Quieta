@@ -18,4 +18,18 @@ interface PrivilegeBackend {
         channelId: String,
         importance: Int,
     )
+
+    /**
+     * Write channel settings for snapshot import. Null fields are left unchanged.
+     * Default only handles importance; backends that can mutate sound/vibration/lockscreen
+     * must override this method.
+     */
+    suspend fun applyChannelSettings(patch: ChannelSettingsPatch) {
+        patch.importance?.let { importance ->
+            setImportance(patch.packageName, patch.channelId, importance)
+        }
+        if (patch.hasExtras) {
+            error("Backend $id does not support sound/vibration/lockscreen write")
+        }
+    }
 }

@@ -22,7 +22,7 @@
 - 批量静音前计划预览（二级页 dry-run）；筛选/排序收成入口 + 勾选弹层（miuix Card）；渠道行可手动静音/降级/恢复；整应用可一键静音/恢复；支持撤销最近静音批次
 - 新建渠道自动按规则处理（可选开启）
 - 通知时间线（摘要级，默认弱采集；记包名/应用名/渠道名/id/时间范围/条数/importance，**不记正文**；1 分钟合并窗，7 天 / 200 条；记录页按日期与 App 分组 + 今日摘要 + 静音联动）
-- 规则本地存储，可导入/导出 JSON（`schemaVersion` + `kind: "rules"`；合并/替换；可经系统打开方式）；**渠道设置快照**导出/导入（`kind: "quieta-channel-snapshot"`，包名+渠道 id；dry-run 后写 importance 并回读）
+- 规则本地存储，可导入/导出 JSON（`schemaVersion` + `kind: "rules"`；合并/替换；可经系统打开方式）；**渠道设置快照**导出/导入（`kind: "quieta-channel-snapshot"`；写入 importance + 声音/震动/锁屏并回读）
 - 提权可用性检测与引导（对齐 InstallerX「可用特权」心智）
 
 **不做：**
@@ -50,7 +50,7 @@
 5. ~~**二级页 Navigation**~~ — 已完成：已增加独立二级路由栈；主题设置、开放源代码许可、可用特权页均支持页面返回和系统返回，主栏状态保持不变。
 6. ~~**AboutLibraries 自动收集**~~ — 已完成：Gradle 插件生成 `aboutlibraries.json`，许可页读取自动依赖元数据；移植代码与架构参考使用补充条目披露。  
 7. **release 签名与首个 Release**：`signing.properties` 流程已约定，未生成正式包、未发 GitHub Release。  
-8. ~~**记录页筛选**~~ 以外的备份边界：**规则**配置页勾选/全部导出 JSON，文件导入可**合并**或**替换**；**渠道设置快照**导出（主页多选 / 设置全量）与导入（设置→导入渠道设置：dry-run → importance 写入 → 回读；系统应用默认不改）；系统 **打开方式**（ACTION_VIEW）可直接打开规则/快照 JSON。**K40s / KernelSU 已验收**快照导入（dumpsys：promo/event → 0）与规则合并导入；ColorOS 等其它 ROM 矩阵未覆盖。
+8. ~~**记录页筛选**~~ 以外的备份边界：**规则**配置页勾选/全部导出 JSON，文件导入可**合并**或**替换**；**渠道设置快照**导出/导入（`kind: "quieta-channel-snapshot"`；dry-run 后写入 **importance + 声音 + 震动 + 锁屏可见性** 并回读；系统应用默认不改；声音开启用系统默认提示音）；系统 **打开方式** 可打开规则/快照 JSON。**K40s / KernelSU** 已验收 importance 导入；**全字段写入**已实现，ROM 上 extras 未生效时报告记「仅部分字段」。其它 ROM 矩阵未覆盖。
 
 **一期关于页必做：** 展示应用名与作者；「查看源代码」跳转本应用仓库；「检测更新」手动检查 GitHub Release（可打开最新页，不做静默下载/强制安装）。
 

@@ -1,7 +1,10 @@
 package app.quieta.core.privilege.root
 
 import android.app.NotificationChannel
+import android.os.Bundle
 import android.os.IBinder
+import app.quieta.core.privilege.ChannelSettingsPatch
+import app.quieta.core.privilege.NotificationChannelPatch
 
 /** Typed-signature notification API adapter, executed only inside the root process. */
 internal class NotificationChannelAccess {
@@ -36,18 +39,34 @@ internal class NotificationChannelAccess {
     fun supportsWrite(): Boolean = writers().isNotEmpty()
 
     fun setImportance(packageName: String, uid: Int, channelId: String, importance: Int) {
-        require(importance in 0..5) { "Invalid importance" }
-        val original = list(packageName, uid).firstOrNull { it.id == channelId }
-            ?: error("Channel no longer exists: $channelId")
-        original.importance = importance
+        applySettings(
+            packageName = packageName,
+            uid = uid,
+            patch = ChannelSettingsPatch(
+                packageName = packageName,
+                channelId = channelId,
+                importance = importance,
+            ),
+        )
+    }
+
+    fun applySettings(packageName: String, uid: Int, patch: ChannelSettingsPatch) {
+        if (patch.importance != null) {
+            require(patch.importance in 0..5) { "Invalid importance" }
+        }
+        val original = list(packageName, uid).firstOrNull { it.id == patch.channelId }
+            ?: error("Channel no longer exists: ${patch.channelId}")
+        NotificationChannelPatch.applyToChannel(original, patch)
         var failure: Throwable? = null
-        // Retain the working MIUI update/create fallback, but require read-back success.
         for (method in writers()) {
             try {
                 val args = if (method.parameterCount == 3) arrayOf(packageName, uid, original)
                     else arrayOf(packageName, uid, original, false)
                 method.invoke(manager, *args)
-                verifyImportance(importance, list(packageName, uid).firstOrNull { it.id == channelId }?.importance)
+                val live = list(packageName, uid).firstOrNull { it.id == patch.channelId }
+                    ?: error("Channel disappeared after write: ${patch.channelId}")
+                val issues = NotificationChannelPatch.matches(live, patch)
+                check(issues.isEmpty()) { issues.joinToString("; ") }
                 return
             } catch (error: ReflectiveOperationException) {
                 failure = error.cause ?: error
@@ -56,6 +75,19 @@ internal class NotificationChannelAccess {
             }
         }
         throw IllegalStateException("Channel update could not be verified", failure)
+    }
+
+    companion object {
+        fun parsePatch(packageName: String, channelId: String, settings: Bundle): ChannelSettingsPatch {
+            return ChannelSettingsPatch(
+                packageName = packageName,
+                channelId = channelId,
+                importance = if (settings.getBoolean("hasImportance")) settings.getInt("importance") else null,
+                soundEnabled = if (settings.getBoolean("hasSound")) settings.getBoolean("soundEnabled") else null,
+                vibrationEnabled = if (settings.getBoolean("hasVibration")) settings.getBoolean("vibrationEnabled") else null,
+                lockscreenHidden = if (settings.getBoolean("hasLockscreen")) settings.getBoolean("lockscreenHidden") else null,
+            )
+        }
     }
 }
 

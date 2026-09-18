@@ -91,7 +91,7 @@ fun ChannelImportScreen(
                 colors = CardDefaults.defaultColors(color = MiuixTheme.colorScheme.primary.copy(alpha = 0.2f)),
             ) {
                 Text(
-                    text = "选择由息匣导出的渠道快照 JSON。对照本机后仅写入 importance；按包名+渠道 id 匹配，不做名称模糊匹配。系统应用默认不改。",
+                    text = "选择由息匣导出的渠道快照 JSON。对照本机后写入 importance / 声音 / 震动 / 锁屏可见性；按包名+渠道 id 匹配，不做名称模糊匹配。系统应用默认不改。声音开启时使用系统默认提示音。",
                     modifier = Modifier.padding(16.dp),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.primary,
@@ -171,7 +171,7 @@ fun ChannelImportScreen(
                                 Text(text = "待写入明细（最多 8 条）", style = MiuixTheme.textStyles.footnote2)
                                 plan.apply.take(8).forEach { item ->
                                     Text(
-                                        text = "${item.appLabel} · ${item.channelName}：${item.currentImportance} → ${item.targetImportance}",
+                                        text = "${item.appLabel} · ${item.channelName}：${item.currentImportance} → ${item.targetImportance}${item.extrasSummary()}",
                                         style = MiuixTheme.textStyles.footnote2,
                                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                     )
@@ -228,7 +228,7 @@ fun ChannelImportScreen(
                                 state.applying -> state.progressText ?: "正在应用…"
                                 !privilegeReady -> "提权未就绪"
                                 plan.applyCount == 0 -> "无待写入项"
-                                else -> "应用 ${plan.applyCount} 项 importance"
+                                else -> "应用 ${plan.applyCount} 项渠道设置"
                             },
                         )
                     }
@@ -246,10 +246,11 @@ fun ChannelImportScreen(
                             style = MiuixTheme.textStyles.body2,
                         )
                         Text(
-                            text = "回读确认 ${report.verified} · 未确认 ${report.unconfirmed} · 不一致 ${report.mismatch}",
+                            text = "回读确认 ${report.verified} · 仅部分字段 ${report.extrasOnly} · 未确认 ${report.unconfirmed} · 不一致 ${report.mismatch}",
                             style = MiuixTheme.textStyles.body2,
                             color = when {
                                 report.mismatch > 0 || report.unconfirmed > 0 -> Color(0xFFB45309)
+                                report.extrasOnly > 0 -> Color(0xFFB45309)
                                 else -> MiuixTheme.colorScheme.primary
                             },
                         )

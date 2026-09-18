@@ -146,7 +146,8 @@ class ChannelImportViewModel(application: Application) : AndroidViewModel(applic
                     applying = false,
                     progressText = null,
                     report = report,
-                    message = "写入成功 ${report.writeOk}/${report.total} · 回读确认 ${report.verified}",
+                    message = "写入成功 ${report.writeOk}/${report.total} · 回读确认 ${report.verified}" +
+                        if (report.extrasOnly > 0) " · 仅部分字段 ${report.extrasOnly}" else "",
                 )
             }
             // Refresh inventory cache so home list reflects new importance.

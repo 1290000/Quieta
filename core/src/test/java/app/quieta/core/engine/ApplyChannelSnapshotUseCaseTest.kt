@@ -1,38 +1,60 @@
 package app.quieta.core.engine
 
-import app.quieta.core.model.Channel
 import app.quieta.core.model.ChannelImportance
 import app.quieta.core.model.PrivilegeId
+import app.quieta.core.privilege.ChannelSettingsPatch
 import app.quieta.core.privilege.PrivilegeBackend
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import app.quieta.core.model.Channel as ModelChannel
 
 class ApplyChannelSnapshotUseCaseTest {
 
     private class FakeBackend : PrivilegeBackend {
         override val id = PrivilegeId.SHIZUKU
-        val writes = mutableListOf<Triple<String, String, Int>>()
+        val patches = mutableListOf<ChannelSettingsPatch>()
         private val store = mutableMapOf(
-            "com.a" to listOf(
-                Channel("com.a", "promo", "促销", ChannelImportance.DEFAULT),
-                Channel("com.a", "msg", "消息", ChannelImportance.HIGH),
+            "com.a" to mutableListOf(
+                ModelChannel("com.a", "promo", "促销", ChannelImportance.DEFAULT, soundEnabled = true),
+                ModelChannel("com.a", "msg", "消息", ChannelImportance.HIGH, soundEnabled = true),
             ),
         )
 
         override suspend fun isAvailable(): Boolean = true
 
-        override suspend fun listChannels(packageName: String): List<Channel> =
-            store[packageName].orEmpty()
+        override suspend fun listChannels(packageName: String): List<ModelChannel> =
+            store[packageName].orEmpty().toList()
 
         override suspend fun setImportance(packageName: String, channelId: String, importance: Int) {
-            if (channelId == "fail") error("write denied")
-            writes += Triple(packageName, channelId, importance)
-            val list = store[packageName].orEmpty()
-            store[packageName] = list.map {
-                if (it.id == channelId) it.copy(importance = intToEnum(importance)) else it
+            applyChannelSettings(ChannelSettingsPatch(packageName, channelId, importance = importance))
+        }
+
+        override suspend fun applyChannelSettings(patch: ChannelSettingsPatch) {
+            if (patch.channelId == "fail") error("write denied")
+            if (patch.soundEnabled == false && patch.channelId == "sound-fail") {
+                // Simulate ROM that accepts importance but ignores extras.
+                val list = store[patch.packageName].orEmpty()
+                store[patch.packageName] = list.map {
+                    if (it.id == patch.channelId) it.copy(
+                        importance = patch.importance?.let(::intToEnum) ?: it.importance,
+                    ) else it
+                }.toMutableList()
+                patches += patch
+                return
             }
+            patches += patch
+            val list = store[patch.packageName] ?: error("missing pkg")
+            val idx = list.indexOfFirst { it.id == patch.channelId }
+            if (idx < 0) error("missing channel")
+            val cur = list[idx]
+            list[idx] = cur.copy(
+                importance = patch.importance?.let(::intToEnum) ?: cur.importance,
+                soundEnabled = patch.soundEnabled ?: cur.soundEnabled,
+                vibrationEnabled = patch.vibrationEnabled ?: cur.vibrationEnabled,
+                lockscreenHidden = patch.lockscreenHidden ?: cur.lockscreenHidden,
+            )
         }
 
         private fun intToEnum(v: Int): ChannelImportance = when (v) {
@@ -45,7 +67,7 @@ class ApplyChannelSnapshotUseCaseTest {
     }
 
     @Test
-    fun `writes targets and verifies via readback`() = runBlocking {
+    fun `writes full settings and verifies via readback`() = runBlocking {
         val backend = FakeBackend()
         val useCase = ApplyChannelSnapshotUseCase(backend)
         val report = useCase.apply(
@@ -57,6 +79,11 @@ class ApplyChannelSnapshotUseCaseTest {
                     channelName = "促销",
                     currentImportance = ChannelImportance.DEFAULT,
                     targetImportance = ChannelImportance.NONE,
+                    targetSoundEnabled = false,
+                    targetVibrationEnabled = true,
+                    targetLockscreenHidden = true,
+                    importanceDiffers = true,
+                    extrasDiffer = true,
                     isSystem = false,
                 ),
                 SnapshotImportItem(
@@ -66,6 +93,11 @@ class ApplyChannelSnapshotUseCaseTest {
                     channelName = "失败",
                     currentImportance = ChannelImportance.HIGH,
                     targetImportance = ChannelImportance.LOW,
+                    targetSoundEnabled = true,
+                    targetVibrationEnabled = false,
+                    targetLockscreenHidden = false,
+                    importanceDiffers = true,
+                    extrasDiffer = false,
                     isSystem = false,
                 ),
             ),
@@ -74,8 +106,18 @@ class ApplyChannelSnapshotUseCaseTest {
         assertEquals(1, report.writeOk)
         assertEquals(1, report.writeFailed)
         assertEquals(1, report.verified)
+        assertEquals(0, report.extrasOnly)
         assertTrue(report.errors.isNotEmpty())
-        assertEquals(listOf(0), backend.writes.map { it.third })
+        val patch = backend.patches.first { it.channelId == "promo" }
+        assertEquals(0, patch.importance)
+        assertEquals(false, patch.soundEnabled)
+        assertEquals(true, patch.vibrationEnabled)
+        assertEquals(true, patch.lockscreenHidden)
+        val live = backend.listChannels("com.a").first { it.id == "promo" }
+        assertEquals(ChannelImportance.NONE, live.importance)
+        assertEquals(false, live.soundEnabled)
+        assertEquals(true, live.vibrationEnabled)
+        assertEquals(true, live.lockscreenHidden)
     }
 
     @Test

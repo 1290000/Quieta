@@ -6,6 +6,8 @@ import android.os.Bundle
 import app.quieta.core.model.Channel
 import app.quieta.core.model.ChannelImportance
 import app.quieta.core.model.PrivilegeId
+import app.quieta.core.privilege.ChannelSettingsPatch
+import app.quieta.core.privilege.NotificationChannelPatch
 import app.quieta.core.privilege.PrivilegeBackend
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
@@ -86,32 +88,42 @@ class RootBackend(private val context: Context? = null) : PrivilegeBackend {
                 val more = reply.getBoolean("more")
                 check(!more || page.isNotEmpty()) { "Root channel pagination stalled" }
             } while (more)
-            channels.distinctBy { it.id }.map {
-                Channel(
-                    packageName = packageName,
-                    id = it.id,
-                    name = it.name?.toString().orEmpty().ifBlank { it.id },
-                    importance = when (it.importance) {
-                        0 -> ChannelImportance.NONE
-                        1 -> ChannelImportance.MIN
-                        2 -> ChannelImportance.LOW
-                        4, 5 -> ChannelImportance.HIGH
-                        else -> ChannelImportance.DEFAULT
-                    },
-                    soundEnabled = it.sound?.toString()?.isNotEmpty() == true,
-                    vibrationEnabled = runCatching { it.shouldVibrate() }.getOrDefault(false),
-                    lockscreenHidden = runCatching {
-                        it.lockscreenVisibility == -1 || it.lockscreenVisibility == 0
-                    }.getOrDefault(false),
-                )
-            }
+            channels.distinctBy { it.id }.map { NotificationChannelPatch.toDomain(packageName, it) }
         }
     }
 
     override suspend fun setImportance(packageName: String, channelId: String, importance: Int) = withContext(Dispatchers.IO) {
-        val uid = requireNotNull(context).packageManager.getPackageUid(packageName, 0)
+        applyChannelSettings(
+            ChannelSettingsPatch(
+                packageName = packageName,
+                channelId = channelId,
+                importance = importance,
+            ),
+        )
+    }
+
+    override suspend fun applyChannelSettings(patch: ChannelSettingsPatch) = withContext(Dispatchers.IO) {
+        val uid = requireNotNull(context).packageManager.getPackageUid(patch.packageName, 0)
+        val settings = Bundle().apply {
+            if (patch.importance != null) {
+                putBoolean("hasImportance", true)
+                putInt("importance", patch.importance)
+            }
+            if (patch.soundEnabled != null) {
+                putBoolean("hasSound", true)
+                putBoolean("soundEnabled", patch.soundEnabled)
+            }
+            if (patch.vibrationEnabled != null) {
+                putBoolean("hasVibration", true)
+                putBoolean("vibrationEnabled", patch.vibrationEnabled)
+            }
+            if (patch.lockscreenHidden != null) {
+                putBoolean("hasLockscreen", true)
+                putBoolean("lockscreenHidden", patch.lockscreenHidden)
+            }
+        }
         client.use { service ->
-            check(checked(service.setImportance(packageName, uid, channelId, importance)).getBoolean("verified")) {
+            check(checked(service.applyChannelSettings(patch.packageName, uid, patch.channelId, settings)).getBoolean("verified")) {
                 "Root write was not verified"
             }
         }
